@@ -23,7 +23,8 @@ import {
   CreateFeatureFilmData, 
   UpdateFeatureFilmData, 
   FilmFilters,
-  FileMetadata
+  FileMetadata,
+  PublicationStatus
 } from '../types/featureFilm.types';
 import { createMultipleGuests, getGuests, deleteAllGuests } from './guestService';
 import { uploadFile, generateFeatureFilmUploadPath } from '../utils/fileUpload';
@@ -130,17 +131,17 @@ const extractCrewMembersFromFilmData = (filmData: Partial<FeatureFilmData>): any
     console.log('✅ Using guests from form data:', filmData.guests.length, 'guests');
     filmData.guests.forEach((guest, index) => {
       if (guest.name && guest.name.trim()) {
-        // Map Guest object to the format expected by createMultipleGuests
+        // Direct mapping - no field conversion needed since Guest interface now matches guestService
         crewMembers.push({
           name: guest.name.trim(),
-          contact: guest.contact?.trim() || '',
           role: guest.role || 'Guest',
-          otherRole: guest.role === 'Other' ? guest.otherRole?.trim() : undefined,
-          remarks: guest.remarks?.trim() || ''
+          email: guest.email?.trim() || undefined,
+          phone: guest.phone?.trim() || undefined,
+          bio: guest.bio?.trim() || undefined
         });
       }
     });
-    console.log('📊 Mapped guests to crew members:', crewMembers.length);
+    console.log('📊 Mapped guests to crew members for films collection:', crewMembers.length);
     return crewMembers; // Return early if we have form guests
   }
   
@@ -203,7 +204,8 @@ export const createFeatureFilm = async (
     
     const docData = {
       ...cleanFilmData,
-      createdBy: userId,
+      userId: userId, // Use userId for films collection (matches Firestore rules)
+      createdBy: userId, // Keep createdBy for compatibility
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     };
@@ -379,14 +381,15 @@ export const getFeatureFilm = async (filmId: string): Promise<FeatureFilmService
       try {
         const guestsResult = await getGuests(filmId);
         if (guestsResult.success && guestsResult.data && guestsResult.data.length > 0) {
-          // Map guest data back to the format expected by the form
+          // Direct mapping - no field conversion needed since Guest interface now matches guestService
           filmData.guests = guestsResult.data.map((guest: any) => ({
             id: guest.id,
             name: guest.name,
-            contact: guest.contact || '',
+            email: guest.email || '',
+            phone: guest.phone || '',
             role: guest.role || 'Guest',
             otherRole: guest.otherRole,
-            remarks: guest.remarks || ''
+            bio: guest.bio || ''
           }));
           console.log('✅ Loaded', filmData.guests.length, 'guests from subcollection for film:', filmId);
         } else {
@@ -841,6 +844,16 @@ export const getEnhancedFeatureFilm = async (filmId: string): Promise<FeatureFil
  * Convert legacy FeatureFilmData to new FeatureFilm format
  */
 const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
+  // Determine the correct status - prioritize publicationStatus if it exists
+  let status: 'draft' | 'published' | 'archived' = 'draft';
+  if (legacyData.publicationStatus) {
+    // Use the publicationStatus field directly if it exists
+    status = legacyData.publicationStatus;
+  } else if (legacyData.status === 'ตอบรับ / Accepted') {
+    // Fall back to legacy status mapping
+    status = 'published';
+  }
+
   return {
     id: legacyData.id,
     // Map legacy fields to new structure
@@ -910,7 +923,7 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
       time: legacyData.timeEstimate || '',
       venue: legacyData.theatre || 'TBD'
     }] : undefined,
-    status: legacyData.status === 'ตอบรับ / Accepted' ? 'published' : 'draft',
+    status: status,
     featured: legacyData.featured || false,
     createdAt: legacyData.createdAt?.toDate ? legacyData.createdAt.toDate() : (legacyData.createdAt || new Date()),
     updatedAt: legacyData.updatedAt?.toDate ? legacyData.updatedAt.toDate() : (legacyData.updatedAt || new Date()),
@@ -918,8 +931,9 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     updatedBy: legacyData.updatedBy || legacyData.createdBy || 'unknown',
     tags: legacyData.tags || [],
     slug: legacyData.slug || generateSlug(legacyData.titleEn || legacyData.title || 'untitled'),
-    metaDescription: legacyData.metaDescription
-  };
+    metaDescription: legacyData.metaDescription,
+    publicationStatus: legacyData.publicationStatus || (status === 'published' ? 'public' : 'draft')
+  } as FeatureFilm;
 };
 
 /**

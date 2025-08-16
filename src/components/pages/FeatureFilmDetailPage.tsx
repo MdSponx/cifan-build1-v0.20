@@ -216,7 +216,7 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
                 return (
                   <span
                     key={index}
-                    className="px-3 py-1 bg-[#FCB283]/20 text-[#FCB283] rounded-full text-sm border border-[#FCB283]/30"
+                    className="px-3 py-1 bg-[#FCB283]/10 text-[#FCB283] rounded-full text-sm border border-[#FCB283]/15"
                   >
                     {displayText}
                   </span>
@@ -303,16 +303,38 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
   };
 
   /**
-   * Cover Photo Hero Component
+   * Get audience emoji helper
+   */
+  const getAudienceEmoji = (audience: string): string => {
+    const emojiMap: { [key: string]: string } = {
+      'Popcorn': '🍿',
+      'Cinephile': '🎭',
+      'College Student': '🎓',
+      'Student': '📚',
+      'Art People': '🎨',
+      'Folk': '🌾',
+      'Novel Fan': '📖',
+      'J-Horror Fan': '👻',
+      'Youth': '🌟',
+      'Family': '👨‍👩‍👧‍👦'
+    };
+    return emojiMap[audience] || '🎬';
+  };
+
+  /**
+   * Enhanced Cover Photo Hero Component with New Typography Hierarchy
    */
   const CoverPhotoHero: React.FC<{
     coverImage?: string;
     title: string;
     titleTh?: string;
     genres: string[];
-  }> = ({ coverImage, title, titleTh, genres }) => {
+    targetAudience: string[];
+    category: string;
+  }> = ({ coverImage, title, titleTh, genres, targetAudience, category }) => {
     return (
       <div className="relative h-[40vh] md:h-[50vh] overflow-hidden">
+        {/* Cover Photo */}
         {coverImage ? (
           <img 
             src={coverImage} 
@@ -322,24 +344,54 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent">
-          <div className="container mx-auto px-4 h-full flex items-end pb-8">
-            <div>
-              <h1 className={`text-4xl md:text-6xl font-bold text-white mb-2 ${getClass('header')}`}>
+        
+        {/* Overlay Content */}
+        <div className="cover-photo-overlay">
+          {/* Main Content - Center-Left */}
+          <div className="absolute bottom-8 left-8 right-8">
+            {/* Title Section */}
+            <div className="mb-6">
+              {/* English Title - Large & Bold */}
+              <h1 className={`cover-title-en text-white mb-2 ${getClass('header')}`}>
                 {title}
               </h1>
+              
+              {/* Thai Title - Smaller & Light */}
               {titleTh && (
-                <h2 className={`text-xl md:text-2xl text-white/80 mb-4 ${getClass('subtitle')}`}>
+                <h2 className={`cover-title-th text-white/90 mb-4 ${getClass('subtitle')}`}>
                   {titleTh}
                 </h2>
               )}
-              <div className="flex flex-wrap gap-2">
-                {genres.map(genre => (
-                  <span key={genre} className="px-3 py-1 bg-[#FCB283]/20 text-[#FCB283] rounded-full text-sm border border-[#FCB283]/30">
-                    {genre}
-                  </span>
-                ))}
+              
+              {/* Genres + Target Audience Stacked */}
+              <div className="space-y-3">
+                {/* Genres Row */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-white/80 text-sm font-medium mr-2">Genres:</span>
+                  {genres.map(genre => (
+                    <span key={genre} className="cover-badge px-3 py-1 bg-blue-600/35 backdrop-blur-sm text-white rounded-full">
+                      {getGenreEmoji(genre)} {genre}
+                    </span>
+                  ))}
+                </div>
+                
+                {/* Target Audience Row */}
+                <div className="flex flex-wrap gap-2">
+                  <span className="text-white/80 text-sm font-medium mr-2">Target:</span>
+                  {targetAudience.map(audience => (
+                    <span key={audience} className="cover-badge px-3 py-1 bg-purple-600/35 backdrop-blur-sm text-white rounded-full">
+                      {getTargetAudienceEmoji(audience)} {audience}
+                    </span>
+                  ))}
+                </div>
               </div>
+            </div>
+          </div>
+          
+          {/* Category - Bottom Right (Unchanged Position) */}
+          <div className="absolute bottom-8 right-8">
+            <div className="px-4 py-2 bg-[#FCB283]/90 backdrop-blur-sm text-white rounded-lg font-semibold text-lg">
+              {category.toUpperCase()}
             </div>
           </div>
         </div>
@@ -348,50 +400,104 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
   };
 
   /**
-   * Film Info with Poster Component
+   * Restructured Film Info with Poster Component - New Layout
    */
   const FilmInfoWithPoster: React.FC<{
     posterImage?: string;
     filmData: FeatureFilmData;
   }> = ({ posterImage, filmData }) => {
     return (
-      <div className="glass-container rounded-2xl p-6 mb-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Poster Column */}
+      <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-lg p-6 mb-8">
+        {/* Section Header */}
+        <div className="flex items-center gap-3 mb-6">
+          <span className="text-2xl">🎬</span>
+          <h3 className={`text-xl font-semibold text-white ${getClass('header')}`}>Film Information</h3>
+        </div>
+
+        {/* Main Content Grid: Poster + Information */}
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 mb-8">
+          
+          {/* Poster Section - Left Side */}
           <div className="lg:col-span-1">
-            <div className="relative aspect-[2/3] bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-2xl overflow-hidden">
+            <div className="aspect-[2/3] rounded-lg overflow-hidden shadow-2xl film-poster">
               {posterImage ? (
                 <img 
                   src={posterImage} 
-                  alt={`${filmData.titleEn} Poster`}
+                  alt={filmData.titleEn}
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <div className="w-full h-full flex items-center justify-center">
-                  <Film className="w-24 h-24 text-white/30" />
+                <div className="w-full h-full bg-gradient-to-br from-[#1a1a2e] to-[#16213e] flex items-center justify-center">
+                  <Film className="w-16 h-16 text-white/30" />
                 </div>
               )}
             </div>
           </div>
           
-          {/* Film Info Column */}
-          <div className="lg:col-span-2 space-y-6">
-            <div>
-              <h3 className={`text-2xl font-bold text-white mb-4 ${getClass('header')}`}>{t('featureFilmDetail.filmInformation')}</h3>
+          {/* Film Details Grid - Right Side */}
+          <div className="lg:col-span-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 h-fit">
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <InfoField label={t('featureFilmDetail.category')} value={filmData.category} />
-                <InfoField label="Length" value={filmData.length ? `${filmData.length} minutes` : undefined} />
-                <InfoField label={t('featureFilmDetail.countries')} value={filmData.countries} type="badges" />
-                <InfoField label={t('featureFilmDetail.languages')} value={filmData.languages} type="badges" />
-                <InfoField label={t('featureFilmDetail.genres')} value={filmData.genres} type="badges" />
-                <InfoField label={t('featureFilmDetail.targetAudience')} value={filmData.targetAudience} type="badges" />
-                <InfoField label={t('featureFilmDetail.theatre')} value={filmData.theatre} />
-                <InfoField label={t('featureFilmDetail.timeEstimate')} value={filmData.timeEstimate} />
+              {/* Countries */}
+              <div>
+                <h4 className="text-white/70 text-sm font-medium mb-2">Countries</h4>
+                <div className="flex flex-wrap gap-2">
+                  {filmData.countries?.map(country => (
+                    <span key={country} className="px-3 py-1 bg-blue-500/20 text-blue-300 rounded-full text-sm">
+                      🇹🇭 {country}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Languages */}
+              <div>
+                <h4 className="text-white/70 text-sm font-medium mb-2">Languages</h4>
+                <div className="flex flex-wrap gap-2">
+                  {filmData.languages?.map(language => (
+                    <span key={language} className="px-3 py-1 bg-green-500/20 text-green-300 rounded-full text-sm">
+                      {getLanguageFlag(language)} {language}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Length/Duration */}
+              <div>
+                <h4 className="text-white/70 text-sm font-medium mb-2">Length</h4>
+                <p className="text-white text-lg font-medium">⏱️ {filmData.length} minutes</p>
+              </div>
+
+              {/* Director */}
+              <div>
+                <h4 className="text-white/70 text-sm font-medium mb-2">Director</h4>
+                <p className="text-white text-lg font-medium">🎬 {filmData.director}</p>
+              </div>
+
+              {/* Cast */}
+              <div className="md:col-span-2">
+                <h4 className="text-white/70 text-sm font-medium mb-2">Cast</h4>
+                <div className="flex flex-wrap gap-2">
+                  {filmData.mainActors?.split(',').map((actor, index) => (
+                    <span key={index} className="px-3 py-1 bg-purple-500/20 text-purple-300 rounded-full text-sm">
+                      🎭 {actor.trim()}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* Theatre */}
+              <div>
+                <h4 className="text-white/70 text-sm font-medium mb-2">Theatre</h4>
+                <p className="text-white text-lg font-medium">🏛️ {filmData.theatre}</p>
+              </div>
+
+              {/* Screening Date */}
+              <div className="md:col-span-2">
+                <h4 className="text-white/70 text-sm font-medium mb-2">Screening Date</h4>
                 {filmData.screeningDate1 && (
-                  <InfoField 
-                    label={t('featureFilmDetail.screeningDate1')} 
-                    value={new Date(filmData.screeningDate1).toLocaleDateString('en-US', {
+                  <p className="text-white text-lg font-medium">
+                    📅 {new Date(filmData.screeningDate1).toLocaleDateString('en-US', {
                       weekday: 'long',
                       year: 'numeric',
                       month: 'long',
@@ -399,34 +505,54 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
                       hour: '2-digit',
                       minute: '2-digit',
                       hour12: true
-                    })} 
-                  />
-                )}
-                {filmData.screeningDate2 && (
-                  <InfoField 
-                    label={t('featureFilmDetail.screeningDate2')} 
-                    value={new Date(filmData.screeningDate2).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      year: 'numeric',
-                      month: 'long',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      hour12: true
-                    })} 
-                  />
+                    })}
+                  </p>
                 )}
               </div>
 
-              {filmData.synopsis && (
-                <div>
-                  <h4 className="text-lg font-semibold text-white mb-3">{t('featureFilmDetail.synopsis')}</h4>
-                  <p className="text-white/80 leading-relaxed">{filmData.synopsis}</p>
-                </div>
-              )}
+              {/* After Screen Activities */}
+              <div className="md:col-span-3">
+                <h4 className="text-white/70 text-sm font-medium mb-2">After Screen Activities</h4>
+                {filmData.afterScreenActivities && filmData.afterScreenActivities.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {filmData.afterScreenActivities.map((activityId) => {
+                      const activityMap = {
+                        'qna': { emoji: '🎤', label: 'Q&A Session' },
+                        'talk': { emoji: '💬', label: 'Director Talk' },
+                        'redcarpet': { emoji: '🔴', label: 'Red Carpet' },
+                        'fanmeeting': { emoji: '👥', label: 'Fan Meeting' },
+                        'education': { emoji: '📚', label: 'Education Event' }
+                      };
+                      const activity = activityMap[activityId as keyof typeof activityMap];
+                      return activity ? (
+                        <span key={activityId} className="px-3 py-1 bg-orange-500/20 text-orange-300 rounded-full text-sm">
+                          {activity.emoji} {activity.label}
+                        </span>
+                      ) : null;
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-white/50 text-sm">No after screen activities scheduled</p>
+                )}
+              </div>
+              
+              {/* NOTE: Time Estimate field REMOVED as requested */}
+              
             </div>
           </div>
         </div>
+
+        {/* Synopsis - Full Width Bottom Section */}
+        {filmData.synopsis && (
+          <div className="border-t border-white/10 pt-6">
+            <h4 className="text-white/70 text-sm font-medium mb-3">Synopsis</h4>
+            <div className="bg-white/5 rounded-lg p-6 border border-white/10">
+              <p className="synopsis-container text-white/90 leading-relaxed text-base">
+                {filmData.synopsis}
+              </p>
+            </div>
+          </div>
+        )}
       </div>
     );
   };
@@ -689,6 +815,8 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
         title={film.titleEn}
         titleTh={film.titleTh}
         genres={film.genres || []}
+        targetAudience={film.targetAudience || []}
+        category={film.category}
       />
 
       <div className="container mx-auto px-4 py-8">

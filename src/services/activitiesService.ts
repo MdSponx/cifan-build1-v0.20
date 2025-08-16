@@ -35,6 +35,7 @@ import {
   ActivitySearchResult,
   ActivityStatus
 } from '../types/activities';
+import { syncSpeakersToSubcollection, getSpeakers } from './speakerService';
 
 const ACTIVITIES_COLLECTION = 'activities';
 const IMAGES_STORAGE_PATH = 'activities/images';
@@ -72,7 +73,7 @@ export class ActivitiesService {
         console.log('Image uploaded successfully:', imageUrl);
       }
 
-      // Prepare activity data for Firestore
+      // Prepare activity data for Firestore (without speakers - they go to subcollection)
       const activityData: any = {
         name: formData.name.trim(),
         shortDescription: formData.shortDescription.trim(),
@@ -116,13 +117,28 @@ export class ActivitiesService {
       const docRef = await addDoc(collection(db, ACTIVITIES_COLLECTION), activityData);
       console.log('Document added successfully with ID:', docRef.id);
 
+      // Save speakers to subcollection if provided
+      if (formData.speakers && formData.speakers.length > 0) {
+        console.log('Syncing speakers to subcollection...');
+        const speakersResult = await syncSpeakersToSubcollection(docRef.id, formData.speakers);
+        if (!speakersResult.success) {
+          console.warn('Failed to sync speakers:', speakersResult.error);
+        } else {
+          console.log('Speakers synced successfully');
+        }
+      }
+
+      // Get speakers from subcollection for the response
+      const speakersResult = await getSpeakers(docRef.id);
+      const speakers = speakersResult.success ? speakersResult.data : [];
+
       // Return the created activity
       const createdActivity = this.convertFirestoreDocToActivity({
         id: docRef.id,
         ...activityData,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
-      });
+      }, speakers);
       
       console.log('Activity created successfully:', createdActivity);
       return createdActivity;
@@ -316,10 +332,14 @@ export class ActivitiesService {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
+        // Get speakers from subcollection
+        const speakersResult = await getSpeakers(activityId);
+        const speakers = speakersResult.success ? speakersResult.data : [];
+
         return this.convertFirestoreDocToActivity({
           id: docSnap.id,
           ...docSnap.data()
-        } as ActivityFirestoreDoc);
+        } as ActivityFirestoreDoc, speakers);
       }
 
       return null;
@@ -414,12 +434,27 @@ export class ActivitiesService {
       await updateDoc(docRef, updateData);
       console.log('Activity updated successfully');
 
+      // Handle speakers update if provided
+      if (formData.speakers !== undefined) {
+        console.log('Syncing speakers to subcollection...');
+        const speakersResult = await syncSpeakersToSubcollection(activityId, formData.speakers);
+        if (!speakersResult.success) {
+          console.warn('Failed to sync speakers:', speakersResult.error);
+        } else {
+          console.log('Speakers synced successfully');
+        }
+      }
+
+      // Get speakers from subcollection for the response
+      const speakersResult = await getSpeakers(activityId);
+      const speakers = speakersResult.success ? speakersResult.data : [];
+
       // Return updated activity
       const updatedDoc = await getDoc(docRef);
       return this.convertFirestoreDocToActivity({
         id: updatedDoc.id,
         ...updatedDoc.data()
-      } as ActivityFirestoreDoc);
+      } as ActivityFirestoreDoc, speakers);
     } catch (error) {
       console.error('Error updating activity:', error);
       
@@ -558,6 +593,7 @@ export class ActivitiesService {
         venueLocation: original.venueLocation || '',
         description: original.description,
         organizers: [...original.organizers],
+        speakers: [...original.speakers], // Include speakers
         tags: [...original.tags],
         contactEmail: original.contactEmail,
         contactName: original.contactName,
@@ -830,7 +866,7 @@ export class ActivitiesService {
     return Array.from(suggestions).slice(0, 5); // Return top 5 suggestions
   }
 
-  private convertFirestoreDocToActivity(doc: ActivityFirestoreDoc): Activity {
+  private convertFirestoreDocToActivity(doc: ActivityFirestoreDoc, speakers: any[] = []): Activity {
     return {
       id: doc.id,
       image: doc.imageUrl,
@@ -850,6 +886,7 @@ export class ActivitiesService {
       venueLocation: doc.venueLocation,
       description: doc.description,
       organizers: doc.organizers,
+      speakers: speakers || [], // Use speakers from subcollection
       tags: doc.tags,
       contactEmail: doc.contactEmail,
       contactName: doc.contactName,

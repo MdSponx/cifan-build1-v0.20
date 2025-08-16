@@ -96,6 +96,7 @@
       "screeningInfo": "Screening Information",
       "productionInfo": "Production Information",
       "mediaAndMaterials": "Media & Materials",
+      "afterScreenActivities": "After Screen Activities",
       "statusInfo": "Status Information",
       "guestInfo": "Guest Information"
     },
@@ -232,11 +233,15 @@
       "updating": "Updating...",
       "reset": "Reset",
       "cancel": "Cancel",
+      "delete": "Delete",
       "saveFilm": "Save Film",
       "updateFilm": "Update Film",
       "addGuest": "Add Guest",
       "addNewGuest": "Add New Guest",
-      "addFirstGuest": "Add First Guest"
+      "addFirstGuest": "Add First Guest",
+      "backToGallery": "Back to Gallery",
+      "continueEditing": "Continue Editing",
+      "viewPublicPage": "View Public Page"
     },
 
     "messages": {
@@ -247,6 +252,8 @@
       "success": "Success!",
       "filmCreated": "Film created successfully",
       "filmUpdated": "Film updated successfully",
+      "filmUpdatedSuccessfully": "Film Updated Successfully!",
+      "whatWouldYouLikeToDoNext": "What would you like to do next?",
       "error": "Error",
       "failedToSave": "Failed to save film",
       "unexpectedError": "An unexpected error occurred",
@@ -269,7 +276,8 @@
       "invalidUrl": "Please enter a valid URL",
       "invalidGalleryUrl": "Please enter a valid gallery URL",
       "guestNameRequired": "Guest name is required",
-      "guestContactRequired": "Guest contact is required"
+      "guestContactRequired": "Guest contact is required",
+      "confirmDeleteGuest": "Are you sure you want to delete this guest?"
     },
 
     "upload": {

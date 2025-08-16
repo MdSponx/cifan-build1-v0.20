@@ -33,6 +33,7 @@ import {
 import AnimatedButton from '../ui/AnimatedButton';
 import ErrorMessage from '../forms/ErrorMessage';
 import RichTextEditor from '../ui/RichTextEditor';
+import SpeakerManagement from '../forms/SpeakerManagement';
 
 interface ActivitiesFormProps {
   activity?: Activity | null;
@@ -76,6 +77,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
     venueLocation: '',
     description: '',
     organizers: [],
+    speakers: [],
     tags: [],
     contactEmail: 'contact@cifanfest.com',
     contactName: '',
@@ -288,6 +290,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
         venueLocation: activity.venueLocation || '',
         description: activity.description,
         organizers: [...activity.organizers],
+        speakers: [...(activity.speakers || [])],
         tags: [...activity.tags],
         contactEmail: activity.contactEmail,
         contactName: activity.contactName,
@@ -391,8 +394,8 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
     
     // Clear error when user starts typing
-    if (errors[field]) {
-      setInternalErrors(prev => ({ ...prev, [field]: undefined }));
+    if (errors[field as keyof ActivityValidationErrors]) {
+      setInternalErrors(prev => ({ ...prev, [field as keyof ActivityValidationErrors]: undefined }));
     }
   };
 
@@ -436,9 +439,33 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       const file = files[0];
+      // Create a proper FileList-like object
+      const fileList = {
+        0: file,
+        length: 1,
+        item: (index: number) => index === 0 ? file : null,
+        [Symbol.iterator]: function* () {
+          yield file;
+        }
+      } as FileList;
+      
       // Simulate file input change
       const fakeEvent = {
-        target: { files: [file] }
+        target: { files: fileList },
+        currentTarget: { files: fileList },
+        nativeEvent: new Event('change'),
+        bubbles: false,
+        cancelable: false,
+        defaultPrevented: false,
+        eventPhase: 0,
+        isTrusted: false,
+        preventDefault: () => {},
+        isDefaultPrevented: () => false,
+        stopPropagation: () => {},
+        isPropagationStopped: () => false,
+        persist: () => {},
+        timeStamp: Date.now(),
+        type: 'change'
       } as React.ChangeEvent<HTMLInputElement>;
       handleImageUpload(fakeEvent);
     }
@@ -654,11 +681,14 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                   onChange={(e) => handleInputChange('status', e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#FCB283] focus:outline-none transition-colors"
                 >
-                  {ACTIVITY_STATUS_OPTIONS.map(option => (
-                    <option key={option.value} value={option.value} className="bg-[#110D16]">
-                      {currentContent[`status${option.value.charAt(0).toUpperCase() + option.value.slice(1)}` as keyof typeof currentContent]}
-                    </option>
-                  ))}
+                  {ACTIVITY_STATUS_OPTIONS.map(option => {
+                    const statusKey = `status${option.value.charAt(0).toUpperCase() + option.value.slice(1)}` as keyof typeof currentContent;
+                    return (
+                      <option key={option.value} value={option.value} className="bg-[#110D16]">
+                        {currentContent[statusKey] as string}
+                      </option>
+                    );
+                  })}
                 </select>
               </div>
             </div>
@@ -944,7 +974,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
         </div>
 
         {/* Section 3: Details */}
-        <div className="glass-container rounded-xl p-6 sm:p-8">
+        <div className="glass-container rounded-xl p-6 sm:p-8 overflow-visible min-w-0">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
               <FileText className="w-4 h-4 text-white" />
@@ -954,19 +984,21 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             </h2>
           </div>
 
-          <div className="space-y-6">
+          <div className="space-y-6 overflow-visible min-w-0">
             {/* Description */}
-            <div>
+            <div className="w-full max-w-full min-w-0 overflow-visible">
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
                 {currentContent.description} <span className="text-red-400">*</span>
               </label>
-              <RichTextEditor
-                value={formData.description}
-                onChange={(value) => handleInputChange('description', value)}
-                placeholder={currentContent.descriptionPlaceholder}
-                error={!!errors.description}
-                className={errors.description ? 'error' : ''}
-              />
+              <div className="w-full max-w-full min-w-0">
+                <RichTextEditor
+                  value={formData.description}
+                  onChange={(value) => handleInputChange('description', value)}
+                  placeholder={currentContent.descriptionPlaceholder}
+                  error={!!errors.description}
+                  className={errors.description ? 'error' : ''}
+                />
+              </div>
               <div className="flex justify-between items-center mt-1">
                 <ErrorMessage error={errors.description} />
                 <span className={`text-xs ${getClass('menu')} text-white/60`}>
@@ -974,7 +1006,21 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                 </span>
               </div>
             </div>
+          </div>
+        </div>
 
+        {/* Section 4: Organizers */}
+        <div className="glass-container rounded-xl p-6 sm:p-8">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-8 h-8 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg flex items-center justify-center">
+              <Users className="w-4 h-4 text-white" />
+            </div>
+            <h2 className={`text-xl ${getClass('header')} text-white`}>
+              Organizers
+            </h2>
+          </div>
+
+          <div className="space-y-6">
             {/* Organizers */}
             <div>
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
@@ -1025,7 +1071,16 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
           </div>
         </div>
 
-        {/* Section 4: Tags */}
+        {/* Section 5: Speakers */}
+        <div className="glass-container rounded-xl p-6 sm:p-8">
+          <SpeakerManagement
+            speakers={formData.speakers}
+            onChange={(speakers) => handleInputChange('speakers', speakers)}
+            disabled={isSubmitting || isLoading}
+          />
+        </div>
+
+        {/* Section 6: Tags */}
         <div className="glass-container rounded-xl p-6 sm:p-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
@@ -1055,10 +1110,10 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                     }`}
                   >
                     <div className={`font-medium text-sm ${getClass('body')}`}>
-                      {tag[currentLanguage]}
+                      {tag[currentLanguage] as string}
                     </div>
                     <div className={`text-xs ${getClass('menu')} opacity-70`}>
-                      {tag[currentLanguage === 'th' ? 'en' : 'th']}
+                      {tag[currentLanguage === 'th' ? 'en' : 'th'] as string}
                     </div>
                   </button>
                 ))}
@@ -1114,7 +1169,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
           </div>
         </div>
 
-        {/* Section 5: Contact */}
+        {/* Section 7: Contact */}
         <div className="glass-container rounded-xl p-6 sm:p-8">
           <div className="flex items-center space-x-3 mb-6">
             <div className="w-8 h-8 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center">

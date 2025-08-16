@@ -36,10 +36,11 @@ export interface ScreeningInfo {
 export interface Guest {
   id?: string;
   name: string;
-  contact: string;
+  email?: string;
+  phone?: string;
   role: GuestRole;
   otherRole?: string; // Used when role is 'Other'
-  remarks?: string;
+  bio?: string;
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -50,6 +51,17 @@ export type GuestRole =
   | 'Script Writer'
   | 'Actor'
   | 'Other';
+
+// After Screen Activity types
+export type AfterScreenActivity = 
+  | 'qna'
+  | 'talk'
+  | 'redcarpet'
+  | 'fanmeeting'
+  | 'education';
+
+// Publication Status types
+export type PublicationStatus = 'public' | 'draft';
 
 // Main Feature Film interface - comprehensive data model
 export interface FeatureFilm {
@@ -94,6 +106,7 @@ export interface FeatureFilm {
   
   // Metadata
   status: 'draft' | 'published' | 'archived';
+  publicationStatus?: PublicationStatus; // Public/Draft status for display
   featured: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -143,8 +156,12 @@ export interface FeatureFilmData {
   galleryUrls: string[];
   galleryCoverIndex?: number; // Index of the cover image in gallery
 
+  // After Screen Activities
+  afterScreenActivities: AfterScreenActivity[];
+
   // Status & Additional Info
   status: FilmStatus;
+  publicationStatus: PublicationStatus; // New field for Public/Draft status
   remarks: string;
 
   // Guest Information
@@ -343,4 +360,17 @@ export const GUEST_ROLES: GuestRole[] = [
   'Script Writer',
   'Actor',
   'Other'
+];
+
+export const AFTER_SCREEN_ACTIVITIES: AfterScreenActivity[] = [
+  'qna',
+  'talk',
+  'redcarpet',
+  'fanmeeting',
+  'education'
+];
+
+export const PUBLICATION_STATUSES: PublicationStatus[] = [
+  'public',
+  'draft'
 ];

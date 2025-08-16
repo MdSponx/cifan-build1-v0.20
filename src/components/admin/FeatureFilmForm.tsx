@@ -16,12 +16,14 @@ import {
   RotateCcw,
   CheckCircle,
   AlertCircle,
-  Loader2
+  Loader2,
+  ArrowLeft
 } from 'lucide-react';
 import { useNotificationHelpers } from '../ui/NotificationContext';
 import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
 import { createFeatureFilm, updateFeatureFilm, getFeatureFilm } from '../../services/featureFilmService';
+import { createFeatureFilmWithGuests, updateFeatureFilmWithGuests, loadFeatureFilmWithGuests } from '../../services/featureFilmHelpers';
 import { 
   FeatureFilmData, 
   FeatureFilmFormErrors,
@@ -31,12 +33,16 @@ import {
   TIME_ESTIMATES,
   THEATRES,
   FILM_STATUSES,
+  AFTER_SCREEN_ACTIVITIES,
+  PUBLICATION_STATUSES,
   FilmCategory,
   FilmGenre,
   TargetAudience,
   TimeEstimate,
   Theatre,
   FilmStatus,
+  PublicationStatus,
+  AfterScreenActivity,
   Guest
 } from '../../types/featureFilm.types';
 import CountrySelector from '../forms/CountrySelector';
@@ -47,6 +53,8 @@ import TrailerUpload from '../forms/TrailerUpload';
 import GalleryUpload from '../forms/GalleryUpload';
 import GuestManagement from '../forms/GuestManagement';
 import RichTextEditor from '../ui/RichTextEditor';
+import SuccessModal from '../ui/SuccessModal';
+import { getTargetAudienceEmoji } from '../../utils/flagsAndEmojis';
 
 interface FeatureFilmFormProps {
   mode: 'create' | 'edit';
@@ -73,10 +81,11 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   onCancel,
   onNavigateBack
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { getClass } = useTypography();
   const { showSuccess, showError, showLoading, updateToSuccess, updateToError } = useNotificationHelpers();
   const { user } = useAuth();
+  const currentLanguage = i18n.language;
 
   // Form state
   const [formData, setFormData] = useState<FeatureFilmData>({
@@ -107,7 +116,9 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     galleryFiles: [],
     galleryUrls: [''],
     galleryCoverIndex: 0,
+    afterScreenActivities: [],
     status: '' as FilmStatus,
+    publicationStatus: 'draft' as PublicationStatus,
     remarks: '',
     guestComing: false,
     guests: [],
@@ -119,11 +130,28 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   const [isDirty, setIsDirty] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
+  // Helper function to normalize array fields
+  const normalizeArrayFields = (data: any): FeatureFilmData => {
+    return {
+      ...data,
+      genres: Array.isArray(data.genres) ? data.genres : [],
+      countries: Array.isArray(data.countries) ? data.countries : [],
+      languages: Array.isArray(data.languages) ? data.languages : [],
+      targetAudience: Array.isArray(data.targetAudience) ? data.targetAudience : [],
+      afterScreenActivities: Array.isArray(data.afterScreenActivities) ? data.afterScreenActivities : [],
+      guests: Array.isArray(data.guests) ? data.guests : [],
+      galleryUrls: Array.isArray(data.galleryUrls) ? data.galleryUrls : [''],
+      galleryFiles: Array.isArray(data.galleryFiles) ? data.galleryFiles : []
+    };
+  };
 
   // Initialize form with provided data
   useEffect(() => {
     if (initialData) {
-      setFormData(prev => ({ ...prev, ...initialData }));
+      const normalizedData = normalizeArrayFields(initialData);
+      setFormData(prev => ({ ...prev, ...normalizedData }));
     }
   }, [initialData]);
 
@@ -135,65 +163,30 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
         setError(null);
         
         try {
-          // CRITICAL: Fetch specifically from "films" database collection
-          const result = await getFeatureFilm(filmId);
+          // Try to load from films collection with guests first
+          let filmData = await loadFeatureFilmWithGuests(filmId);
           
-          if (result.success && result.data) {
-            const filmData = result.data;
-            
-            // Map database data to form data structure
-            const mappedData: FeatureFilmData = {
-              id: filmData.id,
-              titleEn: filmData.titleEn || '',
-              titleTh: filmData.titleTh || '',
-              category: filmData.category || ('' as FilmCategory),
-              genres: filmData.genres || [],
-              countries: filmData.countries || [],
-              languages: filmData.languages || [],
-              synopsis: filmData.synopsis || '',
-              targetAudience: filmData.targetAudience || [],
-              length: filmData.length || undefined,
-              screeningDate1: filmData.screeningDate1 ? 
-                (filmData.screeningDate1 instanceof Date ? 
-                  filmData.screeningDate1.toISOString().slice(0, 16) : 
-                  new Date(filmData.screeningDate1).toISOString().slice(0, 16)) : '',
-              screeningDate2: filmData.screeningDate2 ? 
-                (filmData.screeningDate2 instanceof Date ? 
-                  filmData.screeningDate2.toISOString().slice(0, 16) : 
-                  new Date(filmData.screeningDate2).toISOString().slice(0, 16)) : '',
-              timeEstimate: filmData.timeEstimate || ('' as TimeEstimate),
-              theatre: filmData.theatre || ('' as Theatre),
-              director: filmData.director || '',
-              producer: filmData.producer || '',
-              studio: filmData.studio || '',
-              distributor: filmData.distributor || '',
-              mainActors: filmData.mainActors || '',
-              posterFile: undefined,
-              posterUrl: filmData.posterUrl || '',
-              trailerFile: undefined,
-              trailerUrl: filmData.trailerUrl || '',
-              screenerUrl: filmData.screenerUrl || '',
-              materials: filmData.materials || '',
-              galleryFiles: [],
-              galleryUrls: filmData.galleryUrls || [''],
-              galleryCoverIndex: filmData.galleryCoverIndex || 0,
-              status: filmData.status || ('' as FilmStatus),
-              remarks: filmData.remarks || '',
-              guestComing: filmData.guestComing || false,
-              guests: filmData.guests || [],
-              createdAt: filmData.createdAt,
-              updatedAt: filmData.updatedAt,
-              createdBy: filmData.createdBy
-            };
-            
-            setFormData(mappedData);
+          // If not found in films collection, try the original featureFilmService
+          if (!filmData) {
+            console.log('Film not found in films collection, trying original service...');
+            const result = await getFeatureFilm(filmId);
+            if (result.success && result.data) {
+              filmData = result.data;
+              console.log('Loaded film from original service:', filmData);
+            }
+          }
+          
+          if (filmData) {
+            // Normalize array fields to prevent undefined errors
+            const normalizedData = normalizeArrayFields(filmData);
+            setFormData(normalizedData);
             setIsDirty(false); // Don't mark as dirty when loading existing data
           } else {
-            setError(result.error || 'Film not found in films database');
+            setError('Film not found in database');
           }
         } catch (err) {
-          console.error('Error loading film from films collection:', err);
-          setError('Error loading film data from films database');
+          console.error('Error loading film data:', err);
+          setError('Error loading film data from database');
         } finally {
           setLoading(false);
         }
@@ -209,6 +202,9 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       setIsDirty(true);
     }
   }, [formData, loading]);
+
+  // Note: Real-time guest updates are handled by the existing featureFilmService
+  // The service already loads guests when loading film data
 
   /**
    * Handle input field changes
@@ -226,36 +222,63 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
    * Handle target audience selection (multi-select)
    */
   const handleTargetAudienceToggle = (audience: TargetAudience) => {
-    setFormData(prev => ({
-      ...prev,
-      targetAudience: prev.targetAudience.includes(audience)
-        ? prev.targetAudience.filter(a => a !== audience)
-        : [...prev.targetAudience, audience]
-    }));
+    setFormData(prev => {
+      const currentAudiences = Array.isArray(prev.targetAudience) ? prev.targetAudience : [];
+      return {
+        ...prev,
+        targetAudience: currentAudiences.includes(audience)
+          ? currentAudiences.filter(a => a !== audience)
+          : [...currentAudiences, audience]
+      };
+    });
+  };
+
+  /**
+   * Handle after screen activity selection (multi-select)
+   */
+  const handleAfterScreenActivityToggle = (activity: AfterScreenActivity) => {
+    setFormData(prev => {
+      const currentActivities = Array.isArray(prev.afterScreenActivities) ? prev.afterScreenActivities : [];
+      return {
+        ...prev,
+        afterScreenActivities: currentActivities.includes(activity)
+          ? currentActivities.filter(a => a !== activity)
+          : [...currentActivities, activity]
+      };
+    });
   };
 
   /**
    * Handle gallery URL management
    */
   const addGalleryUrl = () => {
-    setFormData(prev => ({
-      ...prev,
-      galleryUrls: [...prev.galleryUrls, '']
-    }));
+    setFormData(prev => {
+      const currentUrls = Array.isArray(prev.galleryUrls) ? prev.galleryUrls : [''];
+      return {
+        ...prev,
+        galleryUrls: [...currentUrls, '']
+      };
+    });
   };
 
   const removeGalleryUrl = (index: number) => {
-    setFormData(prev => ({
-      ...prev,
-      galleryUrls: prev.galleryUrls.filter((_, i) => i !== index)
-    }));
+    setFormData(prev => {
+      const currentUrls = Array.isArray(prev.galleryUrls) ? prev.galleryUrls : [''];
+      return {
+        ...prev,
+        galleryUrls: currentUrls.filter((_, i) => i !== index)
+      };
+    });
   };
 
   const updateGalleryUrl = (index: number, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      galleryUrls: prev.galleryUrls.map((url, i) => i === index ? value : url)
-    }));
+    setFormData(prev => {
+      const currentUrls = Array.isArray(prev.galleryUrls) ? prev.galleryUrls : [''];
+      return {
+        ...prev,
+        galleryUrls: currentUrls.map((url, i) => i === index ? value : url)
+      };
+    });
   };
 
   /**
@@ -370,22 +393,40 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
 
       let result;
       if (mode === 'edit' && filmId) {
-        result = await updateFeatureFilm(filmId, cleanedData, user.uid);
+        // Use helper function to update film with guests in films collection
+        const { filmId: updatedFilmId, guestIds } = await updateFeatureFilmWithGuests(filmId, cleanedData);
+        result = {
+          success: true,
+          data: { ...cleanedData, id: updatedFilmId }
+        };
+        console.log('✅ Film updated with guests:', updatedFilmId, 'Guest IDs:', guestIds);
       } else {
-        result = await createFeatureFilm(cleanedData, user.uid);
+        // Use helper function to create film with guests in films collection
+        const { filmId: newFilmId, guestIds } = await createFeatureFilmWithGuests(user.uid, cleanedData);
+        result = {
+          success: true,
+          data: { ...cleanedData, id: newFilmId }
+        };
+        console.log('✅ Film created with guests:', newFilmId, 'Guest IDs:', guestIds);
       }
 
       if (result.success) {
-        updateToSuccess(loadingId, 'Success!', `Film ${mode === 'edit' ? 'updated' : 'created'} successfully`);
+        updateToSuccess(loadingId, 'Success!', `Film ${mode === 'edit' ? 'updated' : 'created'} successfully in films collection with guests`);
         setIsDirty(false);
-        onSuccess?.(result.data);
-        onSave?.(result.data);
+        
+        // Show success modal for edit mode, or call callbacks for create mode
+        if (mode === 'edit') {
+          setShowSuccessModal(true);
+        } else {
+          onSuccess?.(result.data);
+          onSave?.(result.data);
+        }
       } else {
-        updateToError(loadingId, 'Error', result.error || 'Failed to save film');
+        updateToError(loadingId, 'Error', 'Failed to save film');
       }
     } catch (error) {
-      console.error('Error saving film:', error);
-      updateToError(loadingId, 'Error', 'An unexpected error occurred');
+      console.error('Error saving film with guests:', error);
+      updateToError(loadingId, 'Error', error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
     }
@@ -404,6 +445,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       languages: [],
       synopsis: '',
       targetAudience: [],
+      length: undefined,
       screeningDate1: '',
       screeningDate2: '',
       timeEstimate: '' as TimeEstimate,
@@ -422,7 +464,9 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       galleryFiles: [],
       galleryUrls: [''],
       galleryCoverIndex: 0,
+      afterScreenActivities: [],
       status: '' as FilmStatus,
+      publicationStatus: 'draft' as PublicationStatus,
       remarks: '',
       guestComing: false,
       guests: [],
@@ -431,6 +475,40 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     setErrors({});
     setIsDirty(false);
   };
+
+  /**
+   * Handle success modal actions
+   */
+  const handleContinueEditing = () => {
+    setShowSuccessModal(false);
+    // Stay on current page
+  };
+
+  const handleBackToGallery = () => {
+    setShowSuccessModal(false);
+    window.location.hash = '#admin/feature-films'; // Navigate to gallery page
+  };
+
+  const handleViewPublic = () => {
+    setShowSuccessModal(false);
+    if (filmId) {
+      window.location.hash = `#admin/feature-films/detail/${filmId}`; // Navigate to public film detail page
+    }
+  };
+
+  /**
+   * Handle keyboard shortcuts
+   */
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && showSuccessModal) {
+        setShowSuccessModal(false);
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [showSuccessModal]);
 
   // Loading state for edit mode
   if (loading) {
@@ -473,6 +551,18 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
         <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
+              {/* Back to Gallery Button */}
+              <button
+                onClick={() => window.location.hash = '#admin/feature-films'}
+                className="flex items-center gap-2 px-4 py-2 bg-white/10 text-white rounded-lg hover:bg-white/20 transition-colors"
+                title={currentLanguage === 'th' ? 'กลับไปที่แกลเลอรี่' : 'Back to Gallery'}
+              >
+                <ArrowLeft className="w-4 h-4" />
+                <span className="hidden sm:inline">
+                  {currentLanguage === 'th' ? 'กลับไปที่แกลเลอรี่' : 'Back to Gallery'}
+                </span>
+              </button>
+              
               <div className="p-3 bg-gradient-to-r from-[#FCB283] to-[#AA4626] rounded-xl">
                 <Film className="w-6 h-6 text-white" />
               </div>
@@ -623,8 +713,9 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
               <textarea
                 value={formData.synopsis}
                 onChange={(e) => handleInputChange('synopsis', e.target.value)}
-                rows={4}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors resize-none"
+                rows={8}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors resize-vertical"
+                style={{ minHeight: '200px' }}
                 placeholder={t('featureFilm.placeholders.synopsis')}
               />
               {errors.synopsis && (
@@ -643,13 +734,14 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                     key={audience}
                     type="button"
                     onClick={() => handleTargetAudienceToggle(audience)}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
-                      formData.targetAudience.includes(audience)
+                    className={`inline-flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                      (formData.targetAudience || []).includes(audience)
                         ? 'bg-gradient-to-r from-[#FCB283] to-[#AA4626] text-white shadow-lg'
                         : 'bg-white/10 text-white/70 hover:bg-white/20'
                     }`}
                   >
-                    {audience}
+                    <span>{getTargetAudienceEmoji(audience)}</span>
+                    <span>{audience}</span>
                   </button>
                 ))}
               </div>
@@ -905,7 +997,119 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
             </div>
           </div>
 
-          {/* Section 5: Status Information */}
+          {/* Section 5: After Screen Activities */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <Video className="w-5 h-5 text-[#FCB283]" />
+              <h2 className={`text-xl font-semibold text-white ${getClass('header')}`}>After Screen Activities</h2>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-white/70 text-sm">
+                Select activities to be held after the film screening ends
+              </p>
+              
+              {/* Activity Selection Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[
+                  {
+                    id: 'qna',
+                    label: { en: 'Q&A Session', th: 'เซสชันถาม-ตอบ' },
+                    emoji: '🎤',
+                    description: { en: 'Interactive Q&A with audience', th: 'ถาม-ตอบแบบโต้ตอบกับผู้ชม' },
+                    color: 'bg-blue-500/20 border-blue-500/30 text-blue-300'
+                  },
+                  {
+                    id: 'talk',
+                    label: { en: 'Director Talk', th: 'การพูดคุยกับผู้กำกับ' },
+                    emoji: '💬',
+                    description: { en: 'Behind-the-scenes discussion', th: 'การสนทนาเบื้องหลังการสร้างหนัง' },
+                    color: 'bg-green-500/20 border-green-500/30 text-green-300'
+                  },
+                  {
+                    id: 'redcarpet',
+                    label: { en: 'Red Carpet', th: 'พรมแดง' },
+                    emoji: '🔴',
+                    description: { en: 'Red carpet premiere event', th: 'งานเปิดตัวพรมแดง' },
+                    color: 'bg-red-500/20 border-red-500/30 text-red-300'
+                  },
+                  {
+                    id: 'fanmeeting',
+                    label: { en: 'Fan Meeting', th: 'พบปะแฟนคลับ' },
+                    emoji: '👥',
+                    description: { en: 'Meet and greet with fans', th: 'พบปะและทักทายแฟนๆ' },
+                    color: 'bg-purple-500/20 border-purple-500/30 text-purple-300'
+                  },
+                  {
+                    id: 'education',
+                    label: { en: 'Education Event', th: 'กิจกรรมเพื่อการศึกษา' },
+                    emoji: '📚',
+                    description: { en: 'Educational workshop or seminar', th: 'เวิร์กช็อปหรือสัมมนาเพื่อการศึกษา' },
+                    color: 'bg-orange-500/20 border-orange-500/30 text-orange-300'
+                  }
+                ].map((activity) => (
+                  <div
+                    key={activity.id}
+                    onClick={() => handleAfterScreenActivityToggle(activity.id as AfterScreenActivity)}
+                    className={`
+                      relative p-4 rounded-lg border-2 cursor-pointer transition-all duration-200
+                      ${(formData.afterScreenActivities || []).includes(activity.id as AfterScreenActivity)
+                        ? `${activity.color} border-opacity-100 scale-105` 
+                        : 'bg-white/5 border-white/20 hover:bg-white/10'
+                      }
+                    `}
+                  >
+                    {/* Selection Indicator */}
+                    <div className="absolute top-2 right-2">
+                      {(formData.afterScreenActivities || []).includes(activity.id as AfterScreenActivity) && (
+                        <div className="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm">✓</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Activity Content */}
+                    <div className="text-center">
+                      <div className="text-3xl mb-2">{activity.emoji}</div>
+                      <h4 className="text-white font-semibold mb-1">
+                        {activity.label[currentLanguage as 'en' | 'th']}
+                      </h4>
+                      <p className="text-white/60 text-xs">
+                        {activity.description[currentLanguage as 'en' | 'th']}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              {/* Selected Activities Preview */}
+              {formData.afterScreenActivities.length > 0 && (
+                <div className="mt-4 p-4 bg-white/5 rounded-lg border border-white/10">
+                  <h5 className="text-white/80 text-sm font-medium mb-2">
+                    Selected After Screen Activities:
+                  </h5>
+                  <div className="flex flex-wrap gap-2">
+                    {formData.afterScreenActivities.map((activityId) => {
+                      const activity = [
+                        { id: 'qna', emoji: '🎤', label: { en: 'Q&A Session', th: 'เซสชันถาม-ตอบ' } },
+                        { id: 'talk', emoji: '💬', label: { en: 'Director Talk', th: 'การพูดคุยกับผู้กำกับ' } },
+                        { id: 'redcarpet', emoji: '🔴', label: { en: 'Red Carpet', th: 'พรมแดง' } },
+                        { id: 'fanmeeting', emoji: '👥', label: { en: 'Fan Meeting', th: 'พบปะแฟนคลับ' } },
+                        { id: 'education', emoji: '📚', label: { en: 'Education Event', th: 'กิจกรรมเพื่อการศึกษา' } }
+                      ].find(a => a.id === activityId);
+                      return (
+                        <span key={activityId} className="px-3 py-1 bg-white/10 text-white rounded-full text-sm">
+                          {activity?.emoji} {activity?.label[currentLanguage as 'en' | 'th']}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Section 6: Status Information */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
             <div className="flex items-center space-x-3 mb-6">
               <FileText className="w-5 h-5 text-[#FCB283]" />
@@ -913,6 +1117,61 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
             </div>
 
             <div className="grid grid-cols-1 gap-6">
+              {/* Publication Status */}
+              <div>
+                <label className="block text-white/90 text-sm font-medium mb-3">
+                  Film Status <span className="text-red-400">*</span>
+                </label>
+                
+                <div className="flex gap-4">
+                  {/* Public Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('publicationStatus', 'public')}
+                    className={`
+                      flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all duration-200
+                      ${formData.publicationStatus === 'public' 
+                        ? 'bg-green-500/20 border-green-500 text-green-300' 
+                        : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                      }
+                    `}
+                  >
+                    <span className="text-xl">🌍</span>
+                    <div className="text-left">
+                      <div className="font-semibold">
+                        {currentLanguage === 'en' ? 'Public' : 'สาธารณะ'}
+                      </div>
+                      <div className="text-xs opacity-70">
+                        {currentLanguage === 'en' ? 'Visible to everyone' : 'ผู้คนทั่วไปสามารถเห็นได้'}
+                      </div>
+                    </div>
+                  </button>
+                  
+                  {/* Draft Option */}
+                  <button
+                    type="button"
+                    onClick={() => handleInputChange('publicationStatus', 'draft')}
+                    className={`
+                      flex items-center gap-3 px-6 py-3 rounded-lg border-2 transition-all duration-200
+                      ${formData.publicationStatus === 'draft' 
+                        ? 'bg-yellow-500/20 border-yellow-500 text-yellow-300' 
+                        : 'bg-white/5 border-white/20 text-white hover:bg-white/10'
+                      }
+                    `}
+                  >
+                    <span className="text-xl">📝</span>
+                    <div className="text-left">
+                      <div className="font-semibold">
+                        {currentLanguage === 'en' ? 'Draft' : 'ร่าง'}
+                      </div>
+                      <div className="text-xs opacity-70">
+                        {currentLanguage === 'en' ? 'Private, not published' : 'ส่วนตัว ยังไม่เผยแพร่'}
+                      </div>
+                    </div>
+                  </button>
+                </div>
+              </div>
+
               {/* Status */}
               <div>
                 <label className="block text-sm font-medium text-white/90 mb-2">
@@ -951,7 +1210,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
             </div>
           </div>
 
-          {/* Section 6: Guest Information */}
+          {/* Section 7: Guest Information */}
           <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
             <div className="flex items-center space-x-3 mb-6">
               <User className="w-5 h-5 text-[#FCB283]" />
@@ -1015,7 +1274,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                     className="flex items-center justify-center space-x-2 px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Trash2 className="w-5 h-5" />
-                    <span>{t('featureFilm.actions.delete') || 'Delete'}</span>
+                    <span>{t('common.delete')}</span>
                   </button>
                 )}
               </div>
@@ -1074,6 +1333,15 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
             </div>
           )}
         </form>
+
+        {/* Success Modal */}
+        <SuccessModal
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          onContinueEditing={handleContinueEditing}
+          onBackToGallery={handleBackToGallery}
+          onViewPublic={handleViewPublic}
+        />
       </div>
     </div>
   );

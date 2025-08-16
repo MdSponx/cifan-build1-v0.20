@@ -22,10 +22,11 @@ interface GuestManagementProps {
 
 interface GuestFormData {
   name: string;
-  contact: string;
+  email: string;
+  phone: string;
   role: GuestRole;
   otherRole: string;
-  remarks: string;
+  bio: string;
 }
 
 const GuestManagement: React.FC<GuestManagementProps> = ({
@@ -40,10 +41,11 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState<GuestFormData>({
     name: '',
-    contact: '',
+    email: '',
+    phone: '',
     role: 'Director',
     otherRole: '',
-    remarks: ''
+    bio: ''
   });
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
 
@@ -61,8 +63,9 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
       newErrors.name = t('featureFilm.errors.guestNameRequired');
     }
     
-    if (!formData.contact.trim()) {
-      newErrors.contact = t('featureFilm.errors.guestContactRequired');
+    // At least email or phone should be provided
+    if (!formData.email.trim() && !formData.phone.trim()) {
+      newErrors.contact = 'Please provide either email or phone number';
     }
     
     setErrors(newErrors);
@@ -75,19 +78,21 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
     const newGuest: Guest = {
       id: `temp_${Date.now()}`, // Temporary ID for new guests
       name: formData.name.trim(),
-      contact: formData.contact.trim(),
+      email: formData.email.trim() || undefined,
+      phone: formData.phone.trim() || undefined,
       role: formData.role,
       otherRole: formData.role === 'Other' ? formData.otherRole.trim() : undefined,
-      remarks: formData.remarks.trim() || undefined
+      bio: formData.bio.trim() || undefined
     };
     
     onChange([...guests, newGuest]);
     setFormData({ 
       name: '', 
-      contact: '', 
+      email: '', 
+      phone: '',
       role: 'Director',
       otherRole: '',
-      remarks: '' 
+      bio: '' 
     });
     setShowAddForm(false);
     setErrors({});
@@ -97,10 +102,11 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
     const guest = guests[index];
     setFormData({
       name: guest.name,
-      contact: guest.contact,
+      email: guest.email || '',
+      phone: guest.phone || '',
       role: guest.role,
       otherRole: guest.otherRole || '',
-      remarks: guest.remarks || ''
+      bio: guest.bio || ''
     });
     setEditingIndex(index);
     setErrors({});
@@ -115,20 +121,22 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
     updatedGuests[editingIndex] = {
       ...updatedGuests[editingIndex],
       name: formData.name.trim(),
-      contact: formData.contact.trim(),
+      email: formData.email.trim() || undefined,
+      phone: formData.phone.trim() || undefined,
       role: formData.role,
       otherRole: formData.role === 'Other' ? formData.otherRole.trim() : undefined,
-      remarks: formData.remarks.trim() || undefined
+      bio: formData.bio.trim() || undefined
     };
     
     onChange(updatedGuests);
     setEditingIndex(null);
     setFormData({ 
       name: '', 
-      contact: '', 
+      email: '', 
+      phone: '',
       role: 'Director',
       otherRole: '',
-      remarks: '' 
+      bio: '' 
     });
     setErrors({});
   };
@@ -143,10 +151,11 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
     setShowAddForm(false);
     setFormData({ 
       name: '', 
-      contact: '', 
+      email: '', 
+      phone: '',
       role: 'Director',
       otherRole: '',
-      remarks: '' 
+      bio: '' 
     });
     setErrors({});
   };
@@ -194,11 +203,12 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
             {/* Table Header */}
             <div className="bg-white/10 px-6 py-3 border-b border-white/10">
               <div className="grid grid-cols-12 gap-4 text-sm font-medium text-white/90">
-                <div className="col-span-4">{t('featureFilm.fields.guestName')}</div>
+                <div className="col-span-3">{t('featureFilm.fields.guestName')}</div>
                 <div className="col-span-2">Role</div>
-                <div className="col-span-2">{t('featureFilm.fields.guestContact')}</div>
-                <div className="col-span-2">{t('featureFilm.fields.guestRemarks')}</div>
-                <div className="col-span-2 text-center">{t('common.actions')}</div>
+                <div className="col-span-2">Email</div>
+                <div className="col-span-2">Phone</div>
+                <div className="col-span-2">Bio / Notes</div>
+                <div className="col-span-1 text-center">{t('common.actions')}</div>
               </div>
             </div>
             
@@ -225,11 +235,23 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                         
                         <div>
                           <input
-                            type="text"
-                            value={formData.contact}
-                            onChange={(e) => handleInputChange('contact', e.target.value)}
+                            type="email"
+                            value={formData.email}
+                            onChange={(e) => handleInputChange('email', e.target.value)}
                             className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
-                            placeholder={t('featureFilm.placeholders.guestContact')}
+                            placeholder="Email address"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <input
+                            type="tel"
+                            value={formData.phone}
+                            onChange={(e) => handleInputChange('phone', e.target.value)}
+                            className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                            placeholder="Phone number"
                           />
                           {errors.contact && (
                             <p className="mt-1 text-sm text-red-400">{errors.contact}</p>
@@ -269,11 +291,11 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                       
                       <div>
                         <textarea
-                          value={formData.remarks}
-                          onChange={(e) => handleInputChange('remarks', e.target.value)}
+                          value={formData.bio}
+                          onChange={(e) => handleInputChange('bio', e.target.value)}
                           rows={2}
                           className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors resize-none"
-                          placeholder={t('featureFilm.placeholders.guestRemarks')}
+                          placeholder="Special requirements, dietary restrictions, accommodation needs, etc."
                         />
                       </div>
                       
@@ -283,13 +305,15 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                           type="button"
                           onClick={() => {
                             if (editingIndex !== null) {
-                              handleDeleteGuest(editingIndex);
+                              if (window.confirm(t('featureFilm.errors.confirmDeleteGuest'))) {
+                                handleDeleteGuest(editingIndex);
+                              }
                             }
                           }}
                           className="flex items-center space-x-1 px-3 py-1.5 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors"
                         >
                           <Trash2 className="w-3 h-3" />
-                          <span>Delete</span>
+                          <span>{t('common.delete')}</span>
                         </button>
 
                         {/* Save and Cancel buttons on the right */}
@@ -316,7 +340,7 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                   ) : (
                     // Display Mode
                     <div className="grid grid-cols-12 gap-4 items-center">
-                      <div className="col-span-4">
+                      <div className="col-span-3">
                         <div className="flex items-center space-x-2">
                           <User className="w-4 h-4 text-[#FCB283]" />
                           <span className="text-white font-medium">{guest.name}</span>
@@ -330,24 +354,36 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                       </div>
                       
                       <div className="col-span-2">
-                        <div className="flex items-center space-x-2">
-                          <Phone className="w-4 h-4 text-white/60" />
-                          <span className="text-white/80">{guest.contact}</span>
-                        </div>
-                      </div>
-                      
-                      <div className="col-span-2">
-                        {guest.remarks ? (
-                          <div className="flex items-start space-x-2">
-                            <MessageSquare className="w-4 h-4 text-white/60 mt-0.5 flex-shrink-0" />
-                            <span className="text-white/70 text-sm">{guest.remarks}</span>
-                          </div>
+                        {guest.email ? (
+                          <span className="text-white/80 text-sm">{guest.email}</span>
                         ) : (
-                          <span className="text-white/40 text-sm italic">{t('common.noRemarks')}</span>
+                          <span className="text-white/40 text-sm italic">No email</span>
                         )}
                       </div>
                       
-                      <div className="col-span-2 flex justify-center space-x-2">
+                      <div className="col-span-2">
+                        {guest.phone ? (
+                          <div className="flex items-center space-x-2">
+                            <Phone className="w-4 h-4 text-white/60" />
+                            <span className="text-white/80 text-sm">{guest.phone}</span>
+                          </div>
+                        ) : (
+                          <span className="text-white/40 text-sm italic">No phone</span>
+                        )}
+                      </div>
+                      
+                      <div className="col-span-2">
+                        {guest.bio ? (
+                          <div className="flex items-start space-x-2">
+                            <MessageSquare className="w-4 h-4 text-white/60 mt-0.5 flex-shrink-0" />
+                            <span className="text-white/70 text-sm">{guest.bio}</span>
+                          </div>
+                        ) : (
+                          <span className="text-white/40 text-sm italic">No notes</span>
+                        )}
+                      </div>
+                      
+                      <div className="col-span-1 flex justify-center space-x-2">
                         <button
                           type="button"
                           onClick={() => handleEditGuest(index)}
@@ -359,7 +395,11 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleDeleteGuest(index)}
+                          onClick={() => {
+                            if (window.confirm(t('featureFilm.errors.confirmDeleteGuest'))) {
+                              handleDeleteGuest(index);
+                            }
+                          }}
                           disabled={disabled}
                           className="p-1.5 text-red-400 hover:text-red-300 hover:bg-red-400/10 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                           title={t('common.delete')}
@@ -384,117 +424,122 @@ const GuestManagement: React.FC<GuestManagementProps> = ({
             <h4 className="text-lg font-medium text-white">{t('featureFilm.actions.addNewGuest')}</h4>
           </div>
           
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  {t('featureFilm.fields.guestName')} *
-                </label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => handleInputChange('name', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
-                  placeholder={t('featureFilm.placeholders.guestName')}
-                />
-                {errors.name && (
-                  <p className="mt-1 text-sm text-red-400">{errors.name}</p>
-                )}
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    {t('featureFilm.fields.guestName')} *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => handleInputChange('name', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                    placeholder={t('featureFilm.placeholders.guestName')}
+                  />
+                  {errors.name && (
+                    <p className="mt-1 text-sm text-red-400">{errors.name}</p>
+                  )}
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    {t('featureFilm.fields.guestRole')} *
+                  </label>
+                  <select
+                    value={formData.role}
+                    onChange={(e) => handleInputChange('role', e.target.value as GuestRole)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:border-[#FCB283] focus:outline-none transition-colors"
+                  >
+                    {GUEST_ROLES.map(role => (
+                      <option key={role} value={role} className="bg-[#1a1a2e] text-white">
+                        {role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  {t('featureFilm.fields.guestContact')} *
-                </label>
-                <input
-                  type="text"
-                  value={formData.contact}
-                  onChange={(e) => handleInputChange('contact', e.target.value)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
-                  placeholder={t('featureFilm.placeholders.guestContact')}
-                />
-                {errors.contact && (
-                  <p className="mt-1 text-sm text-red-400">{errors.contact}</p>
-                )}
-              </div>
-            </div>
 
-            {/* Role Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-white/90 mb-2">
-                  {t('featureFilm.fields.guestRole')} *
-                </label>
-                <select
-                  value={formData.role}
-                  onChange={(e) => handleInputChange('role', e.target.value as GuestRole)}
-                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white focus:border-[#FCB283] focus:outline-none transition-colors"
-                >
-                  {GUEST_ROLES.map(role => (
-                    <option key={role} value={role} className="bg-[#1a1a2e] text-white">
-                      {role}
-                    </option>
-                  ))}
-                </select>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    Email Address
+                  </label>
+                  <input
+                    type="email"
+                    value={formData.email}
+                    onChange={(e) => handleInputChange('email', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    Phone Number
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phone}
+                    onChange={(e) => handleInputChange('phone', e.target.value)}
+                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                    placeholder="Enter phone number"
+                  />
+                  {errors.contact && (
+                    <p className="mt-1 text-sm text-red-400">{errors.contact}</p>
+                  )}
+                </div>
               </div>
 
               {/* Other Role Input - Show only if role is 'Other' */}
               {formData.role === 'Other' && (
-                <div>
-                  <label className="block text-sm font-medium text-white/90 mb-2">
-                    Specify Role *
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.otherRole}
-                    onChange={(e) => handleInputChange('otherRole', e.target.value)}
-                    className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
-                    placeholder="Enter specific role"
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-white/90 mb-2">
+                      Specify Role *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.otherRole}
+                      onChange={(e) => handleInputChange('otherRole', e.target.value)}
+                      className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                      placeholder="Enter specific role"
+                    />
+                  </div>
                 </div>
               )}
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-white/90 mb-2">
-                {t('featureFilm.fields.guestRemarks')}
-              </label>
-              <textarea
-                value={formData.remarks}
-                onChange={(e) => handleInputChange('remarks', e.target.value)}
-                rows={3}
-                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors resize-none"
-                placeholder={t('featureFilm.placeholders.guestRemarks')}
-              />
-            </div>
+              
+              <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  Bio / Notes
+                </label>
+                <textarea
+                  value={formData.bio}
+                  onChange={(e) => handleInputChange('bio', e.target.value)}
+                  rows={3}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors resize-none"
+                  placeholder="Special requirements, dietary restrictions, accommodation needs, etc."
+                />
+              </div>
             
             <div className="flex justify-between items-center">
-              {/* Delete button on the left */}
-              <button
-                type="button"
-                onClick={() => {
-                  // Reset form and close
-                  setFormData({ 
-                    name: '', 
-                    contact: '', 
-                    role: 'Director',
-                    otherRole: '',
-                    remarks: '' 
-                  });
-                  setShowAddForm(false);
-                  setErrors({});
-                }}
-                className="flex items-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-xl font-medium hover:bg-red-700 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>Delete</span>
-              </button>
-
-              {/* Save and Cancel buttons on the right */}
-              <div className="flex space-x-3">
+              {/* Action buttons */}
+              <div className="flex justify-end space-x-3">
                 <button
                   type="button"
-                  onClick={handleCancelEdit}
+                  onClick={() => {
+                    // Reset form and close
+                    setFormData({ 
+                      name: '', 
+                      email: '', 
+                      phone: '',
+                      role: 'Director',
+                      otherRole: '',
+                      bio: '' 
+                    });
+                    setShowAddForm(false);
+                    setErrors({});
+                  }}
                   className="px-4 py-2 bg-white/10 text-white rounded-xl font-medium hover:bg-white/20 transition-colors"
                 >
                   {t('common.cancel')}

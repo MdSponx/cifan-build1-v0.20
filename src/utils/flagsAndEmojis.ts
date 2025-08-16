@@ -272,8 +272,12 @@ export const getTargetAudienceEmoji = (audience: string): string => {
     'Folk': '👥',
     'Novel Fan': '📖',
     'J-Horror Fan': '👻',
-    'Youth': '🧒',
+    'Youth': '🎓', // Updated to match requirements
     'Family': '👨‍👩‍👧‍👦',
+    // Additional mappings for the requirements
+    'Future': '🚀',
+    'World': '🌍',
+    'General': '👥',
     // Thai translations
     'นักศึกษา': '🎓',
     'นักเรียน': '📚',
@@ -281,7 +285,7 @@ export const getTargetAudienceEmoji = (audience: string): string => {
     'ชาวบ้าน': '👥',
     'แฟนนิยาย': '📖',
     'แฟน J-Horror': '👻',
-    'เยาวชน': '🧒',
+    'เยาวชน': '🎓', // Updated to match requirements
     'ครอบครัว': '👨‍👩‍👧‍👦'
   };
 

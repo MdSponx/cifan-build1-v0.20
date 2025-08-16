@@ -257,11 +257,11 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
           />
         </div>
 
-        {/* Status Badge */}
+        {/* Publication Status Badge */}
         <div className="absolute top-3 right-3">
-          <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(film.status)}`}>
-            {getStatusIcon(film.status)}
-            <span className="capitalize">{film.status}</span>
+          <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(film.publicationStatus || 'draft')}`}>
+            {getStatusIcon(film.publicationStatus || 'draft')}
+            <span className="capitalize">{film.publicationStatus === 'public' ? 'Published' : 'Draft'}</span>
           </span>
         </div>
 
@@ -336,13 +336,13 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
           {film.genres.slice(0, 3).map((genre, index) => (
             <span
               key={index}
-              className="px-2 py-1 bg-white/10 text-white/70 rounded-full text-xs"
+              className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs"
             >
               {genre}
             </span>
           ))}
           {film.genres.length > 3 && (
-            <span className="px-2 py-1 bg-white/10 text-white/70 rounded-full text-xs">
+            <span className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs">
               +{film.genres.length - 3}
             </span>
           )}
@@ -435,13 +435,13 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
                 {film.genres.slice(0, 4).map((genre, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 bg-white/10 text-white/70 rounded-full text-xs"
+                    className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs"
                   >
                     {genre}
                   </span>
                 ))}
                 {film.genres.length > 4 && (
-                  <span className="px-2 py-1 bg-white/10 text-white/70 rounded-full text-xs">
+                  <span className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs">
                     +{film.genres.length - 4}
                   </span>
                 )}
@@ -458,9 +458,9 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
               )}
 
               {/* Status Badge */}
-              <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(film.status)}`}>
-                {getStatusIcon(film.status)}
-                <span className="capitalize">{film.status}</span>
+              <span className={`inline-flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium border ${getStatusBadgeColor(film.publicationStatus || 'draft')}`}>
+                {getStatusIcon(film.publicationStatus || 'draft')}
+                <span className="capitalize">{film.publicationStatus === 'public' ? 'Published' : 'Draft'}</span>
               </span>
 
               {/* Action Buttons */}

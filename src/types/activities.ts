@@ -23,6 +23,7 @@ export interface Activity {
   // Detail
   description: string;
   organizers: string[];
+  speakers: Speaker[]; // New field for speakers
   
   // Tags
   tags: string[];
@@ -45,6 +46,50 @@ export interface Activity {
 }
 
 export type ActivityStatus = 'draft' | 'published' | 'cancelled' | 'completed';
+
+// Speaker types
+export interface Speaker {
+  id: string;
+  name: string;
+  email?: string;
+  phone?: string;
+  role: SpeakerRole;
+  otherRole?: string; // Used when role is 'Other'
+  bio?: string;
+  image?: string; // URL to speaker image
+  imagePath?: string; // Firebase Storage path for cleanup
+}
+
+export type SpeakerRole = 
+  | 'Keynote Speaker'
+  | 'Panelist'
+  | 'Moderator'
+  | 'Workshop Leader'
+  | 'Industry Expert'
+  | 'Director'
+  | 'Producer'
+  | 'Actor'
+  | 'Screenwriter'
+  | 'Cinematographer'
+  | 'Film Critic'
+  | 'Academic'
+  | 'Other';
+
+export const SPEAKER_ROLES: SpeakerRole[] = [
+  'Keynote Speaker',
+  'Panelist',
+  'Moderator',
+  'Workshop Leader',
+  'Industry Expert',
+  'Director',
+  'Producer',
+  'Actor',
+  'Screenwriter',
+  'Cinematographer',
+  'Film Critic',
+  'Academic',
+  'Other'
+];
 
 export interface ActivityTag {
   id: string;
@@ -76,6 +121,7 @@ export interface ActivityFormData {
   // Detail
   description: string;
   organizers: string[];
+  speakers: Speaker[]; // New field for speakers
   
   // Tags
   tags: string[];
@@ -337,6 +383,7 @@ export interface ActivityFirestoreDoc {
   venueLocation?: string;
   description: string;
   organizers: string[];
+  speakers: Speaker[]; // New field for speakers
   tags: string[];
   contactEmail: string;
   contactName: string;

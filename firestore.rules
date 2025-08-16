@@ -189,58 +189,105 @@ service cloud.firestore {
       
       // Delete: Only admin users can delete activities
       allow delete: if request.auth != null && isAdmin();
+      
+      // Speakers subcollection - admins can manage speakers for activities
+      match /speakers/{speakerId} {
+        // Read: Admins can read all speakers, public can read speakers for published activities
+        allow read: if isAdmin() || 
+          (exists(/databases/$(database)/documents/activities/$(activityId)) &&
+           get(/databases/$(database)/documents/activities/$(activityId)).data.status == 'published' &&
+           get(/databases/$(database)/documents/activities/$(activityId)).data.isPublic == true);
+        
+        // Create: Only admins can create speakers
+        allow create: if request.auth != null && isAdmin() &&
+          // Validate required fields
+          request.resource.data.keys().hasAll(['name', 'role', 'createdAt', 'updatedAt']) &&
+          // Validate data types
+          request.resource.data.name is string &&
+          request.resource.data.name.size() >= 1 &&
+          request.resource.data.name.size() <= 100 &&
+          request.resource.data.role is string &&
+          request.resource.data.role.size() >= 1 &&
+          // Optional fields validation
+          (!request.resource.data.keys().hasAny(['email']) ||
+           (request.resource.data.email is string &&
+            request.resource.data.email.matches('.*@.*\\..*'))) &&
+          (!request.resource.data.keys().hasAny(['phone']) ||
+           request.resource.data.phone is string) &&
+          (!request.resource.data.keys().hasAny(['bio']) ||
+           request.resource.data.bio is string) &&
+          (!request.resource.data.keys().hasAny(['otherRole']) ||
+           request.resource.data.otherRole is string) &&
+          (!request.resource.data.keys().hasAny(['image']) ||
+           request.resource.data.image is string) &&
+          (!request.resource.data.keys().hasAny(['imagePath']) ||
+           request.resource.data.imagePath is string);
+        
+        // Update: Only admins can update speakers
+        allow update: if request.auth != null && isAdmin() &&
+          // Ensure immutable fields are not changed
+          request.resource.data.createdAt == resource.data.createdAt &&
+          // Validate updated fields if they exist
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
+           (request.resource.data.name is string &&
+            request.resource.data.name.size() >= 1 &&
+            request.resource.data.name.size() <= 100)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) ||
+           (request.resource.data.role is string &&
+            request.resource.data.role.size() >= 1)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['email']) ||
+           (request.resource.data.email == null ||
+            (request.resource.data.email is string &&
+             request.resource.data.email.matches('.*@.*\\..*')))) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone']) ||
+           (request.resource.data.phone == null ||
+            request.resource.data.phone is string)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['bio']) ||
+           (request.resource.data.bio == null ||
+            request.resource.data.bio is string)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['otherRole']) ||
+           (request.resource.data.otherRole == null ||
+            request.resource.data.otherRole is string)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['image']) ||
+           (request.resource.data.image == null ||
+            request.resource.data.image is string)) &&
+          (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['imagePath']) ||
+           (request.resource.data.imagePath == null ||
+            request.resource.data.imagePath is string));
+        
+        // Delete: Only admins can delete speakers
+        allow delete: if request.auth != null && isAdmin();
+      }
     }
     
-    // Films collection - for feature film management (legacy)
+    // Films collection - for feature film management
     match /films/{filmId} {
-      // Users can create films
       allow create: if request.auth != null;
-      
-      // Users can read/update their own films, admins can read/update all
-      allow read: if request.auth != null && 
+      allow read, update: if request.auth != null && 
         (isAdmin() || 
          (exists(/databases/$(database)/documents/films/$(filmId)) && 
-          request.auth.uid == resource.data.createdBy));
-      
-      allow update: if request.auth != null && 
-        (isAdmin() || 
-         (exists(/databases/$(database)/documents/films/$(filmId)) && 
-          request.auth.uid == resource.data.createdBy));
-      
-      // Admins can delete films
+          request.auth.uid == resource.data.userId));
       allow delete: if isAdmin();
       
-      // Guests subcollection - film creator and admins can manage
       match /guests/{guestId} {
-        // Read: Users can read their own film's guests, admins can read all
         allow read: if request.auth != null && 
           (isAdmin() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
-            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.createdBy));
+            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId));
         
-        // Create: Users can create guests for their own films, admins can create for any film
-        allow create: if request.auth != null && 
+        allow create, update: if request.auth != null && 
           (isAdmin() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
-            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.createdBy));
+            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId)) &&
+          request.resource.data.name is string &&
+          request.resource.data.name.size() >= 1 &&
+          request.resource.data.role is string &&
+          request.resource.data.role.size() >= 1;
         
-        // Update: Users can update guests for their own films, admins can update any
-        allow update: if request.auth != null && 
-          (isAdmin() || 
-           (exists(/databases/$(database)/documents/films/$(filmId)) && 
-            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.createdBy));
-        
-        // Delete: Users can delete guests for their own films, admins can delete any
         allow delete: if request.auth != null && 
           (isAdmin() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
-            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.createdBy));
-        
-        // Write: Combined rule for backward compatibility
-        allow write: if request.auth != null && 
-          (isAdmin() || 
-           (exists(/databases/$(database)/documents/films/$(filmId)) && 
-            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.createdBy));
+            request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId));
       }
     }
     

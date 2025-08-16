@@ -49,6 +49,7 @@ import NotificationTest from './components/debug/NotificationTest';
 import FeatureFilmForm from './components/admin/FeatureFilmForm';
 import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
 import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
+import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Component to handle HTML lang attribute
 function LanguageHandler() {
@@ -227,11 +228,13 @@ function App() {
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
             <AdminProtectedRoute>
               <AdminZoneLayout currentPage="admin/feature-films/new">
-                <FeatureFilmForm 
-                  mode="create"
-                  onSave={() => handleNavigate('admin/feature-films')}
-                  onCancel={() => handleNavigate('admin/feature-films')}
-                />
+                <ErrorBoundary>
+                  <FeatureFilmForm 
+                    mode="create"
+                    onSave={() => handleNavigate('admin/feature-films')}
+                    onCancel={() => handleNavigate('admin/feature-films')}
+                  />
+                </ErrorBoundary>
               </AdminZoneLayout>
             </AdminProtectedRoute>
           </ProtectedRoute>
@@ -339,12 +342,14 @@ function App() {
             <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
               <AdminProtectedRoute>
                 <AdminZoneLayout currentPage="admin/feature-films/edit">
-                  <FeatureFilmForm 
-                    mode="edit"
-                    filmId={filmId}
-                    onSave={() => handleNavigate('admin/feature-films')}
-                    onCancel={() => handleNavigate('admin/feature-films')}
-                  />
+                  <ErrorBoundary>
+                    <FeatureFilmForm 
+                      mode="edit"
+                      filmId={filmId}
+                      onSave={() => handleNavigate('admin/feature-films')}
+                      onCancel={() => handleNavigate('admin/feature-films')}
+                    />
+                  </ErrorBoundary>
                 </AdminZoneLayout>
               </AdminProtectedRoute>
             </ProtectedRoute>
