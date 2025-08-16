@@ -21,7 +21,7 @@ import {
 import { useNotificationHelpers } from '../ui/NotificationContext';
 import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
-import { createFeatureFilm, updateFeatureFilm } from '../../services/featureFilmService';
+import { createFeatureFilm, updateFeatureFilm, getFeatureFilm } from '../../services/featureFilmService';
 import { 
   FeatureFilmData, 
   FeatureFilmFormErrors,
@@ -49,10 +49,13 @@ import GuestManagement from '../forms/GuestManagement';
 import RichTextEditor from '../ui/RichTextEditor';
 
 interface FeatureFilmFormProps {
+  mode: 'create' | 'edit';
+  filmId?: string; // Required for edit mode
   initialData?: Partial<FeatureFilmData>;
   onSuccess?: (filmData: FeatureFilmData) => void;
+  onSave?: (filmData: FeatureFilmData) => void;
   onCancel?: () => void;
-  isEditing?: boolean;
+  onNavigateBack?: () => void;
 }
 
 /**
@@ -62,10 +65,13 @@ interface FeatureFilmFormProps {
  * Features Glass Morphism design, Firebase integration, and responsive layout.
  */
 const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
+  mode = 'create',
+  filmId,
   initialData,
   onSuccess,
+  onSave,
   onCancel,
-  isEditing = false
+  onNavigateBack
 }) => {
   const { t } = useTranslation();
   const { getClass } = useTypography();
@@ -82,6 +88,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     languages: [],
     synopsis: '',
     targetAudience: [],
+    length: undefined,
     screeningDate1: '',
     screeningDate2: '',
     timeEstimate: '' as TimeEstimate,
@@ -110,6 +117,8 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   const [errors, setErrors] = useState<FeatureFilmFormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // Initialize form with provided data
   useEffect(() => {
@@ -118,10 +127,88 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     }
   }, [initialData]);
 
-  // Mark form as dirty when data changes
+  // Load existing film data for edit mode
   useEffect(() => {
-    setIsDirty(true);
-  }, [formData]);
+    const loadFilmData = async () => {
+      if (mode === 'edit' && filmId) {
+        setLoading(true);
+        setError(null);
+        
+        try {
+          // CRITICAL: Fetch specifically from "films" database collection
+          const result = await getFeatureFilm(filmId);
+          
+          if (result.success && result.data) {
+            const filmData = result.data;
+            
+            // Map database data to form data structure
+            const mappedData: FeatureFilmData = {
+              id: filmData.id,
+              titleEn: filmData.titleEn || '',
+              titleTh: filmData.titleTh || '',
+              category: filmData.category || ('' as FilmCategory),
+              genres: filmData.genres || [],
+              countries: filmData.countries || [],
+              languages: filmData.languages || [],
+              synopsis: filmData.synopsis || '',
+              targetAudience: filmData.targetAudience || [],
+              length: filmData.length || undefined,
+              screeningDate1: filmData.screeningDate1 ? 
+                (filmData.screeningDate1 instanceof Date ? 
+                  filmData.screeningDate1.toISOString().slice(0, 16) : 
+                  new Date(filmData.screeningDate1).toISOString().slice(0, 16)) : '',
+              screeningDate2: filmData.screeningDate2 ? 
+                (filmData.screeningDate2 instanceof Date ? 
+                  filmData.screeningDate2.toISOString().slice(0, 16) : 
+                  new Date(filmData.screeningDate2).toISOString().slice(0, 16)) : '',
+              timeEstimate: filmData.timeEstimate || ('' as TimeEstimate),
+              theatre: filmData.theatre || ('' as Theatre),
+              director: filmData.director || '',
+              producer: filmData.producer || '',
+              studio: filmData.studio || '',
+              distributor: filmData.distributor || '',
+              mainActors: filmData.mainActors || '',
+              posterFile: undefined,
+              posterUrl: filmData.posterUrl || '',
+              trailerFile: undefined,
+              trailerUrl: filmData.trailerUrl || '',
+              screenerUrl: filmData.screenerUrl || '',
+              materials: filmData.materials || '',
+              galleryFiles: [],
+              galleryUrls: filmData.galleryUrls || [''],
+              galleryCoverIndex: filmData.galleryCoverIndex || 0,
+              status: filmData.status || ('' as FilmStatus),
+              remarks: filmData.remarks || '',
+              guestComing: filmData.guestComing || false,
+              guests: filmData.guests || [],
+              createdAt: filmData.createdAt,
+              updatedAt: filmData.updatedAt,
+              createdBy: filmData.createdBy
+            };
+            
+            setFormData(mappedData);
+            setIsDirty(false); // Don't mark as dirty when loading existing data
+          } else {
+            setError(result.error || 'Film not found in films database');
+          }
+        } catch (err) {
+          console.error('Error loading film from films collection:', err);
+          setError('Error loading film data from films database');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadFilmData();
+  }, [mode, filmId]);
+
+  // Mark form as dirty when data changes (but not on initial load)
+  useEffect(() => {
+    if (!loading) {
+      setIsDirty(true);
+    }
+  }, [formData, loading]);
 
   /**
    * Handle input field changes
@@ -282,16 +369,17 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       }
 
       let result;
-      if (isEditing && formData.id) {
-        result = await updateFeatureFilm(formData.id, cleanedData, user.uid);
+      if (mode === 'edit' && filmId) {
+        result = await updateFeatureFilm(filmId, cleanedData, user.uid);
       } else {
         result = await createFeatureFilm(cleanedData, user.uid);
       }
 
       if (result.success) {
-        updateToSuccess(loadingId, 'Success!', `Film ${isEditing ? 'updated' : 'created'} successfully`);
+        updateToSuccess(loadingId, 'Success!', `Film ${mode === 'edit' ? 'updated' : 'created'} successfully`);
         setIsDirty(false);
         onSuccess?.(result.data);
+        onSave?.(result.data);
       } else {
         updateToError(loadingId, 'Error', result.error || 'Failed to save film');
       }
@@ -344,6 +432,40 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     setIsDirty(false);
   };
 
+  // Loading state for edit mode
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FCB283] mx-auto mb-4"></div>
+          <p className="text-white/70">Loading film data from films database...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state for edit mode
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] flex items-center justify-center">
+        <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-8 text-center max-w-md">
+          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-red-400 mb-2">Error Loading Film</h2>
+          <p className="text-red-300 mb-6">{error}</p>
+          <p className="text-red-300/80 text-sm mb-6">
+            Failed to load film data from films database collection.
+          </p>
+          <button
+            onClick={onNavigateBack || onCancel}
+            className="flex items-center space-x-2 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors mx-auto"
+          >
+            <span>Back to Gallery</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-4">
       <div className="max-w-6xl mx-auto">
@@ -356,7 +478,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
               </div>
               <div>
                 <h1 className={`text-2xl font-bold text-white ${getClass('header')}`}>
-                  {isEditing ? t('featureFilm.edit') : t('featureFilm.addNew')}
+                  {mode === 'edit' ? t('featureFilm.edit') : t('featureFilm.addNew')}
                 </h1>
                 <p className={`text-white/70 ${getClass('subtitle')}`}>
                   {t('featureFilm.subtitle')}
@@ -432,6 +554,25 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                 </select>
                 {errors.category && (
                   <p className="mt-1 text-sm text-red-400">{errors.category}</p>
+                )}
+              </div>
+
+              {/* Length (Duration) */}
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  Length (minutes)
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  max="999"
+                  value={formData.length || ''}
+                  onChange={(e) => handleInputChange('length', e.target.value ? parseInt(e.target.value) : undefined)}
+                  className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                  placeholder="e.g. 120"
+                />
+                {errors.length && (
+                  <p className="mt-1 text-sm text-red-400">{errors.length}</p>
                 )}
               </div>
 
@@ -863,7 +1004,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-center">
               {/* Delete Button - Left Side */}
               <div className="flex">
-                {isEditing && (
+                {mode === 'edit' && (
                   <button
                     type="button"
                     onClick={() => {
@@ -915,7 +1056,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                   ) : (
                     <>
                       <Save className="w-5 h-5" />
-                      <span>{isEditing ? t('featureFilm.actions.updateFilm') : t('featureFilm.actions.saveFilm')}</span>
+                      <span>{mode === 'edit' ? t('featureFilm.actions.updateFilm') : t('featureFilm.actions.saveFilm')}</span>
                     </>
                   )}
                 </button>

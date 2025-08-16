@@ -47,6 +47,8 @@ import PublicActivitiesPage from './components/pages/PublicActivitiesPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
 import NotificationTest from './components/debug/NotificationTest';
 import FeatureFilmForm from './components/admin/FeatureFilmForm';
+import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
+import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
 
 // Component to handle HTML lang attribute
 function LanguageHandler() {
@@ -204,7 +206,32 @@ function App() {
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
             <AdminProtectedRoute>
               <AdminZoneLayout currentPage="admin/feature-films">
-                <FeatureFilmForm />
+                <FeatureFilmGalleryPage 
+                  onNavigateToForm={(mode, filmId) => {
+                    if (mode === 'create') {
+                      handleNavigate('admin/feature-films/new');
+                    } else if (mode === 'edit' && filmId) {
+                      handleNavigate(`admin/feature-films/edit/${filmId}`);
+                    }
+                  }}
+                  onNavigateToDetail={(filmId) => {
+                    handleNavigate(`admin/feature-films/detail/${filmId}`);
+                  }}
+                />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/feature-films/new':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute>
+              <AdminZoneLayout currentPage="admin/feature-films/new">
+                <FeatureFilmForm 
+                  mode="create"
+                  onSave={() => handleNavigate('admin/feature-films')}
+                  onCancel={() => handleNavigate('admin/feature-films')}
+                />
               </AdminZoneLayout>
             </AdminProtectedRoute>
           </ProtectedRoute>
@@ -305,6 +332,42 @@ function App() {
             </ProtectedRoute>
           );
         }
+        // Handle admin feature film edit page with dynamic ID
+        if (currentPage.startsWith('admin/feature-films/edit/')) {
+          const filmId = currentPage.replace('admin/feature-films/edit/', '');
+          return (
+            <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+              <AdminProtectedRoute>
+                <AdminZoneLayout currentPage="admin/feature-films/edit">
+                  <FeatureFilmForm 
+                    mode="edit"
+                    filmId={filmId}
+                    onSave={() => handleNavigate('admin/feature-films')}
+                    onCancel={() => handleNavigate('admin/feature-films')}
+                  />
+                </AdminZoneLayout>
+              </AdminProtectedRoute>
+            </ProtectedRoute>
+          );
+        }
+        
+        // Handle admin feature film detail page with dynamic ID
+        if (currentPage.startsWith('admin/feature-films/detail/')) {
+          const filmId = currentPage.replace('admin/feature-films/detail/', '');
+          return (
+            <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+              <AdminProtectedRoute>
+                <AdminZoneLayout currentPage="admin/feature-films/detail">
+                  <FeatureFilmDetailPage 
+                    filmId={filmId}
+                    onNavigateBack={() => handleNavigate('admin/feature-films')}
+                  />
+                </AdminZoneLayout>
+              </AdminProtectedRoute>
+            </ProtectedRoute>
+          );
+        }
+        
         // Handle public activity detail page with dynamic ID
         if (currentPage.startsWith('activity/')) {
           const activityId = currentPage.replace('activity/', '');

@@ -1,3 +1,38 @@
+// File metadata interface for uploaded files
+export interface FileMetadata {
+  url: string;
+  name: string;
+  size: number;
+  type: string;
+  uploadedAt: Date;
+  uploadedBy: string;
+}
+
+// Cast member interface
+export interface CastMember {
+  name: string;
+  nameTh?: string;
+  role: string;
+  character?: string;
+}
+
+// Crew member interface
+export interface CrewMember {
+  name: string;
+  nameTh?: string;
+  role: string;
+  department: string;
+}
+
+// Screening information interface
+export interface ScreeningInfo {
+  date: Date;
+  time: string;
+  venue: string;
+  ticketUrl?: string;
+}
+
+// Guest interface (for festival guests)
 export interface Guest {
   id?: string;
   name: string;
@@ -16,6 +51,62 @@ export type GuestRole =
   | 'Actor'
   | 'Other';
 
+// Main Feature Film interface - comprehensive data model
+export interface FeatureFilm {
+  id: string;
+  
+  // Basic Information
+  title: string;
+  titleTh?: string;
+  synopsis: string;
+  synopsisTh?: string;
+  
+  // Technical Details
+  director: string;
+  directorTh?: string;
+  duration: number; // in minutes
+  releaseYear: number;
+  language: string[];
+  subtitles: string[];
+  format: string; // Digital, 35mm, etc.
+  aspectRatio: string;
+  soundFormat: string;
+  
+  // Classification
+  genres: string[];
+  country: string;
+  rating?: string; // Age rating
+  
+  // Media Files
+  files: {
+    poster?: FileMetadata;
+    trailer?: FileMetadata;
+    stills?: FileMetadata[];
+    pressKit?: FileMetadata;
+  };
+  
+  // Cast & Crew
+  cast: CastMember[];
+  crew: CrewMember[];
+  
+  // Screening Information
+  screenings?: ScreeningInfo[];
+  
+  // Metadata
+  status: 'draft' | 'published' | 'archived';
+  featured: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  updatedBy: string;
+  
+  // SEO & Social
+  tags: string[];
+  slug: string; // URL-friendly identifier
+  metaDescription?: string;
+}
+
+// Legacy interface for backward compatibility with existing form
 export interface FeatureFilmData {
   // Basic Film Information
   titleEn: string;
@@ -26,6 +117,7 @@ export interface FeatureFilmData {
   languages: string[]; // Changed from single language to multiple languages
   synopsis: string;
   targetAudience: TargetAudience[];
+  length?: number; // Duration in minutes
 
   // Screening Information
   screeningDate1: string; // datetime-local format
@@ -64,6 +156,61 @@ export interface FeatureFilmData {
   createdAt?: Date;
   updatedAt?: Date;
   createdBy?: string;
+}
+
+// Create/Update interfaces for the new system
+export interface CreateFeatureFilmData {
+  title: string;
+  titleTh?: string;
+  synopsis: string;
+  synopsisTh?: string;
+  director: string;
+  directorTh?: string;
+  duration: number;
+  releaseYear: number;
+  language: string[];
+  subtitles: string[];
+  format: string;
+  aspectRatio: string;
+  soundFormat: string;
+  genres: string[];
+  country: string;
+  rating?: string;
+  cast: CastMember[];
+  crew: CrewMember[];
+  screenings?: ScreeningInfo[];
+  status: 'draft' | 'published' | 'archived';
+  featured: boolean;
+  tags: string[];
+  slug: string;
+  metaDescription?: string;
+  // File uploads
+  posterFile?: File;
+  trailerFile?: File;
+  stillsFiles?: File[];
+  pressKitFile?: File;
+}
+
+export interface UpdateFeatureFilmData extends Partial<CreateFeatureFilmData> {
+  updatedBy: string;
+}
+
+// Filter interface for querying films
+export interface FilmFilters {
+  status?: 'draft' | 'published' | 'archived';
+  genre?: string;
+  country?: string;
+  yearFrom?: number;
+  yearTo?: number;
+  durationFrom?: number;
+  durationTo?: number;
+  featured?: boolean;
+  search?: string;
+  tags?: string[];
+  limit?: number;
+  offset?: number;
+  sortBy?: 'title' | 'createdAt' | 'releaseYear' | 'duration';
+  sortOrder?: 'asc' | 'desc';
 }
 
 export type FilmCategory = 

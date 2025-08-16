@@ -209,15 +209,21 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
     }
   ];
 
-  // Articles & News submenu items
-  const articlesSubmenuItems = [
-    {
-      id: 'admin/feature-films',
-      icon: <Film size={18} />,
-      label: currentContent.featureFilmsData,
-      href: '#admin/feature-films'
-    }
-  ];
+    // Articles & News submenu items
+    const articlesSubmenuItems = [
+      {
+        id: 'admin/feature-films',
+        icon: <Eye size={18} />,
+        label: 'Film Gallery',
+        href: '#admin/feature-films'
+      },
+      {
+        id: 'admin/feature-films/new',
+        icon: <Plus size={18} />,
+        label: 'Add New Film',
+        href: '#admin/feature-films/new'
+      }
+    ];
 
   // Activities submenu items
   const activitiesSubmenuItems = [

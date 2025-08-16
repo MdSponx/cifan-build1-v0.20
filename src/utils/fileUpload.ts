@@ -54,7 +54,7 @@ export const generateUploadPath = (
 // Generate upload path for feature films
 export const generateFeatureFilmUploadPath = (
   filmId: string,
-  fileType: 'posters' | 'trailers' | 'gallery' | 'materials',
+  fileType: 'posters' | 'trailers' | 'gallery' | 'materials' | 'stills' | 'presskit',
   fileName: string,
   userId?: string
 ): string => {

@@ -1612,3 +1612,100 @@ div[data-crew-section] {
   min-height: fit-content;
   height: auto;
 }
+
+/* Fixed: Trailer container with proper video display */
+.trailer-container-wrapper {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 48, 90, 0.3);
+  border-radius: 1rem;
+  padding: 1.5rem;
+  margin-bottom: 2rem;
+  position: relative;
+}
+
+/* Outer container with reasonable bounds */
+.video-outer-container {
+  width: 100%;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: #000;
+}
+
+/* Aspect ratio wrapper with proper sizing */
+.video-aspect-wrapper {
+  position: relative;
+  width: 100%;
+  height: 0;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  overflow: hidden;
+  border-radius: 0.75rem;
+  background: #000;
+}
+
+/* Iframe container with proper positioning */
+.video-iframe-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: 0.75rem;
+  overflow: hidden;
+}
+
+/* Iframe-specific rules - simplified and functional */
+.video-iframe-container iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+  outline: none;
+  border-radius: 0.75rem;
+  background: #000;
+}
+
+/* Video element styling for direct videos */
+.video-iframe-container video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.75rem;
+  background: #000;
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 768px) {
+  .trailer-container-wrapper {
+    padding: 1rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    border-radius: 0.75rem;
+  }
+  
+  .video-outer-container,
+  .video-aspect-wrapper,
+  .video-iframe-container,
+  .video-iframe-container iframe,
+  .video-iframe-container video {
+    border-radius: 0.5rem;
+  }
+}
+
+/* Extra safety for parent containers */
+.container,
+.mx-auto {
+  overflow: visible !important;
+}
+
+/* Ensure film detail page doesn't interfere */
+.min-h-screen {
+  overflow-x: hidden;
+}

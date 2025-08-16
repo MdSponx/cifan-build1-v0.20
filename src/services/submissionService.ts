@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, deleteDoc, writeBatch } from 'firebase/firestore';
 import { db } from '../firebase';
 import { DURATION_LIMITS } from '../utils/formConstants';
 import { 
@@ -673,7 +673,18 @@ export class SubmissionService {
         };
       }
 
-      return await addDoc(collection(db, 'submissions'), submissionData);
+      const docRef = await addDoc(collection(db, 'submissions'), submissionData);
+
+      // Create guests subcollection if crew members exist
+      const crewMembers = category === 'world' 
+        ? (formData as WorldFormData).crewMembers || []
+        : ((formData as YouthFormData | FutureFormData).crewMembers || []);
+      
+      if (crewMembers.length > 0) {
+        await this.createGuestsSubcollection(docRef.id, crewMembers);
+      }
+
+      return docRef;
     } catch (error) {
       console.error('Firestore save error:', error);
       
@@ -817,7 +828,18 @@ export class SubmissionService {
         };
       }
 
-      return await addDoc(collection(db, 'submissions'), submissionData);
+      const docRef = await addDoc(collection(db, 'submissions'), submissionData);
+
+      // Create guests subcollection if crew members exist (even for drafts)
+      const crewMembers = category === 'world' 
+        ? (formData as WorldFormData).crewMembers || []
+        : ((formData as YouthFormData | FutureFormData).crewMembers || []);
+      
+      if (crewMembers.length > 0) {
+        await this.createGuestsSubcollection(docRef.id, crewMembers);
+      }
+
+      return docRef;
     } catch (error) {
       console.error('Firestore draft save error:', error);
       
@@ -836,6 +858,54 @@ export class SubmissionService {
       throw new SubmissionError(
         `Failed to save draft: ${error instanceof Error ? error.message : 'Unknown error'}`,
         'firestore-error',
+        'saving'
+      );
+    }
+  }
+
+  /**
+   * Creates guests subcollection from crew members data
+   */
+  private async createGuestsSubcollection(
+    submissionId: string, 
+    crewMembers: any[]
+  ): Promise<void> {
+    try {
+      if (!crewMembers || crewMembers.length === 0) {
+        console.log('No crew members to save to guests subcollection');
+        return;
+      }
+
+      const batch = writeBatch(db);
+      
+      crewMembers.forEach((member, index) => {
+        const guestRef = doc(collection(db, 'submissions', submissionId, 'guests'));
+        const guestData = {
+          fullName: member.fullName,
+          fullNameTh: member.fullNameTh || null,
+          role: member.role,
+          customRole: member.customRole || null,
+          age: member.age,
+          phone: member.phone || null,
+          email: member.email || null,
+          schoolName: member.schoolName || null,
+          studentId: member.studentId || null,
+          createdAt: serverTimestamp(),
+          order: index,
+          submissionId: submissionId
+        };
+        
+        batch.set(guestRef, guestData);
+      });
+
+      await batch.commit();
+      console.log(`✅ Created ${crewMembers.length} guests in subcollection`);
+      
+    } catch (error) {
+      console.error('❌ Error creating guests subcollection:', error);
+      throw new SubmissionError(
+        'Failed to create guests subcollection',
+        'guests-subcollection-error',
         'saving'
       );
     }
