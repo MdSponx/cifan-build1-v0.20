@@ -45,7 +45,6 @@ import PrivacyPolicyPage from './components/pages/PrivacyPolicyPage';
 import ActivityDetailPage from './components/pages/ActivityDetailPage';
 import PublicActivitiesPage from './components/pages/PublicActivitiesPage';
 import ProtectedRoute from './components/auth/ProtectedRoute';
-import NotificationTest from './components/debug/NotificationTest';
 import FeatureFilmForm from './components/admin/FeatureFilmForm';
 import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
 import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
@@ -195,7 +194,7 @@ function App() {
       case 'admin/partners':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-            <AdminProtectedRoute requiredPermission="canManageUsers">
+            <AdminProtectedRoute requiredPermission="canManagePartners">
               <AdminZoneLayout currentPage="admin/partners">
                 <PartnerManagementPage />
               </AdminZoneLayout>
@@ -205,7 +204,7 @@ function App() {
       case 'admin/feature-films':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-            <AdminProtectedRoute>
+            <AdminProtectedRoute requiredPermission="canManageContent">
               <AdminZoneLayout currentPage="admin/feature-films">
                 <FeatureFilmGalleryPage 
                   onNavigateToForm={(mode, filmId) => {
@@ -226,7 +225,7 @@ function App() {
       case 'admin/feature-films/new':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-            <AdminProtectedRoute>
+            <AdminProtectedRoute requiredPermission="canManageContent">
               <AdminZoneLayout currentPage="admin/feature-films/new">
                 <ErrorBoundary>
                   <FeatureFilmForm 
@@ -260,7 +259,7 @@ function App() {
         if (currentPage.startsWith('admin/submissions')) {
           return (
             <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-              <AdminProtectedRoute>
+              <AdminProtectedRoute requiredPermission="canRateSubmissions">
                 <AdminZoneLayout currentPage="admin/submissions">
                   <SubmissionsRouter 
                     currentRoute={currentPage}
@@ -340,7 +339,7 @@ function App() {
           const filmId = currentPage.replace('admin/feature-films/edit/', '');
           return (
             <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-              <AdminProtectedRoute>
+              <AdminProtectedRoute requiredPermission="canManageContent">
                 <AdminZoneLayout currentPage="admin/feature-films/edit">
                   <ErrorBoundary>
                     <FeatureFilmForm 
@@ -361,7 +360,7 @@ function App() {
           const filmId = currentPage.replace('admin/feature-films/detail/', '');
           return (
             <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
-              <AdminProtectedRoute>
+              <AdminProtectedRoute requiredPermission="canManageContent">
                 <AdminZoneLayout currentPage="admin/feature-films/detail">
                   <FeatureFilmDetailPage 
                     filmId={filmId}
@@ -404,9 +403,6 @@ function App() {
           
           {/* Animated Background Elements */}
           <AnimatedBackground />
-          
-          {/* Notification Test Panel (for development) */}
-          <NotificationTest />
         </div>
       </NotificationProvider>
     </AppProviders>

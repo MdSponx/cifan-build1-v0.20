@@ -391,70 +391,161 @@ export const syncSpeakersToSubcollection = async (
   activityId: string,
   speakers: Speaker[]
 ): Promise<SpeakerServiceResult> => {
+  console.log(`🔄 Starting speaker sync for activity: ${activityId}`);
+  console.log(`📊 Number of speakers to sync: ${speakers?.length || 0}`);
+  
   try {
+    // Validate inputs
+    if (!activityId) {
+      console.error('❌ Activity ID is required for speaker sync');
+      return {
+        success: false,
+        error: 'Activity ID is required'
+      };
+    }
+
     // First, delete all existing speakers in subcollection
+    console.log('🗑️ Step 1: Deleting existing speakers...');
     const deleteResult = await deleteAllSpeakers(activityId);
     if (!deleteResult.success) {
-      console.warn('Failed to delete existing speakers, continuing with sync...');
+      console.warn('⚠️ Failed to delete existing speakers, continuing with sync...', deleteResult.error);
+    } else {
+      console.log('✅ Successfully deleted existing speakers');
     }
 
     // Then create new speakers from the provided data
     if (!speakers || speakers.length === 0) {
+      console.log('ℹ️ No speakers to sync, operation complete');
       return {
         success: true,
         data: { message: 'No speakers to sync' }
       };
     }
 
+    console.log('📝 Step 2: Creating new speakers...');
+    
     // Process speakers one by one to handle images properly
     const results = [];
-    for (const speaker of speakers) {
+    for (let i = 0; i < speakers.length; i++) {
+      const speaker = speakers[i];
+      console.log(`👤 Processing speaker ${i + 1}/${speakers.length}: ${speaker.name}`);
+      
+      // Validate speaker data
+      if (!speaker.name?.trim()) {
+        console.error(`❌ Speaker ${i + 1} missing required name field`);
+        results.push({
+          success: false,
+          error: `Speaker ${i + 1} missing required name field`
+        });
+        continue;
+      }
+
+      if (!speaker.role?.trim()) {
+        console.error(`❌ Speaker ${i + 1} (${speaker.name}) missing required role field`);
+        results.push({
+          success: false,
+          error: `Speaker ${speaker.name} missing required role field`
+        });
+        continue;
+      }
+
       // Extract image file if it's a data URL (from form)
       let imageFile: File | undefined;
       if (speaker.image && speaker.image.startsWith('data:')) {
+        console.log(`🖼️ Converting image data URL to file for speaker: ${speaker.name}`);
         try {
           // Convert data URL to File object
           const response = await fetch(speaker.image);
           const blob = await response.blob();
-          imageFile = new File([blob], `speaker_${Date.now()}.jpg`, { type: 'image/jpeg' });
+          const fileExtension = speaker.image.includes('data:image/png') ? 'png' : 
+                               speaker.image.includes('data:image/webp') ? 'webp' : 'jpg';
+          imageFile = new File([blob], `speaker_${Date.now()}_${i}.${fileExtension}`, { 
+            type: blob.type || 'image/jpeg' 
+          });
+          console.log(`✅ Successfully converted image for speaker: ${speaker.name}`);
         } catch (error) {
-          console.warn('Failed to convert speaker image data URL to file:', error);
+          console.warn(`⚠️ Failed to convert speaker image data URL to file for ${speaker.name}:`, error);
         }
+      } else if (speaker.image && !speaker.image.startsWith('http')) {
+        console.warn(`⚠️ Speaker ${speaker.name} has invalid image format: ${speaker.image?.substring(0, 50)}...`);
       }
 
+      // Prepare speaker data for creation
       const speakerData = {
-        name: speaker.name,
-        email: speaker.email,
-        phone: speaker.phone,
+        name: speaker.name.trim(),
+        email: speaker.email?.trim() || undefined,
+        phone: speaker.phone?.trim() || undefined,
         role: speaker.role,
-        otherRole: speaker.otherRole,
-        bio: speaker.bio
+        otherRole: speaker.otherRole?.trim() || undefined,
+        bio: speaker.bio?.trim() || undefined
       };
 
+      console.log(`📋 Speaker data prepared:`, {
+        name: speakerData.name,
+        role: speakerData.role,
+        hasEmail: !!speakerData.email,
+        hasPhone: !!speakerData.phone,
+        hasImage: !!imageFile,
+        hasBio: !!speakerData.bio
+      });
+
+      // Create the speaker
       const result = await createSpeaker(activityId, speakerData, imageFile);
+      
+      if (result.success) {
+        console.log(`✅ Successfully created speaker: ${speaker.name}`);
+      } else {
+        console.error(`❌ Failed to create speaker ${speaker.name}:`, result.error);
+      }
+      
       results.push(result);
     }
 
+    // Analyze results
+    const successfulResults = results.filter(result => result.success);
     const failedResults = results.filter(result => !result.success);
+    
+    console.log(`📊 Sync Results Summary:`);
+    console.log(`✅ Successful: ${successfulResults.length}`);
+    console.log(`❌ Failed: ${failedResults.length}`);
+    
     if (failedResults.length > 0) {
+      console.error('❌ Failed speaker creations:', failedResults.map(r => r.error));
       return {
         success: false,
-        error: `Failed to sync ${failedResults.length} speakers`
+        error: `Failed to sync ${failedResults.length} out of ${speakers.length} speakers. Errors: ${failedResults.map(r => r.error).join(', ')}`
       };
     }
     
+    console.log('🎉 Speaker sync completed successfully!');
     return {
       success: true,
       data: {
-        message: `Synced ${speakers.length} speakers to subcollection`,
-        speakersCreated: results.map(result => result.data)
+        message: `Successfully synced ${speakers.length} speakers to subcollection`,
+        speakersCreated: successfulResults.map(result => result.data),
+        totalSynced: successfulResults.length
       }
     };
   } catch (error) {
-    console.error('Error syncing speakers to subcollection:', error);
+    console.error('💥 Critical error during speaker sync:', error);
+    
+    // Provide more specific error information
+    let errorMessage = 'Failed to sync speakers to subcollection';
+    if (error instanceof Error) {
+      if (error.message.includes('permission-denied')) {
+        errorMessage = 'Permission denied. Please check your admin privileges for speaker management.';
+      } else if (error.message.includes('network')) {
+        errorMessage = 'Network error during speaker sync. Please check your internet connection.';
+      } else if (error.message.includes('quota-exceeded')) {
+        errorMessage = 'Storage quota exceeded. Please contact administrator.';
+      } else {
+        errorMessage = `Speaker sync failed: ${error.message}`;
+      }
+    }
+    
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Failed to sync speakers to subcollection'
+      error: errorMessage
     };
   }
 };

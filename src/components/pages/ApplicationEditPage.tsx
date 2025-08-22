@@ -5,6 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { validateEmail, validateAge, getValidationMessages } from '../../utils/formValidation';
+import { FILM_ROLES } from '../../utils/formConstants';
 import { CrewMember, FormErrors } from '../../types/form.types';
 import AnimatedButton from '../ui/AnimatedButton';
 import GenreSelector from '../forms/GenreSelector';
@@ -426,7 +427,7 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
         // Film Information
         filmTitle: application.filmTitle,
         filmTitleTh: application.filmTitleTh || null,
-        filmLanguage: application.filmLanguage || 'Thai',
+        filmLanguages: application.filmLanguages || ['Thai'],
         genres: application.genres,
         format: application.format,
         duration: application.duration,
@@ -904,12 +905,11 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
                   className={`w-full p-3 rounded-lg bg-white/10 border ${formErrors.submitterRole ? 'border-red-400 error-field' : 'border-white/20'} text-white focus:border-[#FCB283] focus:outline-none`}
                 >
                   <option value="">{currentContent.selectRole}</option>
-                  <option value="director">{currentLanguage === 'th' ? 'ผู้กำกับ' : 'Director'}</option>
-                  <option value="producer">{currentLanguage === 'th' ? 'ผู้ผลิต' : 'Producer'}</option>
-                  <option value="screenwriter">{currentLanguage === 'th' ? 'นักเขียนบท' : 'Screenwriter'}</option>
-                  <option value="cinematographer">{currentLanguage === 'th' ? 'ผู้กำกับภาพ' : 'Cinematographer'}</option>
-                  <option value="editor">{currentLanguage === 'th' ? 'บรรณาธิการ' : 'Editor'}</option>
-                  <option value="other">{currentLanguage === 'th' ? 'อื่นๆ' : 'Other'}</option>
+                  {FILM_ROLES.map((role) => (
+                    <option key={role} value={role}>
+                      {role}
+                    </option>
+                  ))}
                 </select>
                 <ErrorMessage error={formErrors.submitterRole} />
               </div>
@@ -1014,7 +1014,6 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
             size="large"
             icon="💾"
             onClick={handleSave}
-            disabled={saving}
             className={`${getClass('menu')} ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {saving ? currentContent.saving : currentContent.saveButton}

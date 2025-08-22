@@ -32,6 +32,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
     canExportData: false,
     canManageUsers: false,
     canManageContent: false,
+    canManagePartners: false,
+    canRateSubmissions: false,
     canAccessSystemSettings: false,
     canGenerateReports: false,
     canFlagApplications: false,
@@ -55,6 +57,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           canExportData: false,
           canManageUsers: false,
           canManageContent: false,
+          canManagePartners: false,
+          canRateSubmissions: false,
           canAccessSystemSettings: false,
           canGenerateReports: false,
           canFlagApplications: false,
@@ -84,8 +88,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
             isAdmin: profileData.role === 'admin' || profileData.role === 'super-admin'
           });
           
-          if (profileData.role === 'admin' || profileData.role === 'super-admin') {
-            console.log('User has admin role, setting up admin access');
+          if (profileData.role === 'admin' || profileData.role === 'super-admin' || profileData.role === 'editor' || profileData.role === 'jury') {
+            console.log('User has admin-level role, setting up admin access');
             
             // CRITICAL: Set admin status IMMEDIATELY to prevent access denied
             setIsAdmin(true);
@@ -202,6 +206,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
       canExportData: false,
       canManageUsers: false,
       canManageContent: false,
+      canManagePartners: false,
+      canRateSubmissions: false,
       canAccessSystemSettings: false,
       canGenerateReports: false,
       canFlagApplications: false,
@@ -221,6 +227,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           canExportData: true,
           canManageUsers: true,
           canManageContent: true,
+          canManagePartners: true,
+          canRateSubmissions: true,
           canAccessSystemSettings: true,
           canGenerateReports: true,
           canFlagApplications: true,
@@ -239,11 +247,53 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           canExportData: true,
           canManageUsers: adminLevel === 'director' || adminLevel === 'lead',
           canManageContent: adminLevel !== 'junior',
+          canManagePartners: true,
+          canRateSubmissions: true,
           canAccessSystemSettings: false,
           canGenerateReports: true,
           canFlagApplications: true,
           canDeleteApplications: adminLevel === 'director' || adminLevel === 'lead',
           canEditApplications: adminLevel !== 'junior',
+          canAssignRoles: false
+        };
+        break;
+        
+      case 'editor':
+        perms = {
+          canViewDashboard: true,
+          canViewApplications: true,
+          canScoreApplications: true,
+          canApproveApplications: false,
+          canExportData: false,
+          canManageUsers: false,
+          canManageContent: true,
+          canManagePartners: true,
+          canRateSubmissions: true,
+          canAccessSystemSettings: false,
+          canGenerateReports: false,
+          canFlagApplications: false,
+          canDeleteApplications: false,
+          canEditApplications: false,
+          canAssignRoles: false
+        };
+        break;
+        
+      case 'jury':
+        perms = {
+          canViewDashboard: true,
+          canViewApplications: true,
+          canScoreApplications: true,
+          canApproveApplications: false,
+          canExportData: false,
+          canManageUsers: false,
+          canManageContent: false,
+          canManagePartners: false,
+          canRateSubmissions: true,
+          canAccessSystemSettings: false,
+          canGenerateReports: false,
+          canFlagApplications: false,
+          canDeleteApplications: false,
+          canEditApplications: false,
           canAssignRoles: false
         };
         break;
@@ -257,6 +307,8 @@ export const AdminProvider: React.FC<AdminProviderProps> = ({ children }) => {
           canExportData: adminLevel !== 'junior',
           canManageUsers: false,
           canManageContent: false,
+          canManagePartners: false,
+          canRateSubmissions: adminLevel !== 'junior',
           canAccessSystemSettings: false,
           canGenerateReports: adminLevel !== 'junior',
           canFlagApplications: true,

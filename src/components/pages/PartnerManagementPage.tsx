@@ -207,7 +207,7 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
   };
 
   // Permission check
-  if (!checkPermission('canManageUsers')) {
+  if (!checkPermission('canManagePartners')) {
     return (
       <div className="space-y-6 sm:space-y-8">
         <AdminZoneHeader
@@ -381,102 +381,109 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
               const LevelIcon = levelInfo.icon;
 
               return (
-                <div key={partner.id} className="glass-card p-6 rounded-xl border border-white/10 hover:border-[#FCB283]/50 transition-all duration-200">
-                  {/* Partner Logo */}
-                  <div className="flex items-center justify-center mb-4 h-24 bg-white/5 rounded-lg">
-                    <img
-                      src={partner.logo.value}
-                      alt={partner.name[currentLanguage]}
-                      className="max-h-full max-w-full object-contain"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.src = 'https://via.placeholder.com/200x100/374151/9CA3AF?text=Logo';
-                      }}
-                    />
-                  </div>
+                <div key={partner.id} className="glass-card rounded-xl border border-white/10 hover:border-[#FCB283]/50 transition-all duration-200 overflow-hidden">
+                  <div className="p-6 h-full flex flex-col">
+                    {/* Partner Logo */}
+                    <div className="flex items-center justify-center mb-4 h-24 bg-white/5 rounded-lg flex-shrink-0">
+                      <img
+                        src={partner.logo.value}
+                        alt={partner.name[currentLanguage]}
+                        className="max-h-full max-w-full object-contain"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = 'https://via.placeholder.com/200x100/374151/9CA3AF?text=Logo';
+                        }}
+                      />
+                    </div>
 
-                  {/* Partner Info */}
-                  <div className="text-center mb-4">
-                    <h3 className={`${getClass('body')} text-white font-semibold mb-2 line-clamp-2`}>
-                      {partner.name[currentLanguage]}
-                    </h3>
-                    <div className="flex items-center justify-center space-x-2 mb-2">
-                      <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${levelInfo.bgColor}`}>
-                        <LevelIcon size={14} style={{ color: levelInfo.color }} />
-                        <span className="text-xs text-white/80">
-                          {currentContent[`level${partner.level}` as keyof typeof currentContent]}
-                        </span>
+                    {/* Partner Info */}
+                    <div className="text-center mb-4 flex-grow">
+                      <h3 className={`${getClass('body')} text-white font-semibold mb-2 line-clamp-2 min-h-[2.5rem]`}>
+                        {partner.name[currentLanguage]}
+                      </h3>
+                      <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
+                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${levelInfo.bgColor}`}>
+                          <LevelIcon size={14} style={{ color: levelInfo.color }} />
+                          <span className="text-xs text-white/80">
+                            {currentContent[`level${partner.level}` as keyof typeof currentContent]}
+                          </span>
+                        </div>
+                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
+                          partner.status === 'active' ? 'bg-green-500/20' : 'bg-red-500/20'
+                        }`}>
+                          {partner.status === 'active' ? (
+                            <Eye size={14} className="text-green-400" />
+                          ) : (
+                            <EyeOff size={14} className="text-red-400" />
+                          )}
+                          <span className="text-xs text-white/80">
+                            {currentContent[partner.status as keyof typeof currentContent]}
+                          </span>
+                        </div>
                       </div>
-                      <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
-                        partner.status === 'active' ? 'bg-green-500/20' : 'bg-red-500/20'
-                      }`}>
-                        {partner.status === 'active' ? (
-                          <Eye size={14} className="text-green-400" />
+                      <div className="flex items-center justify-center space-x-1 text-xs text-white/60 mb-2">
+                        {partner.logo.type === 'upload' ? (
+                          <>
+                            <Upload size={12} />
+                            <span>{currentContent.uploadedLogo}</span>
+                          </>
                         ) : (
-                          <EyeOff size={14} className="text-red-400" />
+                          <>
+                            <Globe size={12} />
+                            <span>{currentContent.externalUrl}</span>
+                          </>
                         )}
-                        <span className="text-xs text-white/80">
-                          {currentContent[partner.status as keyof typeof currentContent]}
-                        </span>
+                      </div>
+                      <div className="text-xs text-white/40">
+                        Order: {partner.order}
                       </div>
                     </div>
-                    <div className="flex items-center justify-center space-x-1 text-xs text-white/60">
-                      {partner.logo.type === 'upload' ? (
-                        <>
-                          <Upload size={12} />
-                          <span>{currentContent.uploadedLogo}</span>
-                        </>
-                      ) : (
-                        <>
-                          <Globe size={12} />
-                          <span>{currentContent.externalUrl}</span>
-                        </>
-                      )}
-                    </div>
-                  </div>
 
-                  {/* Note */}
-                  {partner.note && (
-                    <p className={`${getClass('body')} text-white/60 text-sm text-center mb-4 line-clamp-2`}>
-                      {partner.note}
-                    </p>
-                  )}
+                    {/* Note */}
+                    {partner.note && (
+                      <div className="mb-4 flex-shrink-0">
+                        <p className={`${getClass('body')} text-white/60 text-sm text-center line-clamp-2`}>
+                          {partner.note}
+                        </p>
+                      </div>
+                    )}
 
-                  {/* Actions */}
-                  <div className="flex justify-center space-x-2">
-                    <button
-                      onClick={() => {
-                        setEditingPartner(partner);
-                        setShowFormModal(true);
-                      }}
-                      className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all duration-200"
-                      title={currentContent.edit}
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleToggleStatus(partner)}
-                      className={`p-2 rounded-lg transition-all duration-200 ${
-                        partner.status === 'active' 
-                          ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
-                          : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                      }`}
-                      title={currentContent.toggleStatus}
-                    >
-                      {partner.status === 'active' ? <EyeOff size={16} /> : <Eye size={16} />}
-                    </button>
-                    {checkPermission('canManageUsers') && (
+                    {/* Actions */}
+                    <div className="flex justify-center space-x-2 flex-shrink-0 mt-auto">
                       <button
                         onClick={() => {
-                          setDeletingPartner(partner);
-                          setShowDeleteModal(true);
+                          setEditingPartner(partner);
+                          setShowFormModal(true);
                         }}
-                        className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
-                        title={currentContent.delete}
+                        className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all duration-200"
+                        title={currentContent.edit}
                       >
-                        <Trash2 size={16} />
+                        <Edit size={16} />
                       </button>
-                    )}
+                      <button
+                        onClick={() => handleToggleStatus(partner)}
+                        className={`p-2 rounded-lg transition-all duration-200 ${
+                          partner.status === 'active' 
+                            ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
+                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
+                        }`}
+                        title={currentContent.toggleStatus}
+                      >
+                        {partner.status === 'active' ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                      {checkPermission('canManageUsers') && (
+                        <button
+                          onClick={() => {
+                            setDeletingPartner(partner);
+                            setShowDeleteModal(true);
+                          }}
+                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
+                          title={currentContent.delete}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );

@@ -86,17 +86,22 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
   const handleSubmitNow = async () => {
     setIsProcessing(true);
     try {
+      // Add a small delay to show loading state
+      await new Promise(resolve => setTimeout(resolve, 300));
       await onSubmitNow();
     } catch (error) {
       console.error('Error during submit:', error);
-    } finally {
       setIsProcessing(false);
     }
+    // Don't set isProcessing to false here - let the navigation handle it
   };
 
   const handleReviewLater = () => {
     setIsProcessing(true);
-    onReviewLater();
+    // Add a small delay to show loading state
+    setTimeout(() => {
+      onReviewLater();
+    }, 300);
   };
 
   if (!isOpen) return null;
@@ -191,9 +196,8 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
                 <AnimatedButton
                   variant="primary"
                   size="small"
-                  onClick={handleSubmitNow}
-                  disabled={isProcessing}
-                  className={`w-full text-xs ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={isProcessing ? undefined : handleSubmitNow}
+                  className={`w-full text-xs ${isProcessing ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                 >
                   {isProcessing ? '...' : (currentLanguage === 'th' ? 'ส่งเลย' : 'Submit')}
                 </AnimatedButton>
@@ -213,9 +217,8 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
                 <AnimatedButton
                   variant="secondary"
                   size="small"
-                  onClick={handleReviewLater}
-                  disabled={isProcessing}
-                  className={`w-full text-xs ${isProcessing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  onClick={isProcessing ? undefined : handleReviewLater}
+                  className={`w-full text-xs ${isProcessing ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                 >
                   {isProcessing ? '...' : (currentLanguage === 'th' ? 'ทีหลัง' : 'Later')}
                 </AnimatedButton>

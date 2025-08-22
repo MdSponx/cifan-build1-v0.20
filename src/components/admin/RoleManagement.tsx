@@ -8,6 +8,7 @@ import { useNotificationHelpers } from '../ui/NotificationSystem';
 import AddUserModal from './AddUserModal';
 import UserDetailsModal from './UserDetailsModal';
 import BulkActionsModal from './BulkActionsModal';
+import RolePermissionTable from './RolePermissionTable';
 import {
   Users,
   Crown,
@@ -25,7 +26,9 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  Trash2
+  Trash2,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 
 // Role definitions with icons and colors - Updated to match database format
@@ -128,6 +131,10 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
     jury: 0,
     user: 0
   });
+
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const usersPerPage = 10;
 
   // New modal states
   const [showAddUserModal, setShowAddUserModal] = useState(false);
@@ -263,6 +270,22 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
     
     return matchesSearch && matchesRole && matchesStatus;
   });
+
+  // Sort users by creation date (latest first) and apply pagination
+  const sortedUsers = [...filteredUsers].sort((a, b) => 
+    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  // Calculate pagination
+  const totalPages = Math.ceil(sortedUsers.length / usersPerPage);
+  const startIndex = (currentPage - 1) * usersPerPage;
+  const endIndex = startIndex + usersPerPage;
+  const paginatedUsers = sortedUsers.slice(startIndex, endIndex);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterRole, filterStatus]);
 
   // Handle role change
   const handleRoleChange = async (userId: string, newRole: UserRole['role']) => {
@@ -456,7 +479,7 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
       </div>
 
       {/* Role Overview Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {Object.entries(roleDefinitions).map(([roleKey, definition]) => {
           const role = roleKey as UserRole['role'];
           const count = roleStats[role] || 0;
@@ -554,32 +577,39 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
           backdropFilter: 'blur(20px)'
         }}
       >
+        {/* Table Header */}
         <div className="overflow-x-auto">
           <table className="w-full">
-            <thead>
+            <thead className="bg-black/20 backdrop-blur-sm">
               <tr className="border-b border-white/20">
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/4`}>
                   {currentContent.name}
                 </th>
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/4`}>
                   {currentContent.email}
                 </th>
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/6`}>
                   {currentContent.role}
                 </th>
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/8`}>
                   {currentContent.status}
                 </th>
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/8`}>
                   {currentContent.lastLogin}
                 </th>
-                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80`}>
+                <th className={`text-left p-4 ${getClass('body')} font-semibold text-white/80 w-1/8`}>
                   {currentContent.actions}
                 </th>
               </tr>
             </thead>
+          </table>
+        </div>
+
+        {/* Table Body with Fixed Height */}
+        <div className="overflow-x-auto max-h-[500px] overflow-y-auto">
+          <table className="w-full">
             <tbody>
-              {filteredUsers.length === 0 ? (
+              {paginatedUsers.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center p-8">
                     <div className="text-white/60">
@@ -589,9 +619,9 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
                   </td>
                 </tr>
               ) : (
-                filteredUsers.map((user) => (
+                paginatedUsers.map((user) => (
                   <tr key={user.id} className="border-b border-white/10 hover:bg-white/5 transition-colors">
-                    <td className="p-4">
+                    <td className="p-4 w-1/4">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-full overflow-hidden bg-gradient-to-r from-[#FCB283] to-[#AA4626] flex items-center justify-center">
                           {user.avatar ? (
@@ -610,10 +640,10 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
                         </div>
                       </div>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-1/4">
                       <p className={`${getClass('body')} text-white/80`}>{user.email}</p>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-1/6">
                       <button
                         onClick={() => {
                           setSelectedUser(user);
@@ -626,7 +656,7 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
                         {currentContent.roles[user.role] || user.role}
                       </button>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-1/8">
                       <button
                         onClick={() => handleStatusToggle(user.id, user.status)}
                         className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border text-sm font-medium transition-colors hover:bg-white/10 ${getStatusBadgeStyles(user.status)}`}
@@ -639,12 +669,12 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
                         {user.status === 'active' ? currentContent.active : currentContent.inactive}
                       </button>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-1/8">
                       <p className={`${getClass('body')} text-white/60 text-sm`}>
                         {formatLastLogin(user.lastLogin)}
                       </p>
                     </td>
-                    <td className="p-4">
+                    <td className="p-4 w-1/8">
                       <div className="flex items-center gap-2">
                         <button 
                           onClick={() => handleViewUserDetails(user)}
@@ -663,6 +693,107 @@ const RoleManagement: React.FC<RoleManagementProps> = ({ onSidebarToggle }) => {
               )}
             </tbody>
           </table>
+        </div>
+        
+        {/* Pagination Controls - Always show when there are users */}
+        {sortedUsers.length > 0 && (
+          <div className="flex items-center justify-between p-4 border-t border-white/20 bg-black/10">
+            <div className="flex items-center gap-2">
+              <p className={`${getClass('body')} text-white/60 text-sm`}>
+                {currentLanguage === 'th' 
+                  ? `แสดง ${startIndex + 1}-${Math.min(endIndex, sortedUsers.length)} จาก ${sortedUsers.length} รายการ`
+                  : `Showing ${startIndex + 1}-${Math.min(endIndex, sortedUsers.length)} of ${sortedUsers.length} entries`
+                }
+              </p>
+            </div>
+            
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                className={`p-2 rounded-lg transition-colors ${
+                  currentPage === 1
+                    ? 'text-white/30 cursor-not-allowed'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              
+              <div className="flex items-center gap-1">
+                {totalPages > 1 && Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                  // Show first page, last page, current page, and pages around current page
+                  const showPage = page === 1 || 
+                                  page === totalPages || 
+                                  Math.abs(page - currentPage) <= 1;
+                  
+                  if (!showPage && page === 2 && currentPage > 4) {
+                    return <span key={page} className="px-2 text-white/40">...</span>;
+                  }
+                  
+                  if (!showPage && page === totalPages - 1 && currentPage < totalPages - 3) {
+                    return <span key={page} className="px-2 text-white/40">...</span>;
+                  }
+                  
+                  if (!showPage) return null;
+                  
+                  return (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`px-3 py-1 rounded-lg text-sm transition-colors ${
+                        currentPage === page
+                          ? 'bg-[#FCB283] text-white'
+                          : 'text-white/60 hover:text-white hover:bg-white/10'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  );
+                })}
+                {totalPages === 1 && (
+                  <span className={`px-3 py-1 rounded-lg text-sm bg-[#FCB283] text-white`}>
+                    1
+                  </span>
+                )}
+              </div>
+              
+              <button
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                className={`p-2 rounded-lg transition-colors ${
+                  currentPage === totalPages
+                    ? 'text-white/30 cursor-not-allowed'
+                    : 'text-white/60 hover:text-white hover:bg-white/10'
+                }`}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Role Permission Matrix Section */}
+      <div className="mt-12">
+        <div className="glass-container rounded-xl p-6 border border-white/20"
+          style={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(20px)'
+          }}
+        >
+          <div className="mb-6">
+            <h2 className={`text-xl lg:text-2xl ${getClass('header')} text-white mb-2`}>
+              {currentLanguage === 'th' ? 'ตารางสิทธิ์ตามบทบาท' : 'Role Permission Matrix'}
+            </h2>
+            <p className={`${getClass('body')} text-white/60`}>
+              {currentLanguage === 'th' 
+                ? 'ภาพรวมสิทธิ์การเข้าถึงสำหรับแต่ละบทบาทในระบบ'
+                : 'Overview of access permissions for each role in the system'
+              }
+            </p>
+          </div>
+          <RolePermissionTable />
         </div>
       </div>
 

@@ -93,7 +93,7 @@ export interface AdminProfile {
   phoneNumber: string;
   
   // Admin-specific fields
-  adminRole: 'admin' | 'super-admin' | 'moderator';
+  adminRole: 'admin' | 'super-admin' | 'moderator' | 'editor' | 'jury';
   adminLevel: 'junior' | 'senior' | 'lead' | 'director';
   department: string;
   responsibility: string;
@@ -115,12 +115,14 @@ export interface AdminPermissions {
   canExportData: boolean;
   canManageUsers: boolean;
   canManageContent: boolean;
+  canManagePartners: boolean;
+  canRateSubmissions: boolean;
   canAccessSystemSettings: boolean;
   canGenerateReports: boolean;
   canFlagApplications: boolean;
   canDeleteApplications: boolean;
   canEditApplications: boolean;
-  canAssignRoles: boolean; // New permission for role management
+  canAssignRoles: boolean;
 }
 
 export interface AdminContextType {

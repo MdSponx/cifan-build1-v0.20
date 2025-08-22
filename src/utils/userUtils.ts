@@ -13,6 +13,56 @@ export const isAdminUser = (userProfile: UserProfile | null): boolean => {
 };
 
 /**
+ * Check if a user is an editor
+ */
+export const isEditorUser = (userProfile: UserProfile | null): boolean => {
+  if (!userProfile) return false;
+  return userProfile.role === 'editor';
+};
+
+/**
+ * Check if a user is a jury member
+ */
+export const isJuryUser = (userProfile: UserProfile | null): boolean => {
+  if (!userProfile) return false;
+  return userProfile.role === 'jury';
+};
+
+/**
+ * Check if a user can manage content (feature films, partners)
+ * Includes admin, super-admin, and editor roles
+ */
+export const canManageContent = (userProfile: UserProfile | null): boolean => {
+  if (!userProfile) return false;
+  return userProfile.role === 'admin' || 
+         userProfile.role === 'super-admin' || 
+         userProfile.role === 'editor';
+};
+
+/**
+ * Check if a user can access submissions (view and rate)
+ * Includes admin, super-admin, editor, and jury roles
+ */
+export const canAccessSubmissions = (userProfile: UserProfile | null): boolean => {
+  if (!userProfile) return false;
+  return userProfile.role === 'admin' || 
+         userProfile.role === 'super-admin' || 
+         userProfile.role === 'editor' || 
+         userProfile.role === 'jury';
+};
+
+/**
+ * Check if a user has admin-level access (any admin role including editor and jury)
+ */
+export const hasAdminLevelAccess = (userProfile: UserProfile | null): boolean => {
+  if (!userProfile) return false;
+  return userProfile.role === 'admin' || 
+         userProfile.role === 'super-admin' || 
+         userProfile.role === 'editor' || 
+         userProfile.role === 'jury';
+};
+
+/**
  * Check if a user profile is complete based on actual field values
  * Admin users are always considered to have complete profiles
  */
@@ -40,7 +90,7 @@ export const isProfileComplete = (userProfile: UserProfile | null): boolean => {
     if (userProfile.birthDate instanceof Date) {
       const year = userProfile.birthDate.getFullYear();
       hasBirthDate = year >= 1900 && year <= new Date().getFullYear();
-    } else if (userProfile.birthDate.toDate && typeof userProfile.birthDate.toDate === 'function') {
+    } else if ((userProfile.birthDate as any).toDate && typeof (userProfile.birthDate as any).toDate === 'function') {
       // Handle Firestore Timestamp
       const date = (userProfile.birthDate as any).toDate();
       const year = date.getFullYear();
@@ -83,6 +133,9 @@ export const shouldRedirectToProfileSetup = (userProfile: UserProfile | null): b
     console.log('shouldRedirectToProfileSetup: Field validation result:', actuallyComplete);
     return !actuallyComplete;
   }
+  
+  // If profile is not marked as complete, check if it actually needs setup
+  return !isProfileComplete(userProfile);
 };
 
 /**

@@ -123,7 +123,7 @@ service cloud.firestore {
         // Validate required fields
         request.resource.data.keys().hasAll(['name', 'shortDescription', 'status', 'isPublic', 
           'needSubmission', 'maxParticipants', 'isOneDayActivity', 'eventDate', 'startTime', 'endTime', 'registrationDeadline',
-          'venueName', 'description', 'organizers', 'tags', 'contactEmail', 'contactName',
+          'venueName', 'description', 'organizers', 'speakers', 'tags', 'contactEmail', 'contactName',
           'createdAt', 'updatedAt', 'createdBy', 'updatedBy']) &&
         // Validate data types and constraints
         request.resource.data.name is string &&
@@ -140,6 +140,7 @@ service cloud.firestore {
         request.resource.data.isOneDayActivity is bool &&
         request.resource.data.organizers is list &&
         request.resource.data.organizers.size() > 0 &&
+        request.resource.data.speakers is list &&
         request.resource.data.tags is list &&
         request.resource.data.tags.size() > 0 &&
         request.resource.data.tags.size() <= 10 &&
@@ -179,6 +180,8 @@ service cloud.firestore {
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['organizers']) ||
          (request.resource.data.organizers is list &&
           request.resource.data.organizers.size() > 0)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['speakers']) ||
+         request.resource.data.speakers is list) &&
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['tags']) ||
          (request.resource.data.tags is list &&
           request.resource.data.tags.size() > 0 &&

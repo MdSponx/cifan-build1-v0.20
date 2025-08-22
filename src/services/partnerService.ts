@@ -69,15 +69,23 @@ class PartnerService {
         updatedAt: doc.data().updatedAt?.toDate() || new Date()
       })) as Partner[];
       
-      // Sort by level first, then by createdAt in memory
-      return partners.sort((a, b) => {
+      // Filter out any partners that might not have proper status and sort
+      const activePartners = partners.filter(partner => 
+        partner.status === 'active' && 
+        partner.level && 
+        typeof partner.order === 'number'
+      );
+      
+      // Sort by level first, then by order, then by createdAt
+      return activePartners.sort((a, b) => {
         if (a.level !== b.level) {
           return a.level - b.level;
         }
-        // Sort by order within same level, then by createdAt
+        // Sort by order within same level
         if (a.order !== b.order) {
           return a.order - b.order;
         }
+        // Finally sort by creation date
         return a.createdAt.getTime() - b.createdAt.getTime();
       });
     } catch (error) {

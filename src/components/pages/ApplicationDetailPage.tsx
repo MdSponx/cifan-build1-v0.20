@@ -74,11 +74,15 @@ const ApplicationDetailPage: React.FC<ApplicationDetailPageProps> = ({
   useEffect(() => {
     const fetchApplication = async () => {
       if (!user || !applicationId) {
+        setError(currentLanguage === 'th' ? 'ไม่พบข้อมูลผู้ใช้หรือรหัสใบสมัคร' : 'User or application ID not found');
         setLoading(false);
         return;
       }
 
       try {
+        setLoading(true);
+        setError(null);
+        
         const docRef = doc(db, 'submissions', applicationId);
         const docSnap = await getDoc(docRef);
 
@@ -88,6 +92,7 @@ const ApplicationDetailPage: React.FC<ApplicationDetailPageProps> = ({
           // Verify that this application belongs to the current user
           if (data.userId !== user.uid) {
             setError(currentLanguage === 'th' ? 'คุณไม่มีสิทธิ์เข้าถึงใบสมัครนี้' : 'You do not have permission to access this application');
+            setLoading(false);
             return;
           }
 

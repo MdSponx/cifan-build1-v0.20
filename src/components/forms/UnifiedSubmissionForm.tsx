@@ -114,6 +114,16 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
     isSubmitting: false
   });
 
+  // Handle successful draft save with useEffect to ensure proper state transitions
+  useEffect(() => {
+    if (submissionState.result?.success && submissionState.result?.isDraft) {
+      // Clear all submission state and show dialog
+      setSubmissionState({ isSubmitting: false });
+      setSavedApplicationId(submissionState.result.submissionId || '');
+      setShowDraftSuccessDialog(true);
+    }
+  }, [submissionState.result]);
+
   // Fetch user profile data and populate form
   useEffect(() => {
     if (userProfile) {
@@ -398,12 +408,7 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
 
       setSubmissionState(prev => ({ ...prev, result }));
 
-      if (result.success) {
-        // Clear submission state and show dialog immediately
-        setSubmissionState({ isSubmitting: false });
-        setSavedApplicationId(result.submissionId || '');
-        setShowDraftSuccessDialog(true);
-      }
+      // Note: Success handling is now done in useEffect to ensure proper state transitions
 
     } catch (error) {
       console.error('Draft save error:', error);
@@ -429,17 +434,25 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
 
   const handleSubmitNow = () => {
     if (savedApplicationId) {
-      window.location.hash = `#application-detail/${savedApplicationId}`;
+      // Add a small delay to ensure dialog state is properly managed
+      setShowDraftSuccessDialog(false);
       setTimeout(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.location.hash = `#application-detail/${savedApplicationId}`;
+        // Ensure scroll happens after route change
+        setTimeout(() => {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 200);
       }, 100);
     }
   };
 
   const handleReviewLater = () => {
-    window.location.hash = '#my-applications';
+    setShowDraftSuccessDialog(false);
     setTimeout(() => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.location.hash = '#my-applications';
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 200);
     }, 100);
   };
 
@@ -448,7 +461,10 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
     // Default to applications list if user closes dialog
     setTimeout(() => {
       window.location.hash = '#my-applications';
-    }, 500);
+      setTimeout(() => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 200);
+    }, 300);
   };
 
   // Show submission progress
@@ -893,7 +909,10 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
               size="large"
               icon="💾"
               className={`${getClass('menu')} ${submissionState.isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
-              onClick={handleSubmit}
+              onClick={(e) => {
+                e?.preventDefault();
+                handleSubmit(e as any);
+              }}
             >
               {submissionState.isSubmitting ? currentContent.saving : currentContent.saveDraft}
             </AnimatedButton>

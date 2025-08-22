@@ -35,7 +35,7 @@ import {
   ActivitySearchResult,
   ActivityStatus
 } from '../types/activities';
-import { syncSpeakersToSubcollection, getSpeakers } from './speakerService';
+// Removed speaker service imports - we'll store speakers directly in the activity document
 
 const ACTIVITIES_COLLECTION = 'activities';
 const IMAGES_STORAGE_PATH = 'activities/images';
@@ -73,7 +73,7 @@ export class ActivitiesService {
         console.log('Image uploaded successfully:', imageUrl);
       }
 
-      // Prepare activity data for Firestore (without speakers - they go to subcollection)
+      // Prepare activity data for Firestore (including speakers directly in the document)
       const activityData: any = {
         name: formData.name.trim(),
         shortDescription: formData.shortDescription.trim(),
@@ -90,6 +90,23 @@ export class ActivitiesService {
         venueLocation: formData.venueLocation?.trim() || '',
         description: formData.description.trim(),
         organizers: formData.organizers.map(org => org.trim()).filter(org => org.length > 0),
+        speakers: (formData.speakers || []).map(speaker => {
+          const cleanSpeaker: any = {
+            id: speaker.id,
+            name: speaker.name,
+            role: speaker.role
+          };
+          
+          // Only add fields that have actual values (exclude imagePath - it's for cleanup only)
+          if (speaker.email) cleanSpeaker.email = speaker.email;
+          if (speaker.phone) cleanSpeaker.phone = speaker.phone;
+          if (speaker.otherRole) cleanSpeaker.otherRole = speaker.otherRole;
+          if (speaker.bio) cleanSpeaker.bio = speaker.bio;
+          if (speaker.image) cleanSpeaker.image = speaker.image;
+          // Note: imagePath is excluded as it's only used for cleanup, not storage
+          
+          return cleanSpeaker;
+        }), // Store speakers directly in the activity document, cleaned of undefined values
         tags: formData.tags,
         contactEmail: formData.contactEmail.trim(),
         contactName: formData.contactName.trim(),
@@ -117,28 +134,13 @@ export class ActivitiesService {
       const docRef = await addDoc(collection(db, ACTIVITIES_COLLECTION), activityData);
       console.log('Document added successfully with ID:', docRef.id);
 
-      // Save speakers to subcollection if provided
-      if (formData.speakers && formData.speakers.length > 0) {
-        console.log('Syncing speakers to subcollection...');
-        const speakersResult = await syncSpeakersToSubcollection(docRef.id, formData.speakers);
-        if (!speakersResult.success) {
-          console.warn('Failed to sync speakers:', speakersResult.error);
-        } else {
-          console.log('Speakers synced successfully');
-        }
-      }
-
-      // Get speakers from subcollection for the response
-      const speakersResult = await getSpeakers(docRef.id);
-      const speakers = speakersResult.success ? speakersResult.data : [];
-
       // Return the created activity
       const createdActivity = this.convertFirestoreDocToActivity({
         id: docRef.id,
         ...activityData,
         createdAt: Timestamp.now(),
         updatedAt: Timestamp.now()
-      }, speakers);
+      });
       
       console.log('Activity created successfully:', createdActivity);
       return createdActivity;
@@ -170,32 +172,33 @@ export class ActivitiesService {
     pageSize = 12
   ): Promise<ActivityListResponse> {
     try {
-      let q = collection(db, ACTIVITIES_COLLECTION);
+      let baseQuery = collection(db, ACTIVITIES_COLLECTION);
+      let queryConstraints: any[] = [];
 
       // Apply filters
       if (filters) {
         if (filters.status && filters.status !== 'all') {
-          q = query(q, where('status', '==', filters.status));
+          queryConstraints.push(where('status', '==', filters.status));
         }
         
         if (filters.isPublic !== undefined) {
-          q = query(q, where('isPublic', '==', filters.isPublic));
+          queryConstraints.push(where('isPublic', '==', filters.isPublic));
         }
 
         if (filters.tags && filters.tags.length > 0) {
-          q = query(q, where('tags', 'array-contains-any', filters.tags));
+          queryConstraints.push(where('tags', 'array-contains-any', filters.tags));
         }
 
         if (filters.organizer) {
-          q = query(q, where('organizers', 'array-contains', filters.organizer));
+          queryConstraints.push(where('organizers', 'array-contains', filters.organizer));
         }
 
         if (filters.dateRange) {
           if (filters.dateRange.start) {
-            q = query(q, where('eventDate', '>=', filters.dateRange.start));
+            queryConstraints.push(where('eventDate', '>=', filters.dateRange.start));
           }
           if (filters.dateRange.end) {
-            q = query(q, where('eventDate', '<=', filters.dateRange.end));
+            queryConstraints.push(where('eventDate', '<=', filters.dateRange.end));
           }
         }
       }
@@ -203,11 +206,14 @@ export class ActivitiesService {
       // Apply sorting
       if (sortOptions) {
         const direction = sortOptions.direction === 'desc' ? 'desc' : 'asc';
-        q = query(q, orderBy(sortOptions.field, direction));
+        queryConstraints.push(orderBy(sortOptions.field, direction));
       } else {
         // Default sort by event date (upcoming first)
-        q = query(q, orderBy('eventDate', 'asc'));
+        queryConstraints.push(orderBy('eventDate', 'asc'));
       }
+
+      // Create query with all constraints
+      const q = query(baseQuery, ...queryConstraints);
 
       // Get total count for pagination
       const totalSnapshot = await getDocs(q);
@@ -215,20 +221,22 @@ export class ActivitiesService {
 
       // Apply pagination
       const offset = (page - 1) * pageSize;
+      let paginatedQuery = q;
+      
       if (offset > 0) {
-        const offsetQuery = query(q, limit(offset));
+        const offsetQuery = query(baseQuery, ...queryConstraints, limit(offset));
         const offsetSnapshot = await getDocs(offsetQuery);
         if (!offsetSnapshot.empty) {
           const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
-          q = query(q, startAfter(lastDoc), limit(pageSize));
+          paginatedQuery = query(baseQuery, ...queryConstraints, startAfter(lastDoc), limit(pageSize));
         } else {
-          q = query(q, limit(pageSize));
+          paginatedQuery = query(baseQuery, ...queryConstraints, limit(pageSize));
         }
       } else {
-        q = query(q, limit(pageSize));
+        paginatedQuery = query(baseQuery, ...queryConstraints, limit(pageSize));
       }
 
-      const snapshot = await getDocs(q);
+      const snapshot = await getDocs(paginatedQuery);
       let activities: Activity[] = snapshot.docs.map(doc => 
         this.convertFirestoreDocToActivity({
           id: doc.id,
@@ -273,14 +281,14 @@ export class ActivitiesService {
   /**
    * Get public activities for homepage display
    */
-  async getPublicActivities(limit = 6): Promise<Activity[]> {
+  async getPublicActivities(limitCount = 6): Promise<Activity[]> {
     try {
       const q = query(
         collection(db, ACTIVITIES_COLLECTION),
         where('isPublic', '==', true),
         where('status', '==', 'published'),
         orderBy('eventDate', 'asc'),
-        limit(limit)
+        limit(limitCount)
       );
 
       const snapshot = await getDocs(q);
@@ -299,7 +307,7 @@ export class ActivitiesService {
   /**
    * Get upcoming activities
    */
-  async getUpcomingActivities(limit = 10): Promise<Activity[]> {
+  async getUpcomingActivities(limitCount = 10): Promise<Activity[]> {
     try {
       const today = new Date().toISOString().split('T')[0];
       const q = query(
@@ -307,7 +315,7 @@ export class ActivitiesService {
         where('status', '==', 'published'),
         where('eventDate', '>=', today),
         orderBy('eventDate', 'asc'),
-        limit(limit)
+        limit(limitCount)
       );
 
       const snapshot = await getDocs(q);
@@ -332,14 +340,10 @@ export class ActivitiesService {
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
-        // Get speakers from subcollection
-        const speakersResult = await getSpeakers(activityId);
-        const speakers = speakersResult.success ? speakersResult.data : [];
-
         return this.convertFirestoreDocToActivity({
           id: docSnap.id,
           ...docSnap.data()
-        } as ActivityFirestoreDoc, speakers);
+        } as ActivityFirestoreDoc);
       }
 
       return null;
@@ -423,6 +427,29 @@ export class ActivitiesService {
       if (formData.contactName !== undefined) updateData.contactName = formData.contactName.trim();
       if (formData.contactPhone !== undefined) updateData.contactPhone = formData.contactPhone.trim();
 
+      // Handle speakers update if provided - store directly in the document
+      if (formData.speakers !== undefined) {
+        console.log('✅ Updating speakers directly in activity document:', activityId);
+        // Clean speakers data to remove undefined values and exclude imagePath
+        updateData.speakers = formData.speakers.map(speaker => {
+          const cleanSpeaker: any = {
+            id: speaker.id,
+            name: speaker.name,
+            role: speaker.role
+          };
+          
+          // Only add fields that have actual values (exclude imagePath - it's for cleanup only)
+          if (speaker.email) cleanSpeaker.email = speaker.email;
+          if (speaker.phone) cleanSpeaker.phone = speaker.phone;
+          if (speaker.otherRole) cleanSpeaker.otherRole = speaker.otherRole;
+          if (speaker.bio) cleanSpeaker.bio = speaker.bio;
+          if (speaker.image) cleanSpeaker.image = speaker.image;
+          // Note: imagePath is excluded as it's only used for cleanup, not storage
+          
+          return cleanSpeaker;
+        });
+      }
+
       // Update image fields if changed
       if (formData.image) {
         updateData.imageUrl = imageUrl;
@@ -434,27 +461,12 @@ export class ActivitiesService {
       await updateDoc(docRef, updateData);
       console.log('Activity updated successfully');
 
-      // Handle speakers update if provided
-      if (formData.speakers !== undefined) {
-        console.log('Syncing speakers to subcollection...');
-        const speakersResult = await syncSpeakersToSubcollection(activityId, formData.speakers);
-        if (!speakersResult.success) {
-          console.warn('Failed to sync speakers:', speakersResult.error);
-        } else {
-          console.log('Speakers synced successfully');
-        }
-      }
-
-      // Get speakers from subcollection for the response
-      const speakersResult = await getSpeakers(activityId);
-      const speakers = speakersResult.success ? speakersResult.data : [];
-
       // Return updated activity
       const updatedDoc = await getDoc(docRef);
       return this.convertFirestoreDocToActivity({
         id: updatedDoc.id,
         ...updatedDoc.data()
-      } as ActivityFirestoreDoc, speakers);
+      } as ActivityFirestoreDoc);
     } catch (error) {
       console.error('Error updating activity:', error);
       
@@ -866,7 +878,7 @@ export class ActivitiesService {
     return Array.from(suggestions).slice(0, 5); // Return top 5 suggestions
   }
 
-  private convertFirestoreDocToActivity(doc: ActivityFirestoreDoc, speakers: any[] = []): Activity {
+  private convertFirestoreDocToActivity(doc: ActivityFirestoreDoc): Activity {
     return {
       id: doc.id,
       image: doc.imageUrl,
@@ -886,7 +898,7 @@ export class ActivitiesService {
       venueLocation: doc.venueLocation,
       description: doc.description,
       organizers: doc.organizers,
-      speakers: speakers || [], // Use speakers from subcollection
+      speakers: doc.speakers || [], // Use speakers directly from the document
       tags: doc.tags,
       contactEmail: doc.contactEmail,
       contactName: doc.contactName,

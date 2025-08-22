@@ -40,9 +40,11 @@ export class RoleService {
           status = 'inactive';
         }
         
-        // Determine last login - check multiple possible fields
+        // Determine last login - check multiple possible fields (prioritize lastLoginAt from AuthService)
         let lastLogin: Date | undefined;
-        if (data.lastLogin) {
+        if (data.lastLoginAt) {
+          lastLogin = data.lastLoginAt.toDate ? data.lastLoginAt.toDate() : new Date(data.lastLoginAt);
+        } else if (data.lastLogin) {
           lastLogin = data.lastLogin.toDate ? data.lastLogin.toDate() : new Date(data.lastLogin);
         } else if (data.lastSignInTime) {
           lastLogin = data.lastSignInTime.toDate ? data.lastSignInTime.toDate() : new Date(data.lastSignInTime);
@@ -91,9 +93,11 @@ export class RoleService {
         status = 'inactive';
       }
       
-      // Determine last login - check multiple possible fields
+      // Determine last login - check multiple possible fields (prioritize lastLoginAt from AuthService)
       let lastLogin: Date | undefined;
-      if (data.lastLogin) {
+      if (data.lastLoginAt) {
+        lastLogin = data.lastLoginAt.toDate ? data.lastLoginAt.toDate() : new Date(data.lastLoginAt);
+      } else if (data.lastLogin) {
         lastLogin = data.lastLogin.toDate ? data.lastLogin.toDate() : new Date(data.lastLogin);
       } else if (data.lastSignInTime) {
         lastLogin = data.lastSignInTime.toDate ? data.lastSignInTime.toDate() : new Date(data.lastSignInTime);

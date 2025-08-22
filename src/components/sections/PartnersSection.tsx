@@ -48,9 +48,33 @@ const PartnersSection = () => {
 
   // Group partners by level and sort by order
   const partnersByLevel = {
-    main: partners.filter(p => p.level === 1).sort((a, b) => a.order - b.order),
-    support: partners.filter(p => p.level === 2).sort((a, b) => a.order - b.order),
-    friend: partners.filter(p => p.level === 3).sort((a, b) => a.order - b.order)
+    main: partners
+      .filter(p => p.level === 1 && p.status === 'active')
+      .sort((a, b) => {
+        // Sort by order first, then by creation date
+        if (a.order !== b.order) {
+          return a.order - b.order;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      }),
+    support: partners
+      .filter(p => p.level === 2 && p.status === 'active')
+      .sort((a, b) => {
+        // Sort by order first, then by creation date
+        if (a.order !== b.order) {
+          return a.order - b.order;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      }),
+    friend: partners
+      .filter(p => p.level === 3 && p.status === 'active')
+      .sort((a, b) => {
+        // Sort by order first, then by creation date
+        if (a.order !== b.order) {
+          return a.order - b.order;
+        }
+        return a.createdAt.getTime() - b.createdAt.getTime();
+      })
   };
 
   if (loading) {

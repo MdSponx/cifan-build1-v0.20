@@ -4,6 +4,7 @@ import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
 import { useAdmin } from './AdminContext';
 import { AdminProtectedRouteProps } from '../../types/admin.types';
+import { hasAdminLevelAccess } from '../../utils/userUtils';
 import { Shield, AlertTriangle, Lock } from 'lucide-react';
 
 const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({
@@ -65,11 +66,11 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({
   // Check if user is admin
   if (!isAdmin) {
     // Fallback check from userProfile in AuthContext
-    const isAdminFromProfile = userProfile && (userProfile.role === 'admin' || userProfile.role === 'super-admin');
+    const isAdminFromProfile = userProfile && hasAdminLevelAccess(userProfile);
     
     if (isAdminFromProfile) {
-      console.log('AdminProtectedRoute: Fallback admin check passed, allowing access');
-      // If AuthContext says user is admin but AdminContext isn't ready, allow access
+      console.log('AdminProtectedRoute: Fallback admin-level check passed, allowing access');
+      // If AuthContext says user has admin-level access but AdminContext isn't ready, allow access
       return <>{children}</>;
     }
     

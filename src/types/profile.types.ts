@@ -5,7 +5,7 @@ export interface UserProfile {
   photoURL?: string;
   
   // Authentication & Role Data
-  role: 'user' | 'admin' | 'super-admin';
+  role: 'user' | 'admin' | 'super-admin' | 'editor' | 'jury';
   displayName?: string;
   
   // Profile Data
