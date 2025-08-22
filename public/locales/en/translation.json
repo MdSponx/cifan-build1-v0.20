@@ -17,6 +17,18 @@
     "myApplications": "My Applications",
     "signOut": "Sign Out"
   },
+  "menu": {
+    "contentManagement": "Content Management",
+    "filmLibrary": "Film Library",
+    "ratingDashboard": "Rating Dashboard",
+    "editorAccess": "Editor Access",
+    "juryAccess": "Jury Access"
+  },
+  "tooltips": {
+    "contentManagement": "Manage films, partners, and content",
+    "filmLibrary": "Browse and manage film library",
+    "ratingDashboard": "Rate and evaluate film submissions"
+  },
   "hero": {
     "title": "CIFAN",
     "year": "2025",

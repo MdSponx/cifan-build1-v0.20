@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { User, LogOut } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useAuthFlow } from '../auth/AuthFlowProvider';
+import RoleBasedMenuItems from './RoleBasedMenuItems';
 
 const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -194,6 +195,9 @@ const Navigation = () => {
                           {t('navigation.myApplications') || 'My Applications'}
                         </button>
                         
+                        {/* Role-based Menu Items */}
+                        <RoleBasedMenuItems onMenuItemClick={() => setShowAuthMenu(false)} />
+                        
                         {/* Admin Zone Access - Only show for admin users */}
                         {(userProfile?.role === 'admin' || userProfile?.role === 'super-admin') && user?.emailVerified ? (
                           <button 
@@ -317,6 +321,9 @@ const Navigation = () => {
                     <span className="text-sm">📋</span>
                     {t('navigation.myApplications') || 'My Applications'}
                   </button>
+                  
+                  {/* Role-based Menu Items - Mobile */}
+                  <RoleBasedMenuItems onMenuItemClick={() => setIsOpen(false)} />
                   
                   {/* Admin Zone Access - Mobile */}
                   {(userProfile?.role === 'admin' || userProfile?.role === 'super-admin') && user?.emailVerified ? (

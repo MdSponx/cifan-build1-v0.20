@@ -375,16 +375,16 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
             </p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 auto-rows-fr">
             {filteredPartners.map((partner) => {
               const levelInfo = getLevelInfo(partner.level);
               const LevelIcon = levelInfo.icon;
 
               return (
-                <div key={partner.id} className="glass-card rounded-xl border border-white/10 hover:border-[#FCB283]/50 transition-all duration-200 overflow-hidden">
-                  <div className="p-6 h-full flex flex-col">
+                <div key={partner.id} className="glass-card rounded-xl border border-white/10 hover:border-[#FCB283]/50 transition-all duration-200 overflow-hidden min-h-[400px] max-w-full">
+                  <div className="p-4 sm:p-6 h-full flex flex-col">
                     {/* Partner Logo */}
-                    <div className="flex items-center justify-center mb-4 h-24 bg-white/5 rounded-lg flex-shrink-0">
+                    <div className="flex items-center justify-center mb-4 h-20 sm:h-24 bg-white/5 rounded-lg flex-shrink-0 overflow-hidden">
                       <img
                         src={partner.logo.value}
                         alt={partner.name[currentLanguage]}
@@ -397,79 +397,99 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
                     </div>
 
                     {/* Partner Info */}
-                    <div className="text-center mb-4 flex-grow">
-                      <h3 className={`${getClass('body')} text-white font-semibold mb-2 line-clamp-2 min-h-[2.5rem]`}>
+                    <div className="text-center mb-4 flex-grow overflow-hidden">
+                      <h3 className={`${getClass('body')} text-white font-semibold mb-2 text-sm sm:text-base break-words hyphens-auto`} 
+                          style={{ 
+                            wordWrap: 'break-word', 
+                            overflowWrap: 'break-word',
+                            lineHeight: '1.4',
+                            maxHeight: '3.5rem',
+                            overflow: 'hidden',
+                            display: '-webkit-box',
+                            WebkitLineClamp: 2,
+                            WebkitBoxOrient: 'vertical'
+                          }}>
                         {partner.name[currentLanguage]}
                       </h3>
-                      <div className="flex flex-wrap items-center justify-center gap-2 mb-2">
-                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${levelInfo.bgColor}`}>
-                          <LevelIcon size={14} style={{ color: levelInfo.color }} />
-                          <span className="text-xs text-white/80">
+                      <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 mb-2">
+                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${levelInfo.bgColor} max-w-full`}>
+                          <LevelIcon size={12} style={{ color: levelInfo.color }} />
+                          <span className="text-xs text-white/80 truncate">
                             {currentContent[`level${partner.level}` as keyof typeof currentContent]}
                           </span>
                         </div>
                         <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
                           partner.status === 'active' ? 'bg-green-500/20' : 'bg-red-500/20'
-                        }`}>
+                        } max-w-full`}>
                           {partner.status === 'active' ? (
-                            <Eye size={14} className="text-green-400" />
+                            <Eye size={12} className="text-green-400" />
                           ) : (
-                            <EyeOff size={14} className="text-red-400" />
+                            <EyeOff size={12} className="text-red-400" />
                           )}
-                          <span className="text-xs text-white/80">
+                          <span className="text-xs text-white/80 truncate">
                             {currentContent[partner.status as keyof typeof currentContent]}
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center justify-center space-x-1 text-xs text-white/60 mb-2">
+                      <div className="flex items-center justify-center space-x-1 text-xs text-white/60 mb-2 max-w-full overflow-hidden">
                         {partner.logo.type === 'upload' ? (
                           <>
-                            <Upload size={12} />
-                            <span>{currentContent.uploadedLogo}</span>
+                            <Upload size={10} className="flex-shrink-0" />
+                            <span className="truncate">{currentContent.uploadedLogo}</span>
                           </>
                         ) : (
                           <>
-                            <Globe size={12} />
-                            <span>{currentContent.externalUrl}</span>
+                            <Globe size={10} className="flex-shrink-0" />
+                            <span className="truncate">{currentContent.externalUrl}</span>
                           </>
                         )}
                       </div>
-                      <div className="text-xs text-white/40">
+                      <div className="text-xs text-white/40 truncate">
                         Order: {partner.order}
                       </div>
                     </div>
 
                     {/* Note */}
                     {partner.note && (
-                      <div className="mb-4 flex-shrink-0">
-                        <p className={`${getClass('body')} text-white/60 text-sm text-center line-clamp-2`}>
+                      <div className="mb-4 flex-shrink-0 overflow-hidden">
+                        <p className={`${getClass('body')} text-white/60 text-xs sm:text-sm text-center break-words`}
+                           style={{ 
+                             wordWrap: 'break-word', 
+                             overflowWrap: 'break-word',
+                             lineHeight: '1.3',
+                             maxHeight: '2.6rem',
+                             overflow: 'hidden',
+                             display: '-webkit-box',
+                             WebkitLineClamp: 2,
+                             WebkitBoxOrient: 'vertical'
+                           }}>
                           {partner.note}
                         </p>
                       </div>
                     )}
 
                     {/* Actions */}
-                    <div className="flex justify-center space-x-2 flex-shrink-0 mt-auto">
+                    <div className="flex justify-center space-x-1 sm:space-x-2 flex-shrink-0 mt-auto">
                       <button
                         onClick={() => {
                           setEditingPartner(partner);
                           setShowFormModal(true);
                         }}
-                        className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all duration-200"
+                        className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center"
                         title={currentContent.edit}
                       >
-                        <Edit size={16} />
+                        <Edit size={14} />
                       </button>
                       <button
                         onClick={() => handleToggleStatus(partner)}
-                        className={`p-2 rounded-lg transition-all duration-200 ${
+                        className={`p-2 rounded-lg transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center ${
                           partner.status === 'active' 
                             ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
                             : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
                         }`}
                         title={currentContent.toggleStatus}
                       >
-                        {partner.status === 'active' ? <EyeOff size={16} /> : <Eye size={16} />}
+                        {partner.status === 'active' ? <EyeOff size={14} /> : <Eye size={14} />}
                       </button>
                       {checkPermission('canManageUsers') && (
                         <button
@@ -477,10 +497,10 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
                             setDeletingPartner(partner);
                             setShowDeleteModal(true);
                           }}
-                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200"
+                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center"
                           title={currentContent.delete}
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       )}
                     </div>

@@ -30,12 +30,6 @@ export interface BaseFormData {
   synopsis: string;
   chiangmaiConnection: string;
   
-  // Film Submission (ONE of these will be filled)
-  filmSubmissionType: 'file' | 'youtube' | 'vimeo';
-  filmFile: File | null;              // Traditional file upload
-  filmUrl: string | null;             // Video URL
-  filmUrlMetadata?: VideoMetadata;    // Extracted metadata
-  
   // Submission Status
   status?: 'draft' | 'submitted';
   createdAt?: Date;
@@ -66,7 +60,8 @@ export interface YouthFormData extends BaseFormData {
   // Crew Information
   crewMembers: CrewMember[];
   
-  // Files (other than film which is in BaseFormData)
+  // Files
+  filmFile: File | null;
   posterFile: File | null;
   proofFile: File | null;
 }
@@ -86,7 +81,8 @@ export interface WorldFormData extends BaseFormData {
   // Crew Information
   crewMembers: CrewMember[];
   
-  // Files (other than film which is in BaseFormData)
+  // Files
+  filmFile: File | null;
   posterFile: File | null;
   proofFile: File | null;
 }
@@ -110,7 +106,8 @@ export interface FutureFormData extends BaseFormData {
   // Crew Information
   crewMembers: CrewMember[];
   
-  // Files (other than film which is in BaseFormData)
+  // Files
+  filmFile: File | null;
   posterFile: File | null;
   proofFile: File | null;
 }
@@ -173,19 +170,6 @@ export interface AgreementCheckboxProps {
   className?: string;
 }
 
-// Import VideoMetadata type
-export interface VideoMetadata {
-  isValid: boolean;
-  platform: 'youtube' | 'vimeo' | null;
-  videoId: string | null;
-  title?: string;
-  duration?: number;
-  thumbnailUrl?: string;
-  description?: string;
-  error?: string;
-}
-
 export type FormCategory = 'youth' | 'world' | 'future';
 export type AgeCategory = 'YOUTH' | 'FUTURE' | 'WORLD';
 export type Language = 'th' | 'en';
-export type FilmSubmissionType = 'file' | 'youtube' | 'vimeo';

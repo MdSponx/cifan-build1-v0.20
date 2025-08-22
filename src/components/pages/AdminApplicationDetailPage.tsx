@@ -13,7 +13,6 @@ import VideoScoringPanel from '../admin/VideoScoringPanel';
 import AdminControlsPanel from '../admin/AdminControlsPanel';
 import VideoSection from '../applications/VideoSection';
 import CompactFilmInfo from '../ui/CompactFilmInfo';
-import FilmSubmissionDisplay from '../admin/FilmSubmissionDisplay';
 import FirestoreCommentsDebugger from '../debug/FirestoreCommentsDebugger';
 import { 
   Eye, 
@@ -1327,29 +1326,55 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
         directorCustomRole={directorInfo?.customRole}
       />
 
-          {/* 2. Video Player & Evaluation Container */}
-          <div className="film-container-auto-expand rounded-2xl p-6 sm:p-8 container-push-down">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className={`text-xl ${getClass('header')} text-white flex items-center space-x-2`}>
-                <span>🎬</span>
-                <span>{currentLanguage === 'th' ? 'ภาพยนตร์' : 'Film'}</span>
-              </h3>
-            </div>
+      {/* 2. Video Player & Evaluation Container */}
+      <div className="film-container-auto-expand rounded-2xl p-6 sm:p-8 container-push-down">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className={`text-xl ${getClass('header')} text-white flex items-center space-x-2`}>
+            <span>🎬</span>
+            <span>{currentLanguage === 'th' ? 'ภาพยนตร์' : 'Film'}</span>
+          </h3>
+        </div>
 
-            {/* Main Content - Auto-expanding grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-start">
-              
-              {/* Left Section - Video & Comments (57% width) */}
-              <div className="lg:col-span-4 space-y-6">
-                
-                {/* Film Submission Display */}
-                <FilmSubmissionDisplay
-                  filmFile={application.files.filmFile}
-                  filmUrl={(application as any).files?.filmUrl || null}
-                  filmSubmissionType={(application as any).filmSubmissionType || 'file'}
-                  showPlayer={true}
-                  allowDownload={true}
+        {/* Main Content - Auto-expanding grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 items-start">
+          
+          {/* Left Section - Video & Comments (57% width) */}
+          <div className="lg:col-span-4 space-y-6">
+            
+            {/* Video Player */}
+            <div className="relative bg-black rounded-xl overflow-hidden">
+              {application.files.filmFile.url ? (
+                <video
+                  src={application.files.filmFile.url}
+                  className="w-full aspect-video object-contain"
+                  controls
+                  poster={application.files.posterFile.url}
+                  onError={(e) => {
+                    const target = e.target as HTMLVideoElement;
+                    target.style.display = 'none';
+                    const parent = target.parentElement;
+                    if (parent) {
+                      parent.innerHTML = `
+                        <div class="w-full aspect-video flex flex-col items-center justify-center text-white/60 bg-black/50">
+                          <div class="text-6xl mb-4">🎬</div>
+                          <div class="text-lg mb-2">${currentLanguage === 'th' ? 'ไม่สามารถโหลดวิดีโอได้' : 'Video not available'}</div>
+                          <div class="text-sm text-center px-4 max-w-md">
+                            ${currentLanguage === 'th' ? 'ไฟล์วิดีโออาจเสียหายหรือไม่สามารถเข้าถึงได้' : 'The video file may be corrupted or inaccessible'}
+                          </div>
+                        </div>
+                      `;
+                    }
+                  }}
                 />
+              ) : (
+                <div className="w-full aspect-video flex flex-col items-center justify-center text-white/60 bg-black/50">
+                  <div className="text-6xl mb-4">🎬</div>
+                  <div className="text-lg mb-2">
+                    {currentLanguage === 'th' ? 'ไม่มีวิดีโอ' : 'No video available'}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Jury Comments Section - Real Data */}
             <div className="glass-container rounded-2xl p-6 sm:p-8">

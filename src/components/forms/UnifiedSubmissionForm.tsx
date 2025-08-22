@@ -14,7 +14,6 @@ import FormSection from './FormSection';
 import GenreSelector from './GenreSelector';
 import FormatSelector from './FormatSelector';
 import UnifiedFileUpload from './UnifiedFileUpload';
-import FilmSubmissionSelector, { FilmSubmissionType } from './FilmSubmissionSelector';
 import CrewManagement from './CrewManagement';
 import AgreementCheckboxes from './AgreementCheckboxes';
 import NationalitySelector from '../ui/NationalitySelector';
@@ -23,7 +22,6 @@ import AnimatedButton from '../ui/AnimatedButton';
 import SubmissionProgressComponent from '../ui/SubmissionProgress';
 import ProcessingOverlay, { ProcessingStep } from '../ui/ProcessingOverlay';
 import ErrorMessage from './ErrorMessage';
-import { VideoMetadata } from '../../services/videoUrlService';
 
 interface UnifiedSubmissionFormProps {
   category: 'youth' | 'future' | 'world';
@@ -54,12 +52,7 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
       synopsis: '',
       chiangmaiConnection: '',
       crewMembers: [],
-      // Film submission fields
-      filmSubmissionType: 'file' as 'file' | 'youtube' | 'vimeo',
       filmFile: null,
-      filmUrl: null,
-      filmUrlMetadata: undefined,
-      // Other files
       posterFile: null,
       proofFile: null,
       agreement1: false,
@@ -364,26 +357,6 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
 
   const handleFilmLanguagesChange = (languages: string[]) => {
     handleInputChange('filmLanguages', languages);
-  };
-
-  // Film submission handlers
-  const handleSubmissionTypeChange = (type: FilmSubmissionType) => {
-    handleInputChange('filmSubmissionType', type);
-    // Clear the other submission method when switching
-    if (type === 'file') {
-      handleInputChange('filmUrl', null);
-      handleInputChange('filmUrlMetadata', undefined);
-    } else {
-      handleInputChange('filmFile', null);
-    }
-  };
-
-  const handleUrlChange = (url: string) => {
-    handleInputChange('filmUrl', url);
-  };
-
-  const handleMetadataExtracted = (metadata: VideoMetadata | null) => {
-    handleInputChange('filmUrlMetadata', metadata);
   };
   // Compute Thai nationality status for validation and rendering
   const isThaiNationality = (category === 'youth' || category === 'future') && 
@@ -970,23 +943,20 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
             isWorldForm={category === 'world'}
           />
 
-          {/* Section 5: Film Submission */}
-          <FormSection title={currentLanguage === 'th' ? 'การส่งภาพยนตร์' : 'Film Submission'} icon="🎬">
-            <FilmSubmissionSelector
-              submissionType={formData.filmSubmissionType}
-              onSubmissionTypeChange={handleSubmissionTypeChange}
-              filmFile={formData.filmFile}
-              onFileChange={(file) => handleFileChange('filmFile', file)}
-              filmUrl={formData.filmUrl || ''}
-              onUrlChange={handleUrlChange}
-              onMetadataExtracted={handleMetadataExtracted}
-              error={formErrors.filmFile || formErrors.filmUrl}
-            />
-          </FormSection>
-
-          {/* Section 6: Other Files */}
+          {/* Section 5: File Uploader */}
           <FormSection title={currentContent.filesTitle} icon="📁">
             <div className="space-y-6">
+              <UnifiedFileUpload
+                mode="upload"
+                name="filmFile"
+                label={currentContent.filmFile}
+                accept=".mp4,.mov"
+                fileType="VIDEO"
+                onFileChange={(file) => handleFileChange('filmFile', file)}
+                currentFile={formData.filmFile}
+                error={formErrors.filmFile}
+              />
+              
               <UnifiedFileUpload
                 mode="upload"
                 name="posterFile"
@@ -1011,7 +981,7 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
             </div>
           </FormSection>
 
-          {/* Section 7: Agreements */}
+          {/* Section 6: Agreements */}
           <AgreementCheckboxes
             agreements={{
               agreement1: formData.agreement1,

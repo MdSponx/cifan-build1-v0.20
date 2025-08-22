@@ -37,7 +37,8 @@ service firebase.storage {
     match /partners/{allPaths=**} {
       allow read: if true; // Public read for partner logos
       allow write: if request.auth != null &&
-        get(/databases/(default)/documents/profiles/$(request.auth.uid)).data.role in ['admin', 'super-admin'];
+        (exists(/databases/(default)/documents/profiles/$(request.auth.uid)) &&
+         get(/databases/(default)/documents/profiles/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'editor']);
     }
     
     // Activities images - public read, authenticated users can write (for testing)

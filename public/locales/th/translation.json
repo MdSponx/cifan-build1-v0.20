@@ -17,6 +17,18 @@
     "myApplications": "ใบสมัครของฉัน",
     "signOut": "ออกจากระบบ"
   },
+  "menu": {
+    "contentManagement": "จัดการเนื้อหา",
+    "filmLibrary": "คลังภาพยนตร์",
+    "ratingDashboard": "แดชบอร์ดการให้คะแนน",
+    "editorAccess": "สิทธิ์บรรณาธิการ",
+    "juryAccess": "สิทธิ์กรรมการ"
+  },
+  "tooltips": {
+    "contentManagement": "จัดการภาพยนตร์ พาร์ทเนอร์ และเนื้อหา",
+    "filmLibrary": "เรียกดูและจัดการคลังภาพยนตร์",
+    "ratingDashboard": "ให้คะแนนและประเมินผลงานภาพยนตร์"
+  },
   "hero": {
     "title": "CIFAN",
     "year": "2025",
