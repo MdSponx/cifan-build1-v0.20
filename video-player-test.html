@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Player Test - YouTube & Vimeo URL Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e, #16213e, #0f3460);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #FCB283;
+            font-size: 2.5rem;
+        }
+
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .section-title {
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            color: #FCB283;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .url-input-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+
+        input[type="url"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            font-size: 16px;
+            transition: border-color 0.3s ease;
+        }
+
+        input[type="url"]:focus {
+            outline: none;
+            border-color: #FCB283;
+        }
+
+        input[type="url"]::placeholder {
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .video-preview {
+            margin-top: 20px;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            border: 2px solid #4CAF50;
+        }
+
+        .video-preview.hidden {
+            display: none;
+        }
+
+        .preview-header {
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .preview-title {
+            font-size: 1.2rem;
+            color: #4CAF50;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-info {
+            margin-top: 15px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+
+        .info-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 6px;
+        }
+
+        .info-label {
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .info-value {
+            color: white;
+            font-family: monospace;
+        }
+
+        .external-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 8px 16px;
+            background: rgba(252, 178, 131, 0.2);
+            color: #FCB283;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+
+        .external-link:hover {
+            background: rgba(252, 178, 131, 0.3);
+        }
+
+        .status-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-valid {
+            background: rgba(76, 175, 80, 0.2);
+            color: #4CAF50;
+        }
+
+        .status-invalid {
+            background: rgba(244, 67, 54, 0.2);
+            color: #f44336;
+        }
+
+        .status-loading {
+            background: rgba(33, 150, 243, 0.2);
+            color: #2196F3;
+        }
+
+        .example-urls {
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .example-urls h4 {
+            margin-bottom: 10px;
+            color: #FCB283;
+        }
+
+        .example-url {
+            display: block;
+            color: #81C784;
+            text-decoration: none;
+            margin: 5px 0;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+
+        .example-url:hover {
+            color: #A5D6A7;
+            text-decoration: underline;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: #2196F3;
+            animation: spin 1s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Video Player Test</h1>
+        <p style="text-align: center; margin-bottom: 40px; color: rgba(255, 255, 255, 0.8);">
+            Test YouTube and Vimeo URL attachment with live video preview players
+        </p>
+
+        <!-- YouTube Section -->
+        <div class="test-section">
+            <h2 class="section-title">
+                📺 YouTube Video Player Test
+            </h2>
+            
+            <div class="url-input-group">
+                <label for="youtube-url">YouTube URL:</label>
+                <input 
+                    type="url" 
+                    id="youtube-url" 
+                    placeholder="Paste YouTube URL here (e.g., https://www.youtube.com/watch?v=...)"
+                    value="https://www.youtube.com/watch?v=Vm6_MDnj3Hg"
+                >
+                <div id="youtube-status" class="status-indicator status-loading" style="margin-top: 10px;">
+                    <span class="loading-spinner"></span>
+                    Ready to validate...
+                </div>
+            </div>
+
+            <div id="youtube-preview" class="video-preview hidden">
+                <div class="preview-header">
+                    <div class="preview-title">
+                        📺 YouTube Video Preview
+                    </div>
+                    <a id="youtube-external-link" href="#" target="_blank" class="external-link">
+                        🔗 Open in YouTube
+                    </a>
+                </div>
+                <div class="video-container">
+                    <iframe id="youtube-iframe" allowfullscreen></iframe>
+                </div>
+                <div class="video-info">
+                    <div class="info-item">
+                        <span class="info-label">Platform:</span>
+                        <span class="info-value">YouTube</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Video ID:</span>
+                        <span id="youtube-video-id" class="info-value">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">✅ Valid & Playable</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="example-urls">
+                <h4>Example YouTube URLs:</h4>
+                <a href="#" class="example-url" onclick="setYouTubeUrl('https://www.youtube.com/watch?v=dQw4w9WgXcQ')">
+                    https://www.youtube.com/watch?v=dQw4w9WgXcQ
+                </a>
+                <a href="#" class="example-url" onclick="setYouTubeUrl('https://youtu.be/dQw4w9WgXcQ')">
+                    https://youtu.be/dQw4w9WgXcQ
+                </a>
+                <a href="#" class="example-url" onclick="setYouTubeUrl('https://www.youtube.com/watch?v=Vm6_MDnj3Hg')">
+                    https://www.youtube.com/watch?v=Vm6_MDnj3Hg
+                </a>
+            </div>
+        </div>
+
+        <!-- Vimeo Section -->
+        <div class="test-section">
+            <h2 class="section-title">
+                🎬 Vimeo Video Player Test
+            </h2>
+            
+            <div class="url-input-group">
+                <label for="vimeo-url">Vimeo URL:</label>
+                <input 
+                    type="url" 
+                    id="vimeo-url" 
+                    placeholder="Paste Vimeo URL here (e.g., https://vimeo.com/123456789)"
+                    value="https://vimeo.com/148751763"
+                >
+                <div id="vimeo-status" class="status-indicator status-loading" style="margin-top: 10px;">
+                    <span class="loading-spinner"></span>
+                    Ready to validate...
+                </div>
+            </div>
+
+            <div id="vimeo-preview" class="video-preview hidden">
+                <div class="preview-header">
+                    <div class="preview-title">
+                        🎬 Vimeo Video Preview
+                    </div>
+                    <a id="vimeo-external-link" href="#" target="_blank" class="external-link">
+                        🔗 Open in Vimeo
+                    </a>
+                </div>
+                <div class="video-container">
+                    <iframe id="vimeo-iframe" allowfullscreen></iframe>
+                </div>
+                <div class="video-info">
+                    <div class="info-item">
+                        <span class="info-label">Platform:</span>
+                        <span class="info-value">Vimeo</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Video ID:</span>
+                        <span id="vimeo-video-id" class="info-value">-</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Status:</span>
+                        <span class="info-value">✅ Valid & Playable</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="example-urls">
+                <h4>Example Vimeo URLs:</h4>
+                <a href="#" class="example-url" onclick="setVimeoUrl('https://vimeo.com/148751763')">
+                    https://vimeo.com/148751763
+                </a>
+                <a href="#" class="example-url" onclick="setVimeoUrl('https://vimeo.com/76979871')">
+                    https://vimeo.com/76979871
+                </a>
+                <a href="#" class="example-url" onclick="setVimeoUrl('https://vimeo.com/channels/staffpicks/148751763')">
+                    https://vimeo.com/channels/staffpicks/148751763
+                </a>
+            </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="test-section">
+            <h2 class="section-title">
+                📋 How This Works
+            </h2>
+            <div style="line-height: 1.6;">
+                <p><strong>1. URL Input:</strong> Paste any YouTube or Vimeo URL into the input fields above.</p>
+                <p><strong>2. Auto-Validation:</strong> The system automatically detects the platform and extracts the video ID.</p>
+                <p><strong>3. Live Preview:</strong> A playable video player appears immediately with the embedded video.</p>
+                <p><strong>4. Interactive Player:</strong> You can play, pause, and control the video directly in the preview.</p>
+                <p><strong>5. External Link:</strong> Click the "Open in Platform" button to view the original video.</p>
+                <br>
+                <p><strong>Supported URL Formats:</strong></p>
+                <ul style="margin-left: 20px; margin-top: 10px;">
+                    <li>YouTube: https://www.youtube.com/watch?v=VIDEO_ID</li>
+                    <li>YouTube Short: https://youtu.be/VIDEO_ID</li>
+                    <li>Vimeo: https://vimeo.com/VIDEO_ID</li>
+                    <li>Vimeo Channel: https://vimeo.com/channels/CHANNEL/VIDEO_ID</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // YouTube URL regex
+        const YOUTUBE_REGEX = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
+        
+        // Vimeo URL regex
+        const VIMEO_REGEX = /(?:vimeo\.com\/)(?:.*\/)?(\d+)/;
+
+        // Extract YouTube video ID
+        function extractYouTubeId(url) {
+            const match = url.match(YOUTUBE_REGEX);
+            return match ? match[1] : null;
+        }
+
+        // Extract Vimeo video ID
+        function extractVimeoId(url) {
+            const match = url.match(VIMEO_REGEX);
+            return match ? match[1] : null;
+        }
+
+        // Update YouTube preview
+        function updateYouTubePreview(url) {
+            const videoId = extractYouTubeId(url);
+            const preview = document.getElementById('youtube-preview');
+            const iframe = document.getElementById('youtube-iframe');
+            const videoIdSpan = document.getElementById('youtube-video-id');
+            const externalLink = document.getElementById('youtube-external-link');
+            const status = document.getElementById('youtube-status');
+
+            if (videoId) {
+                // Show preview
+                preview.classList.remove('hidden');
+                
+                // Set iframe source
+                iframe.src = `https://www.youtube.com/embed/${videoId}?rel=0&modestbranding=1`;
+                iframe.allow = "accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture";
+                
+                // Update info
+                videoIdSpan.textContent = videoId;
+                externalLink.href = url;
+                
+                // Update status
+                status.className = 'status-indicator status-valid';
+                status.innerHTML = '✅ Valid YouTube URL';
+            } else {
+                // Hide preview
+                preview.classList.add('hidden');
+                
+                // Update status
+                status.className = 'status-indicator status-invalid';
+                status.innerHTML = '❌ Invalid YouTube URL';
+            }
+        }
+
+        // Update Vimeo preview
+        function updateVimeoPreview(url) {
+            const videoId = extractVimeoId(url);
+            const preview = document.getElementById('vimeo-preview');
+            const iframe = document.getElementById('vimeo-iframe');
+            const videoIdSpan = document.getElementById('vimeo-video-id');
+            const externalLink = document.getElementById('vimeo-external-link');
+            const status = document.getElementById('vimeo-status');
+
+            if (videoId) {
+                // Show preview
+                preview.classList.remove('hidden');
+                
+                // Set iframe source
+                iframe.src = `https://player.vimeo.com/video/${videoId}?title=0&byline=0&portrait=0`;
+                iframe.allow = "autoplay; fullscreen; picture-in-picture";
+                
+                // Update info
+                videoIdSpan.textContent = videoId;
+                externalLink.href = url;
+                
+                // Update status
+                status.className = 'status-indicator status-valid';
+                status.innerHTML = '✅ Valid Vimeo URL';
+            } else {
+                // Hide preview
+                preview.classList.add('hidden');
+                
+                // Update status
+                status.className = 'status-indicator status-invalid';
+                status.innerHTML = '❌ Invalid Vimeo URL';
+            }
+        }
+
+        // Set YouTube URL (for example links)
+        function setYouTubeUrl(url) {
+            document.getElementById('youtube-url').value = url;
+            updateYouTubePreview(url);
+        }
+
+        // Set Vimeo URL (for example links)
+        function setVimeoUrl(url) {
+            document.getElementById('vimeo-url').value = url;
+            updateVimeoPreview(url);
+        }
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const youtubeInput = document.getElementById('youtube-url');
+            const vimeoInput = document.getElementById('vimeo-url');
+
+            // YouTube input handler
+            youtubeInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                if (url) {
+                    setTimeout(() => updateYouTubePreview(url), 300); // Debounce
+                } else {
+                    document.getElementById('youtube-preview').classList.add('hidden');
+                    document.getElementById('youtube-status').className = 'status-indicator status-loading';
+                    document.getElementById('youtube-status').innerHTML = '<span class="loading-spinner"></span> Ready to validate...';
+                }
+            });
+
+            // Vimeo input handler
+            vimeoInput.addEventListener('input', function() {
+                const url = this.value.trim();
+                if (url) {
+                    setTimeout(() => updateVimeoPreview(url), 300); // Debounce
+                } else {
+                    document.getElementById('vimeo-preview').classList.add('hidden');
+                    document.getElementById('vimeo-status').className = 'status-indicator status-loading';
+                    document.getElementById('vimeo-status').innerHTML = '<span class="loading-spinner"></span> Ready to validate...';
+                }
+            });
+
+            // Initialize with default values
+            if (youtubeInput.value) {
+                updateYouTubePreview(youtubeInput.value);
+            }
+            if (vimeoInput.value) {
+                updateVimeoPreview(vimeoInput.value);
+            }
+        });
+    </script>
+</body>
+</html>

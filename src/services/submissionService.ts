@@ -388,11 +388,30 @@ export class SubmissionService {
       throw new SubmissionError('User authentication required. Please sign in and try again.', 'missing-user-id', 'validation');
     }
 
-    // For final submissions, validate required files
+    // For final submissions, validate required film submission
     if (!isDraft) {
-      if (!formData.filmFile) {
-        throw new SubmissionError('Film file is required', 'missing-film-file', 'validation');
+      // Validate film submission (either file or URL)
+      if (formData.filmSubmissionType === 'file') {
+        if (!formData.filmFile) {
+          throw new SubmissionError('Film file is required when using file upload', 'missing-film-file', 'validation');
+        }
+        // Validate film file
+        const filmValidation = await validateFile(formData.filmFile, FILE_VALIDATION_RULES.film);
+        if (!filmValidation.isValid) {
+          throw new SubmissionError(`Film file validation failed: ${filmValidation.error}`, 'invalid-film-file', 'validation');
+        }
+      } else if (formData.filmSubmissionType === 'youtube' || formData.filmSubmissionType === 'vimeo') {
+        if (!formData.filmUrl) {
+          throw new SubmissionError(`${formData.filmSubmissionType} URL is required`, 'missing-film-url', 'validation');
+        }
+        if (!formData.filmUrlMetadata || !formData.filmUrlMetadata.isValid) {
+          throw new SubmissionError(`Invalid ${formData.filmSubmissionType} URL. Please ensure the video is publicly accessible.`, 'invalid-film-url', 'validation');
+        }
+      } else {
+        throw new SubmissionError('Film submission method is required', 'missing-film-submission', 'validation');
       }
+
+      // Validate other required files
       if (!formData.posterFile) {
         throw new SubmissionError('Poster file is required', 'missing-poster-file', 'validation');
       }
@@ -400,12 +419,7 @@ export class SubmissionService {
         throw new SubmissionError('Proof file is required', 'missing-proof-file', 'validation');
       }
 
-      // Validate each file
-      const filmValidation = await validateFile(formData.filmFile, FILE_VALIDATION_RULES.film);
-      if (!filmValidation.isValid) {
-        throw new SubmissionError(`Film file validation failed: ${filmValidation.error}`, 'invalid-film-file', 'validation');
-      }
-
+      // Validate poster and proof files
       const posterValidation = await validateFile(formData.posterFile, FILE_VALIDATION_RULES.poster);
       if (!posterValidation.isValid) {
         throw new SubmissionError(`Poster file validation failed: ${posterValidation.error}`, 'invalid-poster-file', 'validation');
@@ -499,51 +513,66 @@ export class SubmissionService {
   }
 
   /**
-   * Uploads all files for a submission
+   * Uploads all files for a submission (handles both file and URL submissions)
    */
   private async uploadFiles(
     formData: YouthFormData | FutureFormData | WorldFormData,
     submissionId: string
   ): Promise<{ [key: string]: FileMetadata }> {
-    const fileProgress: { [key: string]: number } = {
-      film: 0,
-      poster: 0,
-      proof: 0
-    };
+    const fileProgress: { [key: string]: number } = {};
+    const uploadRequests: FileUploadRequest[] = [];
+    const result: { [key: string]: FileMetadata } = {};
 
-    const updateFileProgress = (fileType: string, progress: number) => {
-      fileProgress[fileType] = progress;
-      const totalProgress = Object.values(fileProgress).reduce((sum, p) => sum + p, 0) / 3;
-      this.updateProgress('uploading', 20 + (totalProgress * 0.6), 'Uploading files...', fileProgress);
-    };
+    // Only upload film file if submission type is 'file'
+    if (formData.filmSubmissionType === 'file' && formData.filmFile) {
+      fileProgress.film = 0;
+      uploadRequests.push({
+        file: formData.filmFile,
+        path: generateFilePath(submissionId, 'film', formData.filmFile.name),
+        onProgress: (progress) => {
+          fileProgress.film = progress;
+          const totalProgress = Object.values(fileProgress).reduce((sum, p) => sum + p, 0) / Object.keys(fileProgress).length;
+          this.updateProgress('uploading', 20 + (totalProgress * 0.6), 'Uploading files...', fileProgress);
+        }
+      });
+    }
 
-    const uploadRequests: FileUploadRequest[] = [
-      {
-        file: formData.filmFile!,
-        path: generateFilePath(submissionId, 'film', formData.filmFile!.name),
-        onProgress: (progress) => updateFileProgress('film', progress)
-      },
-      {
-        file: formData.posterFile!,
-        path: generateFilePath(submissionId, 'poster', formData.posterFile!.name),
-        onProgress: (progress) => updateFileProgress('poster', progress)
-      },
-      {
-        file: formData.proofFile!,
-        path: generateFilePath(submissionId, 'proof', formData.proofFile!.name),
-        onProgress: (progress) => updateFileProgress('proof', progress)
+    // Always upload poster and proof files
+    fileProgress.poster = 0;
+    uploadRequests.push({
+      file: formData.posterFile!,
+      path: generateFilePath(submissionId, 'poster', formData.posterFile!.name),
+      onProgress: (progress) => {
+        fileProgress.poster = progress;
+        const totalProgress = Object.values(fileProgress).reduce((sum, p) => sum + p, 0) / Object.keys(fileProgress).length;
+        this.updateProgress('uploading', 20 + (totalProgress * 0.6), 'Uploading files...', fileProgress);
       }
-    ];
+    });
+
+    fileProgress.proof = 0;
+    uploadRequests.push({
+      file: formData.proofFile!,
+      path: generateFilePath(submissionId, 'proof', formData.proofFile!.name),
+      onProgress: (progress) => {
+        fileProgress.proof = progress;
+        const totalProgress = Object.values(fileProgress).reduce((sum, p) => sum + p, 0) / Object.keys(fileProgress).length;
+        this.updateProgress('uploading', 20 + (totalProgress * 0.6), 'Uploading files...', fileProgress);
+      }
+    });
 
     try {
       const uploadedFiles = await uploadMultipleFiles(uploadRequests);
       this.uploadedFiles = uploadedFiles;
 
-      return {
-        filmFile: uploadedFiles[0],
-        posterFile: uploadedFiles[1],
-        proofFile: uploadedFiles[2]
-      };
+      // Map uploaded files back to their types
+      let fileIndex = 0;
+      if (formData.filmSubmissionType === 'file' && formData.filmFile) {
+        result.filmFile = uploadedFiles[fileIndex++];
+      }
+      result.posterFile = uploadedFiles[fileIndex++];
+      result.proofFile = uploadedFiles[fileIndex++];
+
+      return result;
     } catch (error) {
       throw new SubmissionError(
         `File upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
@@ -583,12 +612,29 @@ export class SubmissionService {
         synopsis: formData.synopsis,
         chiangmaiConnection: formData.chiangmaiConnection,
         
+        // Film submission type and data
+        filmSubmissionType: formData.filmSubmissionType,
+        
         // Files
         files: {
-          filmFile: {
+          // Film file (only for file submissions)
+          filmFile: fileMetadata.filmFile ? {
             ...fileMetadata.filmFile,
             uploadedAt: serverTimestamp()
-          },
+          } : null,
+          
+          // URL data (only for URL submissions)
+          filmUrl: (formData.filmSubmissionType === 'youtube' || formData.filmSubmissionType === 'vimeo') && formData.filmUrl ? {
+            url: formData.filmUrl,
+            platform: formData.filmSubmissionType,
+            videoId: formData.filmUrlMetadata?.videoId || '',
+            title: formData.filmUrlMetadata?.title || null,
+            duration: formData.filmUrlMetadata?.duration || null,
+            thumbnailUrl: formData.filmUrlMetadata?.thumbnailUrl || null,
+            submittedAt: serverTimestamp()
+          } : null,
+          
+          // Other files
           posterFile: {
             ...fileMetadata.posterFile,
             uploadedAt: serverTimestamp()
@@ -738,12 +784,29 @@ export class SubmissionService {
         synopsis: formData.synopsis || '',
         chiangmaiConnection: formData.chiangmaiConnection || '',
         
+        // Film submission type and data (for drafts)
+        filmSubmissionType: formData.filmSubmissionType || 'file',
+        
         // Files - use uploaded file data if available, otherwise set to null
         files: {
+          // Film file (only for file submissions)
           filmFile: fileMetadata?.filmFile ? {
             ...fileMetadata.filmFile,
             uploadedAt: serverTimestamp()
           } : null,
+          
+          // URL data (only for URL submissions, even in drafts)
+          filmUrl: (formData.filmSubmissionType === 'youtube' || formData.filmSubmissionType === 'vimeo') && formData.filmUrl ? {
+            url: formData.filmUrl,
+            platform: formData.filmSubmissionType,
+            videoId: formData.filmUrlMetadata?.videoId || '',
+            title: formData.filmUrlMetadata?.title || null,
+            duration: formData.filmUrlMetadata?.duration || null,
+            thumbnailUrl: formData.filmUrlMetadata?.thumbnailUrl || null,
+            submittedAt: serverTimestamp()
+          } : null,
+          
+          // Other files
           posterFile: fileMetadata?.posterFile ? {
             ...fileMetadata.posterFile,
             uploadedAt: serverTimestamp()

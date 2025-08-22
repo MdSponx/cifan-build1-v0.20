@@ -6,17 +6,24 @@ import { SubmissionService, SubmissionProgress, SubmissionResult } from '../../s
 import { YouthFormData, FutureFormData, WorldFormData, FormErrors, CrewMember } from '../../types/form.types';
 import { validateEmail, validateAge, getValidationMessages } from '../../utils/formValidation';
 import { FILM_ROLES, GENRE_OPTIONS } from '../../utils/formConstants';
+import { uploadFile } from '../../utils/fileUpload';
+import { generateFilePath } from '../../services/fileUploadService';
+import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../../firebase';
 import FormSection from './FormSection';
 import GenreSelector from './GenreSelector';
 import FormatSelector from './FormatSelector';
 import UnifiedFileUpload from './UnifiedFileUpload';
+import FilmSubmissionSelector, { FilmSubmissionType } from './FilmSubmissionSelector';
 import CrewManagement from './CrewManagement';
 import AgreementCheckboxes from './AgreementCheckboxes';
 import NationalitySelector from '../ui/NationalitySelector';
 import DraftSuccessDialog from '../dialogs/DraftSuccessDialog';
 import AnimatedButton from '../ui/AnimatedButton';
 import SubmissionProgressComponent from '../ui/SubmissionProgress';
+import ProcessingOverlay, { ProcessingStep } from '../ui/ProcessingOverlay';
 import ErrorMessage from './ErrorMessage';
+import { VideoMetadata } from '../../services/videoUrlService';
 
 interface UnifiedSubmissionFormProps {
   category: 'youth' | 'future' | 'world';
@@ -47,7 +54,12 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
       synopsis: '',
       chiangmaiConnection: '',
       crewMembers: [],
+      // Film submission fields
+      filmSubmissionType: 'file' as 'file' | 'youtube' | 'vimeo',
       filmFile: null,
+      filmUrl: null,
+      filmUrlMetadata: undefined,
+      // Other files
       posterFile: null,
       proofFile: null,
       agreement1: false,
@@ -106,23 +118,25 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
   });
 
   const [formErrors, setFormErrors] = useState<FormErrors>({});
-  const [submissionState, setSubmissionState] = useState<{
-    isSubmitting: boolean;
-    progress?: SubmissionProgress;
-    result?: SubmissionResult;
-  }>({
-    isSubmitting: false
-  });
+  
+  // New sequential processing state management
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progressSteps, setProgressSteps] = useState<ProcessingStep[]>([]);
+  const [error, setError] = useState<string>('');
+  
+  // Legacy state for compatibility (kept but not used in new flow)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<SubmissionProgress | undefined>();
+  const [saveResult, setSaveResult] = useState<SubmissionResult | undefined>();
 
   // Handle successful draft save with useEffect to ensure proper state transitions
   useEffect(() => {
-    if (submissionState.result?.success && submissionState.result?.isDraft) {
-      // Clear all submission state and show dialog
-      setSubmissionState({ isSubmitting: false });
-      setSavedApplicationId(submissionState.result.submissionId || '');
+    if (saveResult?.success && saveResult?.isDraft) {
+      // Don't clear states here - just set the dialog data and show dialog
+      setSavedApplicationId(saveResult.submissionId || '');
       setShowDraftSuccessDialog(true);
     }
-  }, [submissionState.result]);
+  }, [saveResult]);
 
   // Fetch user profile data and populate form
   useEffect(() => {
@@ -351,10 +365,58 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
   const handleFilmLanguagesChange = (languages: string[]) => {
     handleInputChange('filmLanguages', languages);
   };
+
+  // Film submission handlers
+  const handleSubmissionTypeChange = (type: FilmSubmissionType) => {
+    handleInputChange('filmSubmissionType', type);
+    // Clear the other submission method when switching
+    if (type === 'file') {
+      handleInputChange('filmUrl', null);
+      handleInputChange('filmUrlMetadata', undefined);
+    } else {
+      handleInputChange('filmFile', null);
+    }
+  };
+
+  const handleUrlChange = (url: string) => {
+    handleInputChange('filmUrl', url);
+  };
+
+  const handleMetadataExtracted = (metadata: VideoMetadata | null) => {
+    handleInputChange('filmUrlMetadata', metadata);
+  };
   // Compute Thai nationality status for validation and rendering
   const isThaiNationality = (category === 'youth' || category === 'future') && 
     (formData as YouthFormData | FutureFormData).nationality === 'Thailand';
 
+
+  // Helper functions for sequential processing
+  const updateStepStatus = (stepId: string, status: ProcessingStep['status']) => {
+    setProgressSteps(prev => prev.map(step => 
+      step.id === stepId ? { ...step, status } : step
+    ));
+  };
+
+  const updateStepProgress = (stepId: string, progress: number) => {
+    setProgressSteps(prev => prev.map(step => 
+      step.id === stepId ? { ...step, progress } : step
+    ));
+  };
+
+  // Helper function for single file upload
+  const uploadSingleFile = async (draftId: string, fieldName: string, file: File, onProgress: (progress: number) => void) => {
+    // Map fieldName to the correct type expected by generateFilePath
+    const fileType = fieldName === 'filmFile' ? 'film' : fieldName === 'posterFile' ? 'poster' : 'proof';
+    const fileMetadata = await uploadFile(file, generateFilePath(draftId, fileType, file.name), onProgress);
+    
+    // Update the specific file field in Firestore
+    await updateDoc(doc(db, 'submissions', draftId), {
+      [`files.${fieldName}`]: {
+        ...fileMetadata,
+        uploadedAt: serverTimestamp()
+      }
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -385,41 +447,81 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
       return;
     }
 
-    setSubmissionState({ isSubmitting: true });
+    // Show processing overlay immediately
+    setIsProcessing(true);
+    setError('');
+    setProgressSteps([
+      { id: 'create', label: currentLanguage === 'th' ? 'สร้างใบสมัคร...' : 'Creating application...', status: 'pending' },
+      { id: 'film', label: currentLanguage === 'th' ? 'อัปโหลดไฟล์ภาพยนตร์...' : 'Uploading film...', status: 'pending', skip: !formData.filmFile },
+      { id: 'poster', label: currentLanguage === 'th' ? 'อัปโหลดโปสเตอร์...' : 'Uploading poster...', status: 'pending', skip: !formData.posterFile },
+      { id: 'proof', label: currentLanguage === 'th' ? 'อัปโหลดเอกสาร...' : 'Uploading document...', status: 'pending', skip: !formData.proofFile },
+      { id: 'finalize', label: currentLanguage === 'th' ? 'สรุปผล...' : 'Finalizing...', status: 'pending' }
+    ]);
 
     try {
-      const submissionService = new SubmissionService((progress) => {
-        setSubmissionState(prev => ({ ...prev, progress }));
-      });
+      // STEP 1: Create application without files
+      updateStepStatus('create', 'processing');
+      const basicData = { ...formData, filmFile: null, posterFile: null, proofFile: null };
+      
+      const submissionService = new SubmissionService();
+      let draftResult: SubmissionResult;
 
-      let result: SubmissionResult;
-
-      // Save as draft (no file requirements)
       if (category === 'youth') {
-        result = await submissionService.saveDraftYouthForm(formData as YouthFormData);
+        draftResult = await submissionService.saveDraftYouthForm(basicData as YouthFormData);
       } else if (category === 'future') {
-        result = await submissionService.saveDraftFutureForm(formData as FutureFormData);
+        draftResult = await submissionService.saveDraftFutureForm(basicData as FutureFormData);
       } else {
-        // For world category, we'll implement draft saving later
-        // Age validation based on form type - crew members must follow same age rules as main category
-        const ageCategory = window.location.hash.includes('future') ? 'FUTURE' : 'YOUTH';
-        result = await submissionService.saveDraftWorldForm(formData as WorldFormData);
+        draftResult = await submissionService.saveDraftWorldForm(basicData as WorldFormData);
       }
 
-      setSubmissionState(prev => ({ ...prev, result }));
+      if (!draftResult.success) {
+        throw new Error(draftResult.error || 'Failed to create application');
+      }
 
-      // Note: Success handling is now done in useEffect to ensure proper state transitions
-
+      updateStepStatus('create', 'completed');
+      const draftId = draftResult.submissionId!;
+      
+      // STEP 2: Upload film file (SEQUENTIAL - not concurrent)
+      if (formData.filmFile) {
+        updateStepStatus('film', 'processing');
+        await uploadSingleFile(draftId, 'filmFile', formData.filmFile, (progress) => {
+          updateStepProgress('film', progress);
+        });
+        updateStepStatus('film', 'completed');
+      }
+      
+      // STEP 3: Upload poster file (AFTER film is done)
+      if (formData.posterFile) {
+        updateStepStatus('poster', 'processing');
+        await uploadSingleFile(draftId, 'posterFile', formData.posterFile, (progress) => {
+          updateStepProgress('poster', progress);
+        });
+        updateStepStatus('poster', 'completed');
+      }
+      
+      // STEP 4: Upload proof file (AFTER poster is done)
+      if (formData.proofFile) {
+        updateStepStatus('proof', 'processing');
+        await uploadSingleFile(draftId, 'proofFile', formData.proofFile, (progress) => {
+          updateStepProgress('proof', progress);
+        });
+        updateStepStatus('proof', 'completed');
+      }
+      
+      // STEP 5: Finalize
+      updateStepStatus('finalize', 'processing');
+      // Any final updates needed
+      updateStepStatus('finalize', 'completed');
+      
+      // Success!
+      setIsProcessing(false);
+      setSavedApplicationId(draftId);
+      setShowDraftSuccessDialog(true);
+      
     } catch (error) {
-      console.error('Draft save error:', error);
-      setSubmissionState({
-        isSubmitting: false,
-        result: {
-          success: false,
-          error: error instanceof Error ? error.message : 'Failed to save draft',
-          isDraft: true
-        }
-      });
+      console.error('Sequential upload error:', error);
+      setIsProcessing(false);
+      setError(error instanceof Error ? error.message : 'Failed to save draft');
     }
   };
 
@@ -468,12 +570,12 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
   };
 
   // Show submission progress
-  if (submissionState.progress) {
+  if (uploadProgress) {
     return (
       <div className="min-h-screen bg-[#110D16] pt-24 pb-12 px-4">
         <div className="max-w-4xl mx-auto">
           <SubmissionProgressComponent 
-            progress={submissionState.progress}
+            progress={uploadProgress}
           />
         </div>
       </div>
@@ -481,7 +583,7 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
   }
 
   // Show error screen only for failed submissions
-  if (submissionState.result && !submissionState.result.success) {
+  if (saveResult && !saveResult.success) {
     return (
       <div className="min-h-screen bg-[#110D16] pt-24 pb-12 px-4">
         <div className="max-w-4xl mx-auto">
@@ -491,12 +593,46 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
               {currentLanguage === 'th' ? 'เกิดข้อผิดพลาด' : 'Error Occurred'}
             </h2>
             <p className={`text-white/80 ${getClass('body')} mb-6`}>
-              {submissionState.result.error}
+              {saveResult.error}
             </p>
             <AnimatedButton
               variant="primary"
               size="medium"
-              onClick={() => setSubmissionState({ isSubmitting: false })}
+              onClick={() => {
+                setIsSubmitting(false);
+                setSaveResult(undefined);
+                setUploadProgress(undefined);
+              }}
+            >
+              {currentLanguage === 'th' ? 'ลองอีกครั้ง' : 'Try Again'}
+            </AnimatedButton>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error screen for sequential processing errors
+  if (error) {
+    return (
+      <div className="min-h-screen bg-[#110D16] pt-24 pb-12 px-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="glass-container rounded-2xl p-8 text-center max-w-2xl mx-auto">
+            <div className="text-6xl mb-6">❌</div>
+            <h2 className={`text-2xl ${getClass('header')} mb-4 text-white`}>
+              {currentLanguage === 'th' ? 'เกิดข้อผิดพลาด' : 'Error Occurred'}
+            </h2>
+            <p className={`text-white/80 ${getClass('body')} mb-6`}>
+              {error}
+            </p>
+            <AnimatedButton
+              variant="primary"
+              size="medium"
+              onClick={() => {
+                setError('');
+                setIsProcessing(false);
+                setProgressSteps([]);
+              }}
             >
               {currentLanguage === 'th' ? 'ลองอีกครั้ง' : 'Try Again'}
             </AnimatedButton>
@@ -834,20 +970,23 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
             isWorldForm={category === 'world'}
           />
 
-          {/* Section 5: File Uploader */}
+          {/* Section 5: Film Submission */}
+          <FormSection title={currentLanguage === 'th' ? 'การส่งภาพยนตร์' : 'Film Submission'} icon="🎬">
+            <FilmSubmissionSelector
+              submissionType={formData.filmSubmissionType}
+              onSubmissionTypeChange={handleSubmissionTypeChange}
+              filmFile={formData.filmFile}
+              onFileChange={(file) => handleFileChange('filmFile', file)}
+              filmUrl={formData.filmUrl || ''}
+              onUrlChange={handleUrlChange}
+              onMetadataExtracted={handleMetadataExtracted}
+              error={formErrors.filmFile || formErrors.filmUrl}
+            />
+          </FormSection>
+
+          {/* Section 6: Other Files */}
           <FormSection title={currentContent.filesTitle} icon="📁">
             <div className="space-y-6">
-              <UnifiedFileUpload
-                mode="upload"
-                name="filmFile"
-                label={currentContent.filmFile}
-                accept=".mp4,.mov"
-                fileType="VIDEO"
-                onFileChange={(file) => handleFileChange('filmFile', file)}
-                currentFile={formData.filmFile}
-                error={formErrors.filmFile}
-              />
-              
               <UnifiedFileUpload
                 mode="upload"
                 name="posterFile"
@@ -872,7 +1011,7 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
             </div>
           </FormSection>
 
-          {/* Section 6: Agreements */}
+          {/* Section 7: Agreements */}
           <AgreementCheckboxes
             agreements={{
               agreement1: formData.agreement1,
@@ -908,13 +1047,13 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
               variant="primary"
               size="large"
               icon="💾"
-              className={`${getClass('menu')} ${submissionState.isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`${getClass('menu')} ${isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
               onClick={(e) => {
                 e?.preventDefault();
                 handleSubmit(e as any);
               }}
             >
-              {submissionState.isSubmitting ? currentContent.saving : currentContent.saveDraft}
+              {isSubmitting ? currentContent.saving : currentContent.saveDraft}
             </AnimatedButton>
           </div>
         </form>
@@ -927,6 +1066,12 @@ const UnifiedSubmissionForm: React.FC<UnifiedSubmissionFormProps> = ({ category 
         onSubmitNow={handleSubmitNow}
         onReviewLater={handleReviewLater}
         applicationId={savedApplicationId}
+      />
+
+      {/* Processing Overlay */}
+      <ProcessingOverlay
+        isVisible={isProcessing}
+        steps={progressSteps}
       />
     </div>
   );

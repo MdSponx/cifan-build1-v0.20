@@ -1,4 +1,4 @@
-import { doc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { doc, updateDoc, serverTimestamp, getDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { deleteFile, uploadFile, generateFilePath, validateFile, FileMetadata } from './fileUploadService';
 
@@ -244,6 +244,8 @@ export class ApplicationService {
    */
   async deleteApplication(applicationId: string): Promise<void> {
     try {
+      this.updateProgress('validating', 0, 'Validating application...');
+
       // Get current application data
       const docRef = doc(db, 'submissions', applicationId);
       const docSnap = await getDoc(docRef);
@@ -259,32 +261,42 @@ export class ApplicationService {
         throw new Error('Cannot delete submitted applications');
       }
 
-      // Delete associated files
+      this.updateProgress('updating', 20, 'Preparing to delete files...');
+
+      // Delete associated files with progress tracking
       const filesToDelete = [
-        application.files?.filmFile?.storagePath,
-        application.files?.posterFile?.storagePath,
-        application.files?.proofFile?.storagePath
-      ].filter(Boolean);
+        { path: application.files?.filmFile?.storagePath, name: 'film file' },
+        { path: application.files?.posterFile?.storagePath, name: 'poster file' },
+        { path: application.files?.proofFile?.storagePath, name: 'proof file' }
+      ].filter(file => file.path);
 
-      await Promise.all(
-        filesToDelete.map(async (filePath) => {
+      if (filesToDelete.length > 0) {
+        for (let i = 0; i < filesToDelete.length; i++) {
+          const file = filesToDelete[i];
+          const progress = 20 + ((i + 1) / filesToDelete.length) * 60; // 20% to 80%
+          
+          this.updateProgress('updating', progress, `Deleting ${file.name}...`);
+          
           try {
-            await deleteFile(filePath!);
+            await deleteFile(file.path!);
           } catch (error) {
-            console.warn('Failed to delete file:', filePath, error);
+            console.warn('Failed to delete file:', file.path, error);
           }
-        })
-      );
+        }
+      } else {
+        this.updateProgress('updating', 80, 'No files to delete...');
+      }
 
-      // Delete application document
-      await updateDoc(docRef, {
-        status: 'deleted',
-        deletedAt: serverTimestamp(),
-        lastModified: serverTimestamp()
-      });
+      this.updateProgress('updating', 90, 'Removing application record...');
+
+      // Actually delete the document from the database
+      await deleteDoc(docRef);
+
+      this.updateProgress('complete', 100, 'Application deleted successfully!');
 
     } catch (error) {
       console.error('Error deleting application:', error);
+      this.updateProgress('error', 0, error instanceof Error ? error.message : 'Unknown error occurred');
       throw error;
     }
   }

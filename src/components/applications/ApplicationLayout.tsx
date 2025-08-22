@@ -8,7 +8,9 @@ import DetailsSection from './DetailsSection';
 import AnimatedButton from '../ui/AnimatedButton';
 import SubmissionConfirm from './SubmissionConfirm';
 import DraftSuccessDialog from '../dialogs/DraftSuccessDialog';
-import { ApplicationService, FilmApplication } from '../../services/applicationService';
+import DeleteConfirmationModal from '../ui/DeleteConfirmationModal';
+import ProcessingOverlay, { ProcessingStep } from '../ui/ProcessingOverlay';
+import { ApplicationService, FilmApplication, SubmissionProgress } from '../../services/applicationService';
 
 interface ApplicationData {
   id: string;
@@ -79,6 +81,13 @@ const ApplicationLayout: React.FC<ApplicationLayoutProps> = ({ application }) =>
   const [showDraftSuccessDialog, setShowDraftSuccessDialog] = useState(false);
   const [savedApplicationId, setSavedApplicationId] = useState<string>('');
 
+  // Delete Confirmation Modal state
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  
+  // Processing Overlay state
+  const [showProcessingOverlay, setShowProcessingOverlay] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState<ProcessingStep[]>([]);
+
   // Determine if application can be edited (only drafts can be edited)
   const canEdit = application.status === 'draft';
 
@@ -121,29 +130,140 @@ const ApplicationLayout: React.FC<ApplicationLayoutProps> = ({ application }) =>
     setShowSubmissionConfirm(true);
   };
 
-  const handleDeleteApplication = async () => {
+  const handleDeleteApplication = () => {
     if (isProcessing) return;
-    
-    const confirmed = window.confirm(
-      currentLanguage === 'th' 
-        ? 'คุณแน่ใจหรือไม่ที่จะลบใบสมัครนี้? การกระทำนี้ไม่สามารถยกเลิกได้'
-        : 'Are you sure you want to delete this application? This action cannot be undone.'
-    );
-    
-    if (!confirmed) return;
+    // Show delete confirmation modal instead of browser confirm
+    setShowDeleteConfirmModal(true);
+  };
 
+  const handleConfirmDelete = async () => {
     setIsProcessing(true);
+    setShowDeleteConfirmModal(false);
+    
+    // Initialize processing steps
+    const initialSteps: ProcessingStep[] = [
+      {
+        id: 'validate',
+        label: currentLanguage === 'th' ? 'ตรวจสอบใบสมัคร...' : 'Validating application...',
+        status: 'pending'
+      },
+      {
+        id: 'delete-film',
+        label: currentLanguage === 'th' ? 'ลบไฟล์ภาพยนตร์...' : 'Deleting film file...',
+        status: 'pending'
+      },
+      {
+        id: 'delete-poster',
+        label: currentLanguage === 'th' ? 'ลบไฟล์โปสเตอร์...' : 'Deleting poster file...',
+        status: 'pending'
+      },
+      {
+        id: 'delete-proof',
+        label: currentLanguage === 'th' ? 'ลบไฟล์เอกสาร...' : 'Deleting proof file...',
+        status: 'pending',
+        skip: !application.files.proofFile
+      },
+      {
+        id: 'delete-record',
+        label: currentLanguage === 'th' ? 'ลบข้อมูลใบสมัคร...' : 'Removing application record...',
+        status: 'pending'
+      }
+    ];
+    
+    setProcessingSteps(initialSteps);
+    setShowProcessingOverlay(true);
+
     try {
-      const applicationService = new ApplicationService();
+      // Create application service with progress callback
+      const applicationService = new ApplicationService((progress: SubmissionProgress) => {
+        setProcessingSteps(prevSteps => {
+          const newSteps = [...prevSteps];
+          
+          // Update steps based on progress
+          if (progress.stage === 'validating') {
+            newSteps[0] = { ...newSteps[0], status: 'processing', progress: progress.progress };
+          } else if (progress.stage === 'updating') {
+            // Mark validation as complete
+            newSteps[0] = { ...newSteps[0], status: 'completed', progress: 100 };
+            
+            // Update file deletion steps based on progress percentage
+            if (progress.progress <= 40) {
+              // Deleting film file (20-40%)
+              newSteps[1] = { ...newSteps[1], status: 'processing', progress: ((progress.progress - 20) / 20) * 100 };
+            } else if (progress.progress <= 60) {
+              // Film file complete, deleting poster (40-60%)
+              newSteps[1] = { ...newSteps[1], status: 'completed', progress: 100 };
+              newSteps[2] = { ...newSteps[2], status: 'processing', progress: ((progress.progress - 40) / 20) * 100 };
+            } else if (progress.progress <= 80) {
+              // Poster complete, deleting proof if exists (60-80%)
+              newSteps[1] = { ...newSteps[1], status: 'completed', progress: 100 };
+              newSteps[2] = { ...newSteps[2], status: 'completed', progress: 100 };
+              if (!newSteps[3].skip) {
+                newSteps[3] = { ...newSteps[3], status: 'processing', progress: ((progress.progress - 60) / 20) * 100 };
+              }
+            } else if (progress.progress <= 90) {
+              // Files complete, deleting record (80-90%)
+              newSteps[1] = { ...newSteps[1], status: 'completed', progress: 100 };
+              newSteps[2] = { ...newSteps[2], status: 'completed', progress: 100 };
+              if (!newSteps[3].skip) {
+                newSteps[3] = { ...newSteps[3], status: 'completed', progress: 100 };
+              }
+              newSteps[4] = { ...newSteps[4], status: 'processing', progress: ((progress.progress - 80) / 10) * 100 };
+            }
+          } else if (progress.stage === 'complete') {
+            // Mark all as completed
+            newSteps.forEach((step, index) => {
+              if (!step.skip) {
+                newSteps[index] = { ...step, status: 'completed', progress: 100 };
+              }
+            });
+          } else if (progress.stage === 'error') {
+            // Mark current step as error
+            const currentStepIndex = newSteps.findIndex(step => step.status === 'processing');
+            if (currentStepIndex !== -1) {
+              newSteps[currentStepIndex] = { ...newSteps[currentStepIndex], status: 'error' };
+            }
+          }
+          
+          return newSteps;
+        });
+      });
+      
       await applicationService.deleteApplication(application.id);
       
-      // Redirect back to applications list
-      window.location.hash = '#my-applications';
+      // Wait a moment to show completion
+      setTimeout(() => {
+        setShowProcessingOverlay(false);
+        window.location.hash = '#my-applications';
+      }, 1500);
+      
     } catch (error) {
       console.error('Error deleting application:', error);
-      alert(error instanceof Error ? error.message : 'Failed to delete application');
+      
+      // Update steps to show error
+      setProcessingSteps(prevSteps => {
+        const newSteps = [...prevSteps];
+        const currentStepIndex = newSteps.findIndex(step => step.status === 'processing');
+        if (currentStepIndex !== -1) {
+          newSteps[currentStepIndex] = { ...newSteps[currentStepIndex], status: 'error' };
+        }
+        return newSteps;
+      });
+      
+      // Show error and close overlay after delay
+      setTimeout(() => {
+        setShowProcessingOverlay(false);
+        alert(error instanceof Error ? error.message : 'Failed to delete application');
+      }, 2000);
+      
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    if (!isProcessing) {
+      setShowDeleteConfirmModal(false);
     }
   };
 
@@ -300,10 +420,7 @@ const ApplicationLayout: React.FC<ApplicationLayoutProps> = ({ application }) =>
                     <div className="flex items-center space-x-3">
                       <span className="text-xl">🗣️</span>
                       <span className={`${getClass('body')} text-white`}>
-                        {Array.isArray(application.filmLanguages) 
-                          ? application.filmLanguages.join(', ')
-                          : application.filmLanguages || 'Thai'
-                        }
+                        {application.filmLanguage || 'Thai'}
                       </span>
                     </div>
                   )}
@@ -584,6 +701,21 @@ const ApplicationLayout: React.FC<ApplicationLayoutProps> = ({ application }) =>
         onReviewLater={handleReviewLater}
         applicationId={savedApplicationId}
         isDraft={true}
+      />
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteConfirmModal}
+        onClose={handleCancelDelete}
+        onConfirm={handleConfirmDelete}
+        isProcessing={isProcessing}
+        itemName={application.filmTitle}
+      />
+
+      {/* Processing Overlay */}
+      <ProcessingOverlay
+        isVisible={showProcessingOverlay}
+        steps={processingSteps}
       />
     </div>
   );

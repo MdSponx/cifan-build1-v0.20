@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage';
 import { storage } from '../firebase';
 import { FILE_TYPES } from './formConstants';
 
@@ -14,30 +14,53 @@ export interface FileUploadResult {
   fileSize: number;
 }
 
-// Upload file to Firebase Storage
+// Upload file to Firebase Storage with progress tracking
 export const uploadFile = async (
   file: File, 
   path: string,
   onProgress?: (progress: number) => void
 ): Promise<FileUploadResult> => {
-  try {
-    const storageRef = ref(storage, path);
-    
-    // Upload file
-    const snapshot = await uploadBytes(storageRef, file);
-    
-    // Get download URL
-    const url = await getDownloadURL(snapshot.ref);
-    
-    return {
-      url,
-      fileName: file.name,
-      fileSize: file.size
-    };
-  } catch (error) {
-    console.error('File upload error:', error);
-    throw new Error('Failed to upload file');
-  }
+  return new Promise((resolve, reject) => {
+    try {
+      const storageRef = ref(storage, path);
+      const uploadTask: UploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          // Calculate progress percentage
+          const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+          
+          // Call progress callback if provided
+          if (onProgress) {
+            onProgress(Math.round(progress));
+          }
+        },
+        (error) => {
+          console.error('File upload error:', error);
+          reject(new Error('Failed to upload file'));
+        },
+        async () => {
+          try {
+            // Upload completed successfully, get download URL
+            const url = await getDownloadURL(uploadTask.snapshot.ref);
+            
+            resolve({
+              url,
+              fileName: file.name,
+              fileSize: file.size
+            });
+          } catch (error) {
+            console.error('Error getting download URL:', error);
+            reject(new Error('Failed to get download URL'));
+          }
+        }
+      );
+    } catch (error) {
+      console.error('File upload initialization error:', error);
+      reject(new Error('Failed to initialize file upload'));
+    }
+  });
 };
 
 // Generate upload path based on category and file type
