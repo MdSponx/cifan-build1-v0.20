@@ -2071,3 +2071,115 @@ html[lang="th"] .partner-card-text {
     align-self: flex-end;
   }
 }
+
+/* Partner Table Styles */
+.partner-table-container {
+  max-width: 100%;
+  overflow: hidden;
+  border-radius: 0.75rem;
+}
+
+.partner-table-scroll {
+  overflow-x: auto;
+  overflow-y: visible;
+  max-width: 100%;
+}
+
+.partner-table-scroll::-webkit-scrollbar {
+  height: 8px;
+}
+
+.partner-table-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.partner-table-scroll::-webkit-scrollbar-thumb {
+  background: rgba(252, 178, 131, 0.5);
+  border-radius: 4px;
+}
+
+.partner-table-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(252, 178, 131, 0.7);
+}
+
+/* Table Cell Minimum Widths */
+.partner-table th,
+.partner-table td {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.partner-table .name-cell {
+  min-width: 200px;
+  max-width: 250px;
+}
+
+.partner-table .logo-cell {
+  min-width: 80px;
+  width: 80px;
+}
+
+.partner-table .level-cell {
+  min-width: 150px;
+}
+
+.partner-table .order-cell {
+  min-width: 80px;
+  width: 80px;
+  text-align: center;
+}
+
+.partner-table .status-cell {
+  min-width: 100px;
+}
+
+.partner-table .actions-cell {
+  min-width: 120px;
+  width: 120px;
+}
+
+/* Mobile Responsive Adjustments */
+@media (max-width: 768px) {
+  .partner-table-container {
+    margin: -1rem;
+    border-radius: 0;
+  }
+  
+  .partner-table .name-cell {
+    min-width: 150px;
+    max-width: 180px;
+  }
+  
+  .partner-table .level-cell {
+    min-width: 120px;
+  }
+  
+  .partner-table th,
+  .partner-table td {
+    padding: 0.5rem;
+    font-size: 0.875rem;
+  }
+  
+  .partner-table .level-header-text {
+    font-size: 1rem;
+  }
+  
+  .partner-table .add-partner-btn-mobile {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.75rem;
+  }
+}
+
+/* Prevent Table Overflow */
+.table-wrapper {
+  position: relative;
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.table-inner {
+  width: 100%;
+  min-width: 700px; /* Minimum table width */
+}

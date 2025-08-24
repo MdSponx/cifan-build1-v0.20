@@ -22,7 +22,9 @@ import {
   Star,
   Award,
   Medal,
-  Loader
+  Loader,
+  Heart,
+  Users
 } from 'lucide-react';
 
 interface PartnerManagementPageProps {
@@ -70,7 +72,15 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
       uploadedLogo: 'โลโก้ที่อัพโหลด',
       externalUrl: 'ลิงก์ภายนอก',
       totalPartners: 'พาร์ทเนอร์ทั้งหมด',
-      activePartners: 'พาร์ทเนอร์ที่ใช้งาน'
+      activePartners: 'พาร์ทเนอร์ที่ใช้งาน',
+      logo: 'โลโก้',
+      name: 'ชื่อ',
+      level: 'ระดับ',
+      order: 'ลำดับ',
+      status: 'สถานะ',
+      actions: 'การดำเนินการ',
+      confirmDelete: 'คุณต้องการลบพาร์ทเนอร์นี้หรือไม่?',
+      partnersTable: 'ตารางจัดการพาร์ทเนอร์'
     },
     en: {
       title: 'Partner Management',
@@ -94,7 +104,15 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
       uploadedLogo: 'Uploaded Logo',
       externalUrl: 'External URL',
       totalPartners: 'Total Partners',
-      activePartners: 'Active Partners'
+      activePartners: 'Active Partners',
+      logo: 'Logo',
+      name: 'Name',
+      level: 'Level',
+      order: 'Order',
+      status: 'Status',
+      actions: 'Actions',
+      confirmDelete: 'Are you sure you want to delete this partner?',
+      partnersTable: 'Partners Management Table'
     }
   };
 
@@ -198,12 +216,176 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
       case 1:
         return { icon: Star, color: '#FFD700', bgColor: 'bg-yellow-500/20' };
       case 2:
-        return { icon: Award, color: '#C0C0C0', bgColor: 'bg-gray-400/20' };
+        return { icon: Heart, color: '#3B82F6', bgColor: 'bg-blue-400/20' };
       case 3:
-        return { icon: Medal, color: '#CD7F32', bgColor: 'bg-orange-600/20' };
+        return { icon: Users, color: '#10B981', bgColor: 'bg-green-500/20' };
       default:
         return { icon: Building2, color: '#9CA3AF', bgColor: 'bg-gray-500/20' };
     }
+  };
+
+  // Group partners by level and sort by order
+  const groupPartnersByLevel = () => {
+    const grouped = {
+      1: filteredPartners.filter(p => p.level === 1).sort((a, b) => a.order - b.order),
+      2: filteredPartners.filter(p => p.level === 2).sort((a, b) => a.order - b.order),
+      3: filteredPartners.filter(p => p.level === 3).sort((a, b) => a.order - b.order)
+    };
+    return grouped;
+  };
+
+  // Handle level-specific partner addition
+  const onAddPartnerWithLevel = (level: 1 | 2 | 3) => {
+    setEditingPartner(null);
+    setShowFormModal(true);
+    // Note: The level pre-selection would need to be handled in the PartnerFormModal
+  };
+
+  // Render grouped partners in table format
+  const renderGroupedPartners = () => {
+    const grouped = groupPartnersByLevel();
+    const levelNames = {
+      1: currentContent.level1,
+      2: currentContent.level2,
+      3: currentContent.level3
+    };
+
+    const levelIcons = {
+      1: <Star className="w-4 h-4 text-yellow-400" />,
+      2: <Heart className="w-4 h-4 text-blue-400" />,
+      3: <Users className="w-4 h-4 text-green-400" />
+    };
+
+    return Object.entries(grouped).map(([level, partners]) => {
+      if (partners.length === 0) return null;
+      
+      const levelNum = parseInt(level) as 1 | 2 | 3;
+      
+      return (
+        <React.Fragment key={level}>
+          {/* Level Header Row */}
+          <tr className="bg-white/10 border-b border-white/10">
+            <td colSpan={6} className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  {levelIcons[levelNum]}
+                  <span className="font-semibold text-white text-lg">
+                    {levelNames[levelNum]} ({partners.length})
+                  </span>
+                </div>
+                <button
+                  onClick={() => onAddPartnerWithLevel(levelNum)}
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-[#FCB283]/20 hover:bg-[#FCB283]/30 text-[#FCB283] rounded-lg transition-colors text-sm"
+                  title={`${currentContent.addPartner} - ${levelNames[levelNum]}`}
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="hidden sm:inline">{currentContent.addPartner}</span>
+                </button>
+              </div>
+            </td>
+          </tr>
+          
+          {/* Partner Rows */}
+          {partners.map((partner, index) => (
+            <tr 
+              key={partner.id} 
+              className={`border-b border-white/5 hover:bg-white/5 transition-colors ${
+                index === partners.length - 1 ? 'border-b-2 border-white/20' : ''
+              }`}
+            >
+              {/* Logo Column */}
+              <td className="p-4 logo-cell">
+                <div className="w-16 h-16 bg-white/5 rounded-lg flex items-center justify-center overflow-hidden">
+                  <img
+                    src={partner.logo.value}
+                    alt={partner.name[currentLanguage]}
+                    className="max-w-full max-h-full object-contain"
+                    onError={(e) => {
+                      const target = e.target as HTMLImageElement;
+                      target.src = 'https://via.placeholder.com/64x64/374151/9CA3AF?text=Logo';
+                    }}
+                  />
+                </div>
+              </td>
+              
+              {/* Name Column */}
+              <td className="p-4 name-cell">
+                <div>
+                  <div className="text-white font-medium">
+                    {partner.name[currentLanguage]}
+                  </div>
+                  <div className="text-white/60 text-sm">
+                    {partner.name[currentLanguage === 'th' ? 'en' : 'th']}
+                  </div>
+                </div>
+              </td>
+              
+              {/* Level Column */}
+              <td className="p-4 level-cell">
+                <div className="flex items-center space-x-2">
+                  {levelIcons[partner.level]}
+                  <span className="text-white/80">
+                    {levelNames[partner.level]}
+                  </span>
+                </div>
+              </td>
+              
+              {/* Order Column */}
+              <td className="p-4 order-cell">
+                <span className="text-white/80 font-mono text-lg">
+                  {partner.order}
+                </span>
+              </td>
+              
+              {/* Status Column */}
+              <td className="p-4 status-cell">
+                <div className="flex items-center space-x-2">
+                  {partner.status === 'active' ? (
+                    <>
+                      <Eye className="w-4 h-4 text-green-400" />
+                      <span className="text-green-400">{currentContent.active}</span>
+                    </>
+                  ) : (
+                    <>
+                      <EyeOff className="w-4 h-4 text-red-400" />
+                      <span className="text-red-400">{currentContent.inactive}</span>
+                    </>
+                  )}
+                </div>
+              </td>
+              
+              {/* Actions Column */}
+              <td className="p-4 actions-cell">
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => {
+                      setEditingPartner(partner);
+                      setShowFormModal(true);
+                    }}
+                    className="p-2 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 rounded-lg transition-colors"
+                    title={currentContent.edit}
+                  >
+                    <Edit className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (window.confirm(currentContent.confirmDelete)) {
+                        setDeletingPartner(partner);
+                        setShowDeleteModal(true);
+                      }
+                    }}
+                    className="p-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg transition-colors"
+                    title={currentContent.delete}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
+        </React.Fragment>
+      );
+    }).filter(Boolean);
   };
 
   // Permission check
@@ -237,7 +419,7 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
   const activePartners = partners.filter(p => p.status === 'active').length;
 
   return (
-    <div className="space-y-6 sm:space-y-8">
+    <div className="space-y-6 sm:space-y-8" style={{ paddingBottom: '8rem', minHeight: '100vh', overflow: 'visible' }}>
       {/* Admin Zone Header */}
       <AdminZoneHeader
         title={currentContent.title}
@@ -360,154 +542,73 @@ const PartnerManagementPage: React.FC<PartnerManagementPageProps> = ({ onSidebar
         </div>
       </div>
 
-      {/* Partners Grid */}
-      <div className="glass-container rounded-xl p-6">
+      {/* Partners Table */}
+      <div className="partner-table-container glass-container rounded-xl overflow-hidden" style={{ minHeight: 'fit-content', height: 'auto', overflow: 'visible' }}>
+        {/* Table Header with Main Add Button */}
+        <div className="p-6 border-b border-white/10 bg-white/5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-semibold text-white">
+              {currentContent.partnersTable}
+            </h2>
+            <button
+              onClick={() => setShowFormModal(true)}
+              className="flex items-center space-x-2 px-4 py-2 bg-[#FCB283] hover:bg-[#FCB283]/90 text-white rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{currentContent.addPartner}</span>
+            </button>
+          </div>
+        </div>
+
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader className="w-8 h-8 text-[#FCB283] animate-spin mr-3" />
             <span className={`${getClass('body')} text-white/70`}>{currentContent.loading}</span>
           </div>
         ) : filteredPartners.length === 0 ? (
-          <div className="text-center py-12">
+          <div className="p-12 text-center">
             <Building2 className="w-16 h-16 mx-auto text-white/40 mb-4" />
-            <p className={`${getClass('body')} text-white/60`}>
-              {currentContent.noPartners}
-            </p>
+            <p className="text-white/60 mb-4">{currentContent.noPartners}</p>
+            <button
+              onClick={() => setShowFormModal(true)}
+              className="flex items-center justify-center space-x-2 mx-auto px-4 py-2 bg-[#FCB283] hover:bg-[#FCB283]/90 text-white rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{currentContent.addPartner}</span>
+            </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 sm:gap-6 auto-rows-fr">
-            {filteredPartners.map((partner) => {
-              const levelInfo = getLevelInfo(partner.level);
-              const LevelIcon = levelInfo.icon;
-
-              return (
-                <div key={partner.id} className="glass-card rounded-xl border border-white/10 hover:border-[#FCB283]/50 transition-all duration-200 overflow-hidden min-h-[400px] max-w-full">
-                  <div className="p-4 sm:p-6 h-full flex flex-col">
-                    {/* Partner Logo */}
-                    <div className="flex items-center justify-center mb-4 h-20 sm:h-24 bg-white/5 rounded-lg flex-shrink-0 overflow-hidden">
-                      <img
-                        src={partner.logo.value}
-                        alt={partner.name[currentLanguage]}
-                        className="max-h-full max-w-full object-contain"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          target.src = 'https://via.placeholder.com/200x100/374151/9CA3AF?text=Logo';
-                        }}
-                      />
-                    </div>
-
-                    {/* Partner Info */}
-                    <div className="text-center mb-4 flex-grow overflow-hidden">
-                      <h3 className={`${getClass('body')} text-white font-semibold mb-2 text-sm sm:text-base break-words hyphens-auto`} 
-                          style={{ 
-                            wordWrap: 'break-word', 
-                            overflowWrap: 'break-word',
-                            lineHeight: '1.4',
-                            maxHeight: '3.5rem',
-                            overflow: 'hidden',
-                            display: '-webkit-box',
-                            WebkitLineClamp: 2,
-                            WebkitBoxOrient: 'vertical'
-                          }}>
-                        {partner.name[currentLanguage]}
-                      </h3>
-                      <div className="flex flex-wrap items-center justify-center gap-1 sm:gap-2 mb-2">
-                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${levelInfo.bgColor} max-w-full`}>
-                          <LevelIcon size={12} style={{ color: levelInfo.color }} />
-                          <span className="text-xs text-white/80 truncate">
-                            {currentContent[`level${partner.level}` as keyof typeof currentContent]}
-                          </span>
-                        </div>
-                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full ${
-                          partner.status === 'active' ? 'bg-green-500/20' : 'bg-red-500/20'
-                        } max-w-full`}>
-                          {partner.status === 'active' ? (
-                            <Eye size={12} className="text-green-400" />
-                          ) : (
-                            <EyeOff size={12} className="text-red-400" />
-                          )}
-                          <span className="text-xs text-white/80 truncate">
-                            {currentContent[partner.status as keyof typeof currentContent]}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-center space-x-1 text-xs text-white/60 mb-2 max-w-full overflow-hidden">
-                        {partner.logo.type === 'upload' ? (
-                          <>
-                            <Upload size={10} className="flex-shrink-0" />
-                            <span className="truncate">{currentContent.uploadedLogo}</span>
-                          </>
-                        ) : (
-                          <>
-                            <Globe size={10} className="flex-shrink-0" />
-                            <span className="truncate">{currentContent.externalUrl}</span>
-                          </>
-                        )}
-                      </div>
-                      <div className="text-xs text-white/40 truncate">
-                        Order: {partner.order}
-                      </div>
-                    </div>
-
-                    {/* Note */}
-                    {partner.note && (
-                      <div className="mb-4 flex-shrink-0 overflow-hidden">
-                        <p className={`${getClass('body')} text-white/60 text-xs sm:text-sm text-center break-words`}
-                           style={{ 
-                             wordWrap: 'break-word', 
-                             overflowWrap: 'break-word',
-                             lineHeight: '1.3',
-                             maxHeight: '2.6rem',
-                             overflow: 'hidden',
-                             display: '-webkit-box',
-                             WebkitLineClamp: 2,
-                             WebkitBoxOrient: 'vertical'
-                           }}>
-                          {partner.note}
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Actions */}
-                    <div className="flex justify-center space-x-1 sm:space-x-2 flex-shrink-0 mt-auto">
-                      <button
-                        onClick={() => {
-                          setEditingPartner(partner);
-                          setShowFormModal(true);
-                        }}
-                        className="p-2 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center"
-                        title={currentContent.edit}
-                      >
-                        <Edit size={14} />
-                      </button>
-                      <button
-                        onClick={() => handleToggleStatus(partner)}
-                        className={`p-2 rounded-lg transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center ${
-                          partner.status === 'active' 
-                            ? 'bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30' 
-                            : 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-                        }`}
-                        title={currentContent.toggleStatus}
-                      >
-                        {partner.status === 'active' ? <EyeOff size={14} /> : <Eye size={14} />}
-                      </button>
-                      {checkPermission('canManageUsers') && (
-                        <button
-                          onClick={() => {
-                            setDeletingPartner(partner);
-                            setShowDeleteModal(true);
-                          }}
-                          className="p-2 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 transition-all duration-200 min-w-[2rem] min-h-[2rem] flex items-center justify-center"
-                          title={currentContent.delete}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+          /* Table Container with Horizontal Scroll */
+          <div className="partner-table-scroll overflow-x-auto" style={{ overflow: 'visible', minHeight: 'fit-content' }}>
+            <div className="min-w-full" style={{ paddingBottom: '2rem' }}>
+              <table className="partner-table w-full border-collapse">
+                <thead className="bg-white/5 border-b border-white/20 sticky top-0 z-10">
+                  <tr>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[80px]">
+                      {currentContent.logo}
+                    </th>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[200px]">
+                      {currentContent.name}
+                    </th>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[150px]">
+                      {currentContent.level}
+                    </th>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[80px]">
+                      {currentContent.order}
+                    </th>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[100px]">
+                      {currentContent.status}
+                    </th>
+                    <th className="text-left p-4 text-white/80 font-semibold min-w-[120px]">
+                      {currentContent.actions}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/5">
+                  {renderGroupedPartners()}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
       </div>

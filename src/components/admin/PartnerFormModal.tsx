@@ -159,28 +159,53 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
 
   // Handle file upload
   const handleFileChange = (file: File | null) => {
-    if (!file) return;
+    if (!file) {
+      setLogoFile(null);
+      setLogoPreview('');
+      setErrors({ ...errors, logo: '' });
+      return;
+    }
 
     // Validate file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
     if (!allowedTypes.includes(file.type)) {
-      setErrors({ ...errors, logo: currentContent.errors.logoFormat });
+      setErrors({ 
+        ...errors, 
+        logo: currentContent.errors.logoFormat 
+      });
+      setLogoFile(null);
+      setLogoPreview('');
       return;
     }
 
     // Validate file size (5MB)
     if (file.size > 5 * 1024 * 1024) {
-      setErrors({ ...errors, logo: currentContent.errors.logoSize });
+      setErrors({ 
+        ...errors, 
+        logo: currentContent.errors.logoSize 
+      });
+      setLogoFile(null);
+      setLogoPreview('');
       return;
     }
 
-    setLogoFile(file);
+    // Clear any previous errors
     setErrors({ ...errors, logo: '' });
+    setLogoFile(file);
 
-    // Create preview
+    // Create preview with error handling
     const reader = new FileReader();
     reader.onload = (e) => {
-      setLogoPreview(e.target?.result as string);
+      const result = e.target?.result as string;
+      setLogoPreview(result);
+    };
+    reader.onerror = () => {
+      setErrors({ 
+        ...errors, 
+        logo: 'Cannot read file. Please try again.' 
+      });
+      setLogoFile(null);
+      setLogoPreview('');
     };
     reader.readAsDataURL(file);
   };
@@ -188,10 +213,13 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
   // Handle drag and drop
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
+    e.stopPropagation();
+    
     const files = Array.from(e.dataTransfer.files);
     if (files.length > 0) {
       handleFileChange(files[0]);
@@ -217,11 +245,24 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
     if (!formData.order || formData.order < 1) {
       newErrors.order = currentLanguage === 'th' ? 'กรุณากรอกลำดับการแสดงผล' : 'Display order is required';
     }
-    if (formData.logoType === 'url' && !formData.logoValue.trim()) {
-      newErrors.logoValue = currentContent.errors.logoValue;
-    }
-    if (formData.logoType === 'upload' && !logoFile && !partner?.logo.value) {
-      newErrors.logo = currentContent.errors.logo;
+
+    // Logo validation
+    if (formData.logoType === 'url') {
+      if (!formData.logoValue.trim()) {
+        newErrors.logoValue = currentContent.errors.logoValue;
+      } else {
+        // Validate URL format
+        try {
+          new URL(formData.logoValue);
+        } catch {
+          newErrors.logoValue = 'Please enter a valid URL';
+        }
+      }
+    } else if (formData.logoType === 'upload') {
+      // For edit mode, check if there's existing logo or new file
+      if (!logoFile && !partner?.logo.value) {
+        newErrors.logo = currentContent.errors.logo;
+      }
     }
 
     setErrors(newErrors);
@@ -231,19 +272,36 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
   // Handle submit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
+    
+    if (!validateForm()) {
+      // Scroll to first error
+      const firstError = document.querySelector('.border-red-500, .text-red-400');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
 
     setIsSubmitting(true);
+    
     try {
       if (partner) {
         await partnerService.updatePartner(partner.id, formData, logoFile || undefined);
       } else {
         await partnerService.createPartner(formData, adminProfile?.uid || 'unknown', logoFile || undefined);
       }
+      
       onSubmit();
+      onClose();
+      
     } catch (error) {
       console.error('Error saving partner:', error);
-      setErrors({ general: currentLanguage === 'th' ? 'ไม่สามารถบันทึกได้ กรุณาลองใหม่' : 'Failed to save partner. Please try again.' });
+      
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      setErrors({ 
+        general: `Failed to save: ${errorMessage}` 
+      });
+      
     } finally {
       setIsSubmitting(false);
     }
@@ -387,8 +445,11 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
                   <input
                     ref={fileInputRef}
                     type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileChange(e.target.files?.[0] || null)}
+                    accept="image/jpeg,image/jpg,image/png,image/svg+xml"
+                    onChange={(e) => {
+                      const selectedFile = e.target.files?.[0] || null;
+                      handleFileChange(selectedFile);
+                    }}
                     className="hidden"
                   />
                   <ImageIcon className="w-8 h-8 mx-auto text-white/40 mb-2" />
@@ -405,18 +466,48 @@ const PartnerFormModal: React.FC<PartnerFormModalProps> = ({
               </div>
             )}
 
-            {/* Logo Preview - Compact */}
+            {/* Logo Preview - Enhanced */}
             {logoPreview && (
-              <div className="bg-white/10 rounded-lg p-3 flex items-center justify-center h-20">
-                <img
-                  src={logoPreview}
-                  alt="Logo Preview"
-                  className="max-h-full max-w-full object-contain"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/200x100/374151/9CA3AF?text=Invalid+Image';
-                  }}
-                />
+              <div className="bg-white/10 rounded-lg p-3">
+                {logoFile ? (
+                  <div className="space-y-2">
+                    <img
+                      src={logoPreview}
+                      alt="Logo preview"
+                      className="w-16 h-16 object-contain mx-auto rounded"
+                      onError={() => {
+                        setLogoPreview('');
+                        setErrors({ 
+                          ...errors, 
+                          logo: 'Cannot display image preview' 
+                        });
+                      }}
+                    />
+                    <p className="text-white/60 text-xs text-center">{logoFile?.name}</p>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFileChange(null);
+                      }}
+                      className="text-red-400 hover:text-red-300 text-xs block mx-auto"
+                    >
+                      Remove File
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center h-20">
+                    <img
+                      src={logoPreview}
+                      alt="Logo Preview"
+                      className="max-h-full max-w-full object-contain"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'https://via.placeholder.com/200x100/374151/9CA3AF?text=Invalid+Image';
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

@@ -63,23 +63,17 @@ const AdminProtectedRoute: React.FC<AdminProtectedRouteProps> = ({
     );
   }
 
-  // Check if user is admin
-  if (!isAdmin) {
-    // Fallback check from userProfile in AuthContext
-    const isAdminFromProfile = userProfile && hasAdminLevelAccess(userProfile);
-    
-    if (isAdminFromProfile) {
-      console.log('AdminProtectedRoute: Fallback admin-level check passed, allowing access');
-      // If AuthContext says user has admin-level access but AdminContext isn't ready, allow access
-      return <>{children}</>;
-    }
-    
-    console.log('AdminProtectedRoute: User is not admin, blocking access');
-    console.log('AdminProtectedRoute: Current admin state:', { 
+  // Check if user has admin-level access (admin, editor, jury)
+  const hasAdminAccess = isAdmin || (userProfile && hasAdminLevelAccess(userProfile));
+  
+  if (!hasAdminAccess) {
+    console.log('AdminProtectedRoute: User lacks admin-level access, blocking access');
+    console.log('AdminProtectedRoute: Current state:', { 
       isAdmin, 
       isLoading, 
       user: user?.email,
-      userProfileRole: userProfile?.role 
+      userProfileRole: userProfile?.role,
+      hasAdminLevelAccess: userProfile ? hasAdminLevelAccess(userProfile) : false
     });
     if (onUnauthorized) {
       onUnauthorized();

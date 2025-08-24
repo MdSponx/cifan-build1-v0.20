@@ -22,7 +22,14 @@
     "filmLibrary": "Film Library",
     "ratingDashboard": "Rating Dashboard",
     "editorAccess": "Editor Access",
-    "juryAccess": "Jury Access"
+    "juryAccess": "Jury Access",
+    "editorZone": "Editor Zone",
+    "juryZone": "Jury Zone",
+    "editorDashboard": "Editor Dashboard",
+    "juryDashboard": "Jury Dashboard",
+    "manageContent": "Manage Content",
+    "accessLibrary": "Access Library",
+    "rateSubmissions": "Rate Submissions"
   },
   "tooltips": {
     "contentManagement": "Manage films, partners, and content",

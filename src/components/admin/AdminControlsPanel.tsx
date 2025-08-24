@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTypography } from '../../utils/typography';
+import { useAuth } from '../auth/AuthContext';
 import { AdminApplicationData, AdminControlsPanelProps } from '../../types/admin.types';
 import { 
   Shield, 
@@ -20,6 +21,7 @@ import {
 import AnimatedButton from '../ui/AnimatedButton';
 import { useAdminNotes } from '../../hooks/useAdminNotes';
 import { notesService } from '../../services/notesService';
+import { isJuryUser } from '../../utils/userUtils';
 
 const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
   application,
@@ -32,10 +34,14 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
 }) => {
   const { i18n } = useTranslation();
   const { getClass } = useTypography();
+  const { userProfile } = useAuth();
   const currentLanguage = i18n.language as 'en' | 'th';
 
   const [showFlagDialog, setShowFlagDialog] = useState(false);
   const [flagReason, setFlagReason] = useState('');
+
+  // Check if current user is jury - jury users have restricted access
+  const isJury = isJuryUser(userProfile);
 
   // Real notes system state
   const [newNoteContent, setNewNoteContent] = useState('');
@@ -238,6 +244,11 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
       }
     }
   };
+
+  // If user is jury, don't show admin controls panel at all
+  if (isJury) {
+    return null;
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8">

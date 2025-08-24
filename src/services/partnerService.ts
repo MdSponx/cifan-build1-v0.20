@@ -1,6 +1,6 @@
 import { Partner, PartnerFormData } from '../types/partner.types';
 import { collection, doc, addDoc, updateDoc, deleteDoc, getDocs, getDoc, query, orderBy, where, serverTimestamp } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase';
 
 class PartnerService {
@@ -115,16 +115,78 @@ class PartnerService {
 
   async uploadLogo(file: File, partnerId: string): Promise<string> {
     try {
-      const fileExtension = file.name.split('.').pop();
-      const fileName = `${partnerId}_${Date.now()}.${fileExtension}`;
+      console.log('Starting upload process for file:', file.name, 'Size:', file.size, 'Type:', file.type);
+      
+      // Validate file before upload
+      const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/svg+xml'];
+      if (!allowedTypes.includes(file.type)) {
+        throw new Error('Invalid file format. Only JPG, PNG, SVG are supported.');
+      }
+
+      // Check file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        throw new Error('File size exceeds 5MB limit.');
+      }
+
+      // Generate unique filename
+      const fileExtension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substring(2, 8);
+      const fileName = `${partnerId}_${timestamp}_${randomString}.${fileExtension}`;
+      
+      console.log('Generated filename:', fileName);
+      console.log('Storage path: partners/' + fileName);
+      
       const storageRef = ref(storage, `partners/${fileName}`);
       
-      const snapshot = await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(snapshot.ref);
-      return downloadURL;
+      // Upload with progress tracking and error handling
+      const uploadResult = await new Promise<string>((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            console.log(`Upload progress: ${Math.round(progress)}%`);
+          },
+          (error) => {
+            console.error('Upload error details:', error);
+            console.error('Error code:', error.code);
+            console.error('Error message:', error.message);
+            
+            switch (error.code) {
+              case 'storage/unauthorized':
+                reject(new Error('No permission to upload files. Contact system administrator.'));
+                break;
+              case 'storage/canceled':
+                reject(new Error('Upload was canceled.'));
+                break;
+              case 'storage/quota-exceeded':
+                reject(new Error('Storage quota exceeded. Contact system administrator.'));
+                break;
+              default:
+                reject(new Error(`Upload failed: ${error.message}`));
+            }
+          },
+          async () => {
+            try {
+              console.log('Upload completed, getting download URL...');
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              console.log('Download URL obtained:', downloadURL);
+              resolve(downloadURL);
+            } catch (error) {
+              console.error('Error getting download URL:', error);
+              reject(new Error('Failed to get download URL.'));
+            }
+          }
+        );
+      });
+
+      return uploadResult;
+      
     } catch (error) {
       console.error('Error uploading logo:', error);
-      throw error;
+      throw error instanceof Error ? error : new Error('File upload failed.');
     }
   }
 

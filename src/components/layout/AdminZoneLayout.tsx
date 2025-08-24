@@ -1,14 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import AdminZoneSidebar from './AdminZoneSidebar';
+import DynamicRoleSidebar from './DynamicRoleSidebar';
 
 interface AdminZoneLayoutProps {
   currentPage: string;
   children: React.ReactNode;
+  userRole?: 'admin' | 'super-admin' | 'editor' | 'jury';
 }
 
 const AdminZoneLayout: React.FC<AdminZoneLayoutProps> = ({
   currentPage,
-  children
+  children,
+  userRole
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -52,11 +54,12 @@ const AdminZoneLayout: React.FC<AdminZoneLayoutProps> = ({
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
         `}>
           <div className="w-full h-full p-4 lg:p-6">
-            <AdminZoneSidebar
+            <DynamicRoleSidebar
               currentPage={currentPage}
               isOpen={sidebarOpen}
               onToggle={toggleSidebar}
               onClose={closeSidebar}
+              userRole={userRole}
             />
           </div>
         </div>
@@ -67,7 +70,7 @@ const AdminZoneLayout: React.FC<AdminZoneLayoutProps> = ({
           transition-all duration-300 ease-in-out
         `}>
           {/* Content Container with full width utilization */}
-          <div className="min-h-[calc(100vh-6rem)]">
+          <div className="min-h-[calc(100vh-6rem)] pb-32">
             <div className="
               w-full
               px-4 sm:px-6 lg:px-6 xl:px-8 2xl:px-10

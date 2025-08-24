@@ -88,6 +88,7 @@ interface NationalitySelectorProps {
   onNationalityTypeChange: (isThaiNationality: boolean) => void;
   onFilmLanguagesChange: (languages: string[]) => void;
   filmLanguages?: string[];
+  currentNationality?: string; // Add current nationality prop
   className?: string;
 }
 
@@ -96,6 +97,7 @@ const NationalitySelector: React.FC<NationalitySelectorProps> = ({
   onNationalityTypeChange,
   onFilmLanguagesChange,
   filmLanguages = ['Thai'],
+  currentNationality = 'Thailand', // Default to Thailand
   className = ''
 }) => {
   const { i18n } = useTranslation();
@@ -105,6 +107,7 @@ const NationalitySelector: React.FC<NationalitySelectorProps> = ({
   const [showOtherLanguageInput, setShowOtherLanguageInput] = useState(false);
   const [customLanguage, setCustomLanguage] = useState('');
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>(filmLanguages || ['Thai']);
+  const [isInitialized, setIsInitialized] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -191,15 +194,19 @@ const NationalitySelector: React.FC<NationalitySelectorProps> = ({
       onNationalityTypeChange(true);
       setCountrySearch('');
       // Default to Thai language for Thai nationality
-      onFilmLanguagesChange(['Thai']);
+      const newLanguages = ['Thai'];
+      setSelectedLanguages(newLanguages);
+      onFilmLanguagesChange(newLanguages);
     } else {
-      // CRITICAL FIX: When switching to 'international', immediately set parent nationality to empty
-      // and clear the local country search state.
-      onNationalityChange(''); // Set parent form's nationality to empty string
+      // For international, clear the nationality and country search
+      // The user will need to select a country to set the nationality
+      onNationalityChange('');
       onNationalityTypeChange(false);
-      setCountrySearch(''); // Clear local search input
+      setCountrySearch('');
       // Default to English for international
-      onFilmLanguagesChange(['English']);
+      const newLanguages = ['English'];
+      setSelectedLanguages(newLanguages);
+      onFilmLanguagesChange(newLanguages);
     }
   };
 
@@ -252,16 +259,33 @@ const NationalitySelector: React.FC<NationalitySelectorProps> = ({
     }
   }, [filmLanguages]);
 
-  // Initialize with Thai nationality on mount
+  // Initialize component with current nationality from database
   useEffect(() => {
-    onNationalityChange('Thailand');
-    onNationalityTypeChange(true);
-    if (!filmLanguages || filmLanguages.length === 0) {
-      const initialLanguages = ['Thai'];
-      setSelectedLanguages(initialLanguages);
-      onFilmLanguagesChange(initialLanguages);
+    if (!isInitialized && currentNationality) {
+      // Determine nationality type based on current nationality
+      if (currentNationality === 'Thailand') {
+        setNationalityType('thai');
+        onNationalityTypeChange(true);
+        setCountrySearch('');
+      } else {
+        setNationalityType('international');
+        onNationalityTypeChange(false);
+        setCountrySearch(currentNationality);
+      }
+      
+      // Set the nationality in parent component
+      onNationalityChange(currentNationality);
+      
+      // Initialize languages if not provided
+      if (!filmLanguages || filmLanguages.length === 0) {
+        const initialLanguages = currentNationality === 'Thailand' ? ['Thai'] : ['English'];
+        setSelectedLanguages(initialLanguages);
+        onFilmLanguagesChange(initialLanguages);
+      }
+      
+      setIsInitialized(true);
     }
-  }, [onNationalityChange, onNationalityTypeChange, onFilmLanguagesChange]);
+  }, [currentNationality, isInitialized, onNationalityChange, onNationalityTypeChange, onFilmLanguagesChange, filmLanguages]);
 
   // Handle language selection
   const handleLanguageToggle = (languageValue: string) => {

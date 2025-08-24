@@ -27,6 +27,7 @@ interface AdminZoneSidebarProps {
   isOpen: boolean;
   onToggle: () => void;
   onClose: () => void;
+  userRole?: 'admin' | 'super-admin' | 'editor' | 'jury';
 }
 
 interface AdminMenuItem {
@@ -44,13 +45,17 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
   currentPage,
   isOpen,
   onToggle,
-  onClose
+  onClose,
+  userRole
 }) => {
   const { i18n } = useTranslation();
   const { getClass } = useTypography();
   const { user, userProfile, signOut } = useAuth();
   const { adminProfile, permissions, checkPermission } = useAdmin();
   const currentLanguage = i18n.language as 'en' | 'th';
+  
+  // Determine the actual user role
+  const actualUserRole = userRole || userProfile?.role || 'admin';
   
   // State for expandable menus
   const [isApplicationsExpanded, setIsApplicationsExpanded] = useState(true);
@@ -104,47 +109,69 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
 
   const currentContent = content[currentLanguage];
 
-  const menuItems: AdminMenuItem[] = [
-    {
-      id: 'admin/profile',
-      icon: <User size={20} />,
-      label: currentContent.adminProfile,
-      href: '#admin/profile'
-    },
-    // Always show Role Management for admin users
-    {
-      id: 'admin/role-management',
-      icon: <Users size={20} />,
-      label: currentContent.roleManagement,
-      href: '#admin/role-management'
-    },
-    // Applications main menu (expandable)
-    {
-      id: 'admin/applications',
-      icon: <FileText size={20} />,
-      label: currentContent.applications,
-      href: '#admin/applications'
-    },
-    // Always show Partners Management for admin users
-    {
-      id: 'admin/partners',
-      icon: <Building2 size={20} />,
-      label: currentContent.partnersManagement,
-      href: '#admin/partners'
-    },
-    {
-      id: 'admin/activities',
-      icon: <Calendar size={20} />,
-      label: currentContent.activitiesEvents,
-      href: '#admin/activities'
-    },
-    {
-      id: 'admin/articles',
-      icon: <FileText size={20} />,
-      label: currentContent.articlesNews,
-      href: '#admin/articles'
+  // Role-based menu filtering
+  const getFilteredMenuItems = (): AdminMenuItem[] => {
+    const allMenuItems: AdminMenuItem[] = [
+      {
+        id: 'admin/profile',
+        icon: <User size={20} />,
+        label: currentContent.adminProfile,
+        href: '#admin/profile'
+      },
+      {
+        id: 'admin/role-management',
+        icon: <Users size={20} />,
+        label: currentContent.roleManagement,
+        href: '#admin/role-management'
+      },
+      {
+        id: 'admin/applications',
+        icon: <FileText size={20} />,
+        label: currentContent.applications,
+        href: '#admin/applications'
+      },
+      {
+        id: 'admin/partners',
+        icon: <Building2 size={20} />,
+        label: currentContent.partnersManagement,
+        href: '#admin/partners'
+      },
+      {
+        id: 'admin/activities',
+        icon: <Calendar size={20} />,
+        label: currentContent.activitiesEvents,
+        href: '#admin/activities'
+      },
+      {
+        id: 'admin/articles',
+        icon: <FileText size={20} />,
+        label: currentContent.articlesNews,
+        href: '#admin/articles'
+      }
+    ];
+
+    // Filter based on user role
+    switch (actualUserRole) {
+      case 'jury':
+        // Jury only sees Applications
+        return allMenuItems.filter(item => item.id === 'admin/applications');
+      
+      case 'editor':
+        // Editor sees Applications and Partners (no Admin Profile, Role Management, Activities, Articles)
+        return allMenuItems.filter(item => 
+          item.id === 'admin/applications' || 
+          item.id === 'admin/partners'
+        );
+      
+      case 'admin':
+      case 'super-admin':
+      default:
+        // Admin sees all menu items
+        return allMenuItems;
     }
-  ];
+  };
+
+  const menuItems = getFilteredMenuItems();
 
   const handleSignOut = async () => {
     try {

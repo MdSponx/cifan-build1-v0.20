@@ -8,6 +8,7 @@ import ExportService from '../../services/exportService';
 import { useNotificationHelpers } from '../ui/NotificationSystem';
 import { AdminApplicationData, ScoringCriteria } from '../../types/admin.types';
 import { shortFilmCommentsService, ShortFilmComment } from '../../services/shortFilmCommentsService';
+import { isAdminUser, canAccessSubmissions } from '../../utils/userUtils';
 import AdminZoneHeader from '../layout/AdminZoneHeader';
 import VideoScoringPanel from '../admin/VideoScoringPanel';
 import AdminControlsPanel from '../admin/AdminControlsPanel';
@@ -77,8 +78,9 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
 }) => {
   const { i18n } = useTranslation();
   const { getClass } = useTypography();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const currentLanguage = i18n.language as 'en' | 'th';
+
 
   const [application, setApplication] = useState<AdminApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -1174,7 +1176,7 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
     </div>
   );
 
-  // Authentication Check
+  // Authentication and Authorization Check
   if (!user) {
     return (
       <div className="space-y-8">
@@ -1189,13 +1191,43 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
             Authentication Required
           </h2>
           <p className={`${getClass('body')} text-white/80 mb-6`}>
-            Please sign in to access the admin panel and score applications.
+            Please sign in to access the application details and scoring features.
           </p>
           <button
             onClick={() => window.location.hash = '#auth/signin'}
             className="px-6 py-3 bg-gradient-to-r from-[#AA4626] to-[#FCB283] text-white rounded-lg hover:from-[#FCB283] hover:to-[#AA4626] transition-colors"
           >
             Sign In
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Check if user has permission to access submissions
+  if (!canAccessSubmissions(userProfile)) {
+    return (
+      <div className="space-y-8">
+        <AdminZoneHeader
+          title={currentContent.pageTitle}
+          subtitle={currentContent.subtitle}
+          onSidebarToggle={onSidebarToggle || (() => {})}
+        />
+        <div className="text-center py-12">
+          <div className="text-6xl mb-6">🚫</div>
+          <h2 className={`text-2xl ${getClass('header')} mb-4 text-white`}>
+            Access Denied
+          </h2>
+          <p className={`${getClass('body')} text-white/80 mb-6`}>
+            You don't have permission to access application details and scoring features.
+            <br />
+            Contact an administrator if you believe this is an error.
+          </p>
+          <button
+            onClick={() => window.location.hash = '#dashboard'}
+            className="px-6 py-3 bg-gradient-to-r from-[#AA4626] to-[#FCB283] text-white rounded-lg hover:from-[#FCB283] hover:to-[#AA4626] transition-colors"
+          >
+            Go to Dashboard
           </button>
         </div>
       </div>

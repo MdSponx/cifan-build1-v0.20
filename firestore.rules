@@ -11,6 +11,17 @@ service cloud.firestore {
          get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'super-admin');
     }
     
+    // Helper function to check if user has admin-level access (admin, super-admin, editor, jury)
+    function hasAdminLevelAccess() {
+      return request.auth != null && 
+        request.auth.uid != null &&
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+        (get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'admin' ||
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'super-admin' ||
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'editor' ||
+         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'jury');
+    }
+    
     // Helper function to check if user is super admin
     function isSuperAdmin() {
       return request.auth != null && 
@@ -19,14 +30,22 @@ service cloud.firestore {
         get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'super-admin';
     }
     
+    // Helper function to check if user is editor
+    function isEditor() {
+      return request.auth != null && 
+        request.auth.uid != null &&
+        exists(/databases/$(database)/documents/profiles/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role == 'editor';
+    }
+    
     // Helper function to check if user owns the resource
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
     }
     
-    // Profiles collection - users can read/write their own profile, admins can read all, super-admins can update roles
+    // Profiles collection - users can read/write their own profile, admin-level users can read all, super-admins can update roles
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
+      allow read: if isOwner(userId) || hasAdminLevelAccess();
       allow write: if isOwner(userId) || isSuperAdmin();
       allow create: if request.auth != null && request.auth.uid == userId;
       allow update: if isOwner(userId) || isSuperAdmin();
@@ -37,63 +56,63 @@ service cloud.firestore {
       // Users can create submissions
       allow create: if request.auth != null;
       
-      // Users can read/update their own submissions, admins can read/update all
+      // Users can read/update their own submissions, admin-level users can read/update all
       allow read: if request.auth != null && 
-        (isAdmin() || 
+        (hasAdminLevelAccess() || 
          (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
           request.auth.uid == resource.data.userId));
       
       allow update: if request.auth != null && 
-        (isAdmin() || 
+        (hasAdminLevelAccess() || 
          (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
           request.auth.uid == resource.data.userId));
       
-      // Admins can delete submissions
-      allow delete: if isAdmin();
+      // Admin-level users can delete submissions
+      allow delete: if hasAdminLevelAccess();
       
-      // ShortFilmComments subcollection - only admins can read/write
+      // ShortFilmComments subcollection - admin-level users can read/write
       match /ShortFilmComments/{commentId} {
-        allow read, write, create, update, delete: if isAdmin();
+        allow read, write, create, update, delete: if hasAdminLevelAccess();
       }
       
-      // Notes subcollection - only admins can read/write
+      // Notes subcollection - admin-level users can read/write
       match /notes/{noteId} {
-        allow read, write, create, update, delete: if isAdmin();
+        allow read, write, create, update, delete: if hasAdminLevelAccess();
       }
       
-      // Guests subcollection - users can read/write their own submission's guests, admins can read/write all
+      // Guests subcollection - users can read/write their own submission's guests, admin-level users can read/write all
       match /guests/{guestId} {
-        // Read: Users can read their own submission's guests, admins can read all
+        // Read: Users can read their own submission's guests, admin-level users can read all
         allow read: if request.auth != null && 
-          (isAdmin() || 
+          (hasAdminLevelAccess() || 
            (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
             get(/databases/$(database)/documents/submissions/$(submissionId)).data.userId == request.auth.uid));
         
         // Create: Users can create guests when creating their submission
         allow create: if request.auth != null && 
-          (isAdmin() || 
+          (hasAdminLevelAccess() || 
            (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
             get(/databases/$(database)/documents/submissions/$(submissionId)).data.userId == request.auth.uid));
         
-        // Update: Only admins or submission owners can update guests
+        // Update: Admin-level users or submission owners can update guests
         allow update: if request.auth != null && 
-          (isAdmin() || 
+          (hasAdminLevelAccess() || 
            (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
             get(/databases/$(database)/documents/submissions/$(submissionId)).data.userId == request.auth.uid));
         
-        // Delete: Only admins can delete guests
-        allow delete: if isAdmin();
+        // Delete: Admin-level users can delete guests
+        allow delete: if hasAdminLevelAccess();
       }
     }
     
-    // Admin collection - only for admin users
+    // Admin collection - for admin-level users
     match /admin/{document=**} {
-      allow read, write, create, update, delete: if isAdmin();
+      allow read, write, create, update, delete: if hasAdminLevelAccess();
     }
     
-    // Admins collection - only for admin users  
+    // Admins collection - for admin-level users  
     match /admins/{adminId} {
-      allow read, write, create, update, delete: if isAdmin();
+      allow read, write, create, update, delete: if hasAdminLevelAccess();
     }
     
     // Role audit log collection - only super-admins can read/write
@@ -101,25 +120,25 @@ service cloud.firestore {
       allow read, write, create, update, delete: if isSuperAdmin();
     }
     
-    // Partners collection - admin/super-admin can manage, all can read active
+    // Partners collection - admin/super-admin/editor can manage, all can read active
     match /partners/{partnerId} {
       // Read: Allow all users (including unauthenticated) to read partners
       allow read: if true;
       
-      // Write: Only admin/super-admin can create, update, delete
+      // Write: Admin, super-admin, and editor can create, update, delete
       allow write: if request.auth != null && 
-        (get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role in ['admin', 'super-admin']);
+        (get(/databases/$(database)/documents/profiles/$(request.auth.uid)).data.role in ['admin', 'super-admin', 'editor']);
     }
     
     // Activities collection - admin/editor can manage, public can read published activities
     match /activities/{activityId} {
       // Read: Allow all users to read published and public activities
-      // Admins can read all activities
-      allow read: if isAdmin() || 
+      // Admin-level users can read all activities
+      allow read: if hasAdminLevelAccess() || 
         (resource.data.status == 'published' && resource.data.isPublic == true);
       
-      // Create: Only authenticated admin/editor users can create activities
-      allow create: if request.auth != null && isAdmin() &&
+      // Create: Only authenticated admin-level users can create activities
+      allow create: if request.auth != null && hasAdminLevelAccess() &&
         // Validate required fields
         request.resource.data.keys().hasAll(['name', 'shortDescription', 'status', 'isPublic', 
           'needSubmission', 'maxParticipants', 'isOneDayActivity', 'eventDate', 'startTime', 'endTime', 'registrationDeadline',
@@ -149,10 +168,10 @@ service cloud.firestore {
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.updatedBy == request.auth.uid;
       
-      // Update: Only authenticated admin/editor users can update activities
-      // Users can only update activities they created or if they're admin
-      allow update: if request.auth != null && isAdmin() &&
-        (resource.data.createdBy == request.auth.uid || isAdmin()) &&
+      // Update: Only authenticated admin-level users can update activities
+      // Users can only update activities they created or if they have admin-level access
+      allow update: if request.auth != null && hasAdminLevelAccess() &&
+        (resource.data.createdBy == request.auth.uid || hasAdminLevelAccess()) &&
         // Ensure immutable fields are not changed
         request.resource.data.createdBy == resource.data.createdBy &&
         request.resource.data.createdAt == resource.data.createdAt &&
@@ -193,16 +212,16 @@ service cloud.firestore {
       // Delete: Only admin users can delete activities
       allow delete: if request.auth != null && isAdmin();
       
-      // Speakers subcollection - admins can manage speakers for activities
+      // Speakers subcollection - admin-level users can manage speakers for activities
       match /speakers/{speakerId} {
-        // Read: Admins can read all speakers, public can read speakers for published activities
-        allow read: if isAdmin() || 
+        // Read: Admin-level users can read all speakers, public can read speakers for published activities
+        allow read: if hasAdminLevelAccess() || 
           (exists(/databases/$(database)/documents/activities/$(activityId)) &&
            get(/databases/$(database)/documents/activities/$(activityId)).data.status == 'published' &&
            get(/databases/$(database)/documents/activities/$(activityId)).data.isPublic == true);
         
-        // Create: Only admins can create speakers
-        allow create: if request.auth != null && isAdmin() &&
+        // Create: Only admin-level users can create speakers
+        allow create: if request.auth != null && hasAdminLevelAccess() &&
           // Validate required fields
           request.resource.data.keys().hasAll(['name', 'role', 'createdAt', 'updatedAt']) &&
           // Validate data types
@@ -226,8 +245,8 @@ service cloud.firestore {
           (!request.resource.data.keys().hasAny(['imagePath']) ||
            request.resource.data.imagePath is string);
         
-        // Update: Only admins can update speakers
-        allow update: if request.auth != null && isAdmin() &&
+        // Update: Only admin-level users can update speakers
+        allow update: if request.auth != null && hasAdminLevelAccess() &&
           // Ensure immutable fields are not changed
           request.resource.data.createdAt == resource.data.createdAt &&
           // Validate updated fields if they exist
@@ -258,28 +277,28 @@ service cloud.firestore {
            (request.resource.data.imagePath == null ||
             request.resource.data.imagePath is string));
         
-        // Delete: Only admins can delete speakers
-        allow delete: if request.auth != null && isAdmin();
+        // Delete: Only admin-level users can delete speakers
+        allow delete: if request.auth != null && hasAdminLevelAccess();
       }
     }
     
-    // Films collection - for feature film management
+    // Films collection - for feature film management (includes editors)
     match /films/{filmId} {
       allow create: if request.auth != null;
       allow read, update: if request.auth != null && 
-        (isAdmin() || 
+        (isAdmin() || isEditor() || 
          (exists(/databases/$(database)/documents/films/$(filmId)) && 
           request.auth.uid == resource.data.userId));
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || isEditor();
       
       match /guests/{guestId} {
         allow read: if request.auth != null && 
-          (isAdmin() || 
+          (isAdmin() || isEditor() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
             request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId));
         
         allow create, update: if request.auth != null && 
-          (isAdmin() || 
+          (isAdmin() || isEditor() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
             request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId)) &&
           request.resource.data.name is string &&
@@ -288,7 +307,7 @@ service cloud.firestore {
           request.resource.data.role.size() >= 1;
         
         allow delete: if request.auth != null && 
-          (isAdmin() || 
+          (isAdmin() || isEditor() || 
            (exists(/databases/$(database)/documents/films/$(filmId)) && 
             request.auth.uid == get(/databases/$(database)/documents/films/$(filmId)).data.userId));
       }
@@ -297,14 +316,15 @@ service cloud.firestore {
     // FeatureFilms collection - enhanced feature film management system
     match /featureFilms/{filmId} {
       // Public read access for published films (for public gallery)
+      // Editors, admins, and super-admins can read all films
       allow read: if resource.data.status == 'published' || 
         (request.auth != null && 
-         (isAdmin() || 
+         (isAdmin() || isEditor() || 
           (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
            request.auth.uid == resource.data.createdBy)));
       
-      // Authenticated users can create films
-      allow create: if request.auth != null &&
+      // Editors, admins, and authenticated users can create films
+      allow create: if request.auth != null && (isAdmin() || isEditor() || true) &&
         // Validate required fields for creation
         request.resource.data.keys().hasAll(['title', 'director', 'synopsis', 'duration', 
           'releaseYear', 'country', 'language', 'genres', 'status', 'createdBy', 'updatedBy']) &&
@@ -331,9 +351,9 @@ service cloud.firestore {
         request.resource.data.genres.size() > 0 &&
         request.resource.data.status in ['draft', 'published', 'archived'];
       
-      // Users can update their own films, admins can update all
+      // Editors and admins can update all films, users can update their own films
       allow update: if request.auth != null && 
-        (isAdmin() || 
+        (isAdmin() || isEditor() || 
          (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
           request.auth.uid == resource.data.createdBy)) &&
         // Ensure immutable fields are not changed
@@ -369,9 +389,9 @@ service cloud.firestore {
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
          request.resource.data.status in ['draft', 'published', 'archived']);
       
-      // Users can delete their own films, admins can delete all
+      // Editors and admins can delete all films, users can delete their own films
       allow delete: if request.auth != null && 
-        (isAdmin() || 
+        (isAdmin() || isEditor() || 
          (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
           request.auth.uid == resource.data.createdBy));
     }

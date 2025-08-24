@@ -16,6 +16,8 @@ import ErrorMessage from '../forms/ErrorMessage';
 import UnifiedFileUpload from '../forms/UnifiedFileUpload';
 import UserZoneHeader from '../layout/UserZoneHeader';
 import DraftSuccessDialog from '../dialogs/DraftSuccessDialog';
+import NationalitySelector from '../ui/NationalitySelector';
+import ApplicationService from '../../services/applicationService';
 
 interface ApplicationEditPageProps {
   applicationId: string;
@@ -31,6 +33,7 @@ interface EditableApplicationData {
   // Film Information
   filmTitle: string;
   filmTitleTh?: string;
+  nationality?: string;
   filmLanguages?: string[];
   genres: string[];
   format: string;
@@ -102,10 +105,12 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
   const [application, setApplication] = useState<EditableApplicationData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [isThaiNationality, setIsThaiNationality] = useState(true);
   const [showDraftSuccessDialog, setShowDraftSuccessDialog] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [savedApplicationId, setSavedApplicationId] = useState<string>('');
 
   // Scroll to top when component mounts
@@ -150,7 +155,8 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
             // Film Information
             filmTitle: data.filmTitle || '',
             filmTitleTh: data.filmTitleTh,
-           filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : ['Thai']), // Backward compatibility
+            nationality: data.nationality || 'Thailand',
+            filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : ['Thai']), // Backward compatibility
             genres: data.genres || [],
             format: data.format || '',
             duration: data.duration || 0,
@@ -266,7 +272,10 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
       saveButton: "บันทึกการเปลี่ยนแปลง",
       saving: "กำลังบันทึก...",
       deleteButton: "ลบใบสมัคร",
-      submitButton: "ส่งใบสมัคร"
+      submitButton: "ส่งใบสมัคร",
+      submitSuccess: "ส่งใบสมัครสำเร็จ!",
+      currentNationality: "สัญชาติปัจจุบัน",
+      changeInstruction: "หากต้องการเปลี่ยนแปลง กรุณาใช้ตัวเลือกด้านล่าง"
     },
     en: {
       pageTitle: "Edit Application",
@@ -303,7 +312,10 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
       saveButton: "Save Changes",
       saving: "Saving...",
       deleteButton: "Delete Application",
-      submitButton: "Submit Application"
+      submitButton: "Submit Application",
+      submitSuccess: "Application Submitted Successfully!",
+      currentNationality: "Current Nationality",
+      changeInstruction: "To make changes, please use the selector below"
     }
   };
 
@@ -316,6 +328,10 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
 
     // Film Information
     if (!application.filmTitle.trim()) errors.filmTitle = validationMessages.required;
+    if (!application.nationality?.trim()) errors.nationality = validationMessages.required;
+    if (!application.filmLanguages || application.filmLanguages.length === 0) {
+      errors.filmLanguages = validationMessages.required;
+    }
     // Film Title (Thai) is now optional for all cases
     // if (isThaiNationality && !application.filmTitleTh?.trim()) errors.filmTitleTh = validationMessages.required;
     if (!application.genres || application.genres.length === 0) errors.genres = validationMessages.required;
@@ -385,6 +401,18 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
     handleInputChange('crewMembers', crewMembers);
   };
 
+  const handleNationalityChange = (nationality: string) => {
+    handleInputChange('nationality', nationality);
+  };
+
+  const handleNationalityTypeChange = (isThai: boolean) => {
+    setIsThaiNationality(isThai);
+  };
+
+  const handleFilmLanguagesChange = (languages: string[]) => {
+    handleInputChange('filmLanguages', languages);
+  };
+
   const handleFileReplaced = (fileType: string, newFileMetadata: any) => {
     if (!application) return;
 
@@ -402,7 +430,7 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
     } : null);
   };
 
-  const handleSave = async () => {
+  const handleSaveChanges = async () => {
     if (!application || saving) return;
 
     const errors = validateForm();
@@ -427,6 +455,7 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
         // Film Information
         filmTitle: application.filmTitle,
         filmTitleTh: application.filmTitleTh || null,
+        nationality: application.nationality || 'Thailand',
         filmLanguages: application.filmLanguages || ['Thai'],
         genres: application.genres,
         format: application.format,
@@ -474,15 +503,81 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
 
       await updateDoc(docRef, updateData);
 
-      // Show draft success dialog instead of alert
-      setSavedApplicationId(application.id);
-      setShowDraftSuccessDialog(true);
+      // Update local state with saved data
+      setApplication(prev => prev ? { ...prev, ...updateData } : null);
 
     } catch (error) {
       console.error('Error saving application:', error);
       setError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการบันทึก' : 'Error saving changes');
+      throw error;
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      await handleSaveChanges();
+      // Show draft success dialog after successful save
+      setSavedApplicationId(application?.id || '');
+      setShowDraftSuccessDialog(true);
+    } catch (error) {
+      // Error already handled in handleSaveChanges
+    }
+  };
+
+  const handleSubmitApplication = async () => {
+    if (!application || isSubmitting) return;
+
+    // Validate form first
+    const errors = validateForm();
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      setError(currentLanguage === 'th' 
+        ? 'กรุณาแก้ไขข้อมูลที่ไม่ถูกต้องก่อนส่งใบสมัคร' 
+        : 'Please fix validation errors before submitting'
+      );
+      // Scroll to first error
+      const firstErrorElement = document.querySelector('.error-field');
+      if (firstErrorElement) {
+        firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError('');
+
+      // Save current changes first
+      await handleSaveChanges();
+
+      // Then update application status to submitted
+      const updatedApplication = {
+        ...application,
+        status: 'submitted' as const,
+        submittedAt: new Date().toISOString(),
+        lastModified: new Date().toISOString()
+      };
+
+      // Use the ApplicationService to submit application
+      const applicationService = new ApplicationService();
+      await applicationService.submitApplication(application.id);
+      
+      // Update local state
+      setApplication(updatedApplication);
+      
+      // Show success modal instead of alert
+      setShowSuccessModal(true);
+      
+    } catch (error) {
+      console.error('Error submitting application:', error);
+      setError(currentLanguage === 'th' 
+        ? 'เกิดข้อผิดพลาดในการส่งใบสมัคร กรุณาลองใหม่อีกครั้ง' 
+        : 'Error submitting application. Please try again.'
+      );
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -493,6 +588,7 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
     }, 100);
   };
 
+  // Modal handlers for draft success
   const handleSubmitNow = async () => {
     setShowDraftSuccessDialog(false);
     // Navigate to application detail page for submission
@@ -514,6 +610,23 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
   const handleCloseDraftDialog = () => {
     setShowDraftSuccessDialog(false);
     // Stay on current page for continued editing
+  };
+
+  // Modal handlers for submit success
+  const handleSubmitNowFromModal = () => {
+    setShowSuccessModal(false);
+    window.location.hash = `#application-detail/${application?.id}`;
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
+  };
+
+  const handleReviewLaterFromModal = () => {
+    setShowSuccessModal(false);
+    window.location.hash = '#my-applications';
+    setTimeout(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 100);
   };
 
   const getCategoryLogo = (category: string) => {
@@ -657,35 +770,71 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
                 </div>
               </div>
               
-              {/* Film Language */}
-              <div>
-                <label className={`block text-white/90 ${getClass('body')} mb-2`}>
-                  {currentLanguage === 'th' ? 'ภาษาในภาพยนตร์' : 'Film Languages'} <span className="text-red-400">*</span>
-                </label>
-                <div className="glass-card p-4 rounded-lg">
-                  <div className="flex flex-wrap gap-2">
-                    {(application.filmLanguages || []).map((language, index) => (
-                      <span
-                        key={index}
-                        className="inline-flex items-center space-x-1 px-3 py-1 bg-[#FCB283]/20 text-[#FCB283] rounded-full text-sm border border-[#FCB283]/30"
-                      >
-                        <span>{language}</span>
-                      </span>
-                    ))}
-                    {(!application.filmLanguages || application.filmLanguages.length === 0) && (
-                      <span className="text-white/60 text-sm">
-                        {currentLanguage === 'th' ? 'ยังไม่ได้เลือกภาษา' : 'No languages selected'}
-                      </span>
+              {/* Current Nationality Display */}
+              {application.nationality && (
+                <div className="mb-6">
+                  <h4 className={`text-sm ${getClass('body')} text-white/70 mb-2`}>
+                    {currentContent.currentNationality}
+                  </h4>
+                  <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg border border-white/10">
+                    <div className="flex items-center space-x-2">
+                      {application.nationality === 'Thailand' ? (
+                        <>
+                          <span className="text-lg">🇹🇭</span>
+                          <span className="text-white font-medium">
+                            {currentLanguage === 'th' ? 'ไทย' : 'Thailand'}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-lg">🌍</span>
+                          <span className="text-white font-medium">{application.nationality}</span>
+                        </>
+                      )}
+                    </div>
+                    
+                    {application.filmLanguages && application.filmLanguages.length > 0 && (
+                      <>
+                        <div className="w-px h-4 bg-white/20"></div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-white/70 text-sm">
+                            {currentLanguage === 'th' ? 'ภาษา:' : 'Languages:'}
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {application.filmLanguages.slice(0, 3).map((lang, index) => (
+                              <span 
+                                key={index}
+                                className="px-2 py-1 bg-[#FCB283]/20 text-[#FCB283] rounded text-xs"
+                              >
+                                {lang}
+                              </span>
+                            ))}
+                            {application.filmLanguages.length > 3 && (
+                              <span className="px-2 py-1 bg-white/10 text-white/60 rounded text-xs">
+                                +{application.filmLanguages.length - 3}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </>
                     )}
                   </div>
+                  
+                  <p className={`text-xs ${getClass('body')} text-white/50 mt-2`}>
+                    {currentContent.changeInstruction}
+                  </p>
                 </div>
-                <p className={`text-xs ${getClass('body')} text-white/60 mt-1`}>
-                  {currentLanguage === 'th' 
-                    ? 'หากใช้ภาษาอื่นที่ไม่ใช่ไทยหรืออังกฤษ กรุณาเตรียมซับไตเติล'
-                    : 'If using a language other than Thai or English, please prepare subtitles'
-                  }
-                </p>
-              </div>
+              )}
+
+              {/* Nationality and Film Language Selector */}
+              <NationalitySelector
+                filmLanguages={application.filmLanguages || []}
+                currentNationality={application.nationality || 'Thailand'}
+                onNationalityChange={handleNationalityChange}
+                onNationalityTypeChange={handleNationalityTypeChange}
+                onFilmLanguagesChange={handleFilmLanguagesChange}
+                className="w-full"
+              />
               
               {/* Genre Selector */}
               <GenreSelector
@@ -986,8 +1135,7 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
         </FormSection>
 
         {/* Action Buttons */}
-        <div className="flex justify-between items-center pt-8">
-          {/* Delete Button - Left */}
+        <div className="flex flex-col sm:flex-row gap-4 pt-8">
           <AnimatedButton
             variant="outline"
             size="large"
@@ -1003,21 +1151,35 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
                 console.log('Delete application');
               }
             }}
-            className={saving ? 'opacity-50 cursor-not-allowed' : ''}
+            className={`flex-1 ${saving || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {currentContent.deleteButton}
           </AnimatedButton>
 
-          {/* Save Button - Right */}
           <AnimatedButton
             variant="primary"
             size="large"
             icon="💾"
-            onClick={handleSave}
-            className={`${getClass('menu')} ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
+            onClick={saving || isSubmitting ? undefined : handleSave}
+            className={`flex-1 ${getClass('menu')} ${saving || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
             {saving ? currentContent.saving : currentContent.saveButton}
           </AnimatedButton>
+          
+          {application?.status === 'draft' && (
+            <AnimatedButton
+              variant="primary"
+              size="large"
+              icon="🚀"
+              onClick={saving || isSubmitting ? undefined : handleSubmitApplication}
+              className={`flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 ${saving || isSubmitting ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
+              {isSubmitting 
+                ? (currentLanguage === 'th' ? 'กำลังส่ง...' : 'Submitting...') 
+                : currentContent.submitButton
+              }
+            </AnimatedButton>
+          )}
         </div>
       </div>
 
@@ -1030,6 +1192,18 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
         applicationId={savedApplicationId}
         isDraft={true}
       />
+
+      {/* Submit Success Modal */}
+      {showSuccessModal && (
+        <DraftSuccessDialog
+          isOpen={showSuccessModal}
+          onClose={() => setShowSuccessModal(false)}
+          onSubmitNow={handleSubmitNowFromModal}
+          onReviewLater={handleReviewLaterFromModal}
+          applicationId={application?.id || ''}
+          isDraft={false}
+        />
+      )}
     </div>
   );
 };

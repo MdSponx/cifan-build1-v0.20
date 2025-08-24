@@ -195,9 +195,6 @@ const Navigation = () => {
                           {t('navigation.myApplications') || 'My Applications'}
                         </button>
                         
-                        {/* Role-based Menu Items */}
-                        <RoleBasedMenuItems onMenuItemClick={() => setShowAuthMenu(false)} />
-                        
                         {/* Admin Zone Access - Only show for admin users */}
                         {(userProfile?.role === 'admin' || userProfile?.role === 'super-admin') && user?.emailVerified ? (
                           <button 
@@ -211,6 +208,9 @@ const Navigation = () => {
                             {currentLanguage === 'th' ? 'พื้นที่ผู้ดูแล' : 'Admin Zone'}
                           </button>
                         ) : null}
+                        
+                        {/* Role-based Menu Items */}
+                        <RoleBasedMenuItems onMenuItemClick={() => setShowAuthMenu(false)} />
                         
                         <div className="border-t border-white/20 my-2"></div>
                         <button 
