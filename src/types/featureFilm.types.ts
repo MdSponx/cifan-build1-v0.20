@@ -70,6 +70,7 @@ export interface FeatureFilm {
   // Basic Information
   title: string;
   titleTh?: string;
+  logline: string; // Ultra-short synopsis (required)
   synopsis: string;
   synopsisTh?: string;
   
@@ -128,12 +129,13 @@ export interface FeatureFilmData {
   genres: string[]; // Changed from single genre to multiple genres
   countries: string[]; // Changed from single country to multiple countries
   languages: string[]; // Changed from single language to multiple languages
+  logline: string; // Ultra-short synopsis (required)
   synopsis: string;
   targetAudience: TargetAudience[];
   length?: number; // Duration in minutes
 
   // Screening Information
-  screeningDate1: string; // datetime-local format
+  screeningDate1?: string; // datetime-local format (optional)
   screeningDate2?: string;
   timeEstimate: TimeEstimate;
   theatre: Theatre;
@@ -155,6 +157,7 @@ export interface FeatureFilmData {
   galleryFiles?: File[];
   galleryUrls: string[];
   galleryCoverIndex?: number; // Index of the cover image in gallery
+  galleryLogoIndex?: number; // Index of the logo image in gallery
 
   // After Screen Activities
   afterScreenActivities: AfterScreenActivity[];

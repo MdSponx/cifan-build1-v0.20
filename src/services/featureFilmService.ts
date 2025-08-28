@@ -76,21 +76,106 @@ const uploadFeatureFilmFiles = async (
 
     // Upload gallery files if provided
     if (filmData.galleryFiles && filmData.galleryFiles.length > 0) {
+      console.log('🔄 Starting gallery files upload:', {
+        fileCount: filmData.galleryFiles.length,
+        filmId,
+        userId,
+        existingUrls: filmData.galleryUrls?.length || 0
+      });
+      
       try {
         const galleryUrls: string[] = [];
-        for (const file of filmData.galleryFiles) {
-          const galleryPath = generateFeatureFilmUploadPath(filmId, 'gallery', file.name, userId);
-          const galleryResult = await uploadFile(file, galleryPath);
-          galleryUrls.push(galleryResult.url);
+        const uploadPromises: Promise<void>[] = [];
+        
+        // Upload files in parallel for better performance
+        for (let i = 0; i < filmData.galleryFiles.length; i++) {
+          const file = filmData.galleryFiles[i];
+          console.log(`📤 Uploading gallery file ${i + 1}/${filmData.galleryFiles.length}:`, {
+            fileName: file.name,
+            fileSize: file.size,
+            fileType: file.type
+          });
+          
+          const uploadPromise = (async () => {
+            try {
+              const galleryPath = generateFeatureFilmUploadPath(filmId, 'gallery', file.name, userId);
+              console.log(`🔗 Generated upload path for ${file.name}:`, galleryPath);
+              
+              const galleryResult = await uploadFile(file, galleryPath);
+              console.log(`✅ Successfully uploaded ${file.name}:`, galleryResult.url);
+              
+              galleryUrls[i] = galleryResult.url; // Preserve order
+            } catch (fileError) {
+              console.error(`❌ Failed to upload ${file.name}:`, fileError);
+              errors.push(`Failed to upload ${file.name}: ${fileError instanceof Error ? fileError.message : 'Unknown error'}`);
+            }
+          })();
+          
+          uploadPromises.push(uploadPromise);
         }
-        // Merge with existing gallery URLs if any
-        updatedData.galleryUrls = [
-          ...(filmData.galleryUrls || []).filter(url => url.trim() !== ''),
-          ...galleryUrls
-        ];
+        
+        // Wait for all uploads to complete
+        await Promise.all(uploadPromises);
+        
+        // Filter out any failed uploads (undefined values)
+        const successfulUrls = galleryUrls.filter(url => url);
+        
+        if (successfulUrls.length > 0) {
+          // Merge with existing gallery URLs if any
+          const existingUrls = (filmData.galleryUrls || []).filter(url => url.trim() !== '');
+          updatedData.galleryUrls = [...existingUrls, ...successfulUrls];
+          
+          console.log('📊 Gallery URLs after merge:', {
+            existingUrls: existingUrls.length,
+            newUrls: successfulUrls.length,
+            totalUrls: updatedData.galleryUrls.length,
+            urls: updatedData.galleryUrls
+          });
+        }
+        
+        // Adjust logo index if new files were uploaded
+        if (filmData.galleryLogoIndex !== undefined) {
+          updatedData.galleryLogoIndex = filmData.galleryLogoIndex;
+          console.log('🏷️ Preserved logo index:', updatedData.galleryLogoIndex);
+        }
+        
+        // Adjust cover index if new files were uploaded
+        if (filmData.galleryCoverIndex !== undefined) {
+          updatedData.galleryCoverIndex = filmData.galleryCoverIndex;
+          console.log('🖼️ Preserved cover index:', updatedData.galleryCoverIndex);
+        }
+        
+        console.log('✅ Gallery files upload completed:', {
+          uploadedFiles: successfulUrls.length,
+          failedFiles: filmData.galleryFiles.length - successfulUrls.length,
+          totalUrls: updatedData.galleryUrls?.length || 0,
+          logoIndex: updatedData.galleryLogoIndex,
+          coverIndex: updatedData.galleryCoverIndex,
+          errors: errors.length
+        });
+        
       } catch (error) {
-        console.error('Error uploading gallery files:', error);
-        errors.push('Failed to upload gallery files');
+        console.error('❌ Critical error during gallery files upload:', error);
+        errors.push(`Gallery upload failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
+    } else {
+      // Even if no new files are uploaded, preserve existing logo and cover indices
+      if (filmData.galleryLogoIndex !== undefined) {
+        updatedData.galleryLogoIndex = filmData.galleryLogoIndex;
+        console.log('🏷️ Preserved logo index (no new files):', updatedData.galleryLogoIndex);
+      }
+      if (filmData.galleryCoverIndex !== undefined) {
+        updatedData.galleryCoverIndex = filmData.galleryCoverIndex;
+        console.log('🖼️ Preserved cover index (no new files):', updatedData.galleryCoverIndex);
+      }
+      
+      // Also preserve existing gallery URLs
+      if (filmData.galleryUrls && filmData.galleryUrls.length > 0) {
+        const existingUrls = filmData.galleryUrls.filter(url => url.trim() !== '');
+        if (existingUrls.length > 0) {
+          updatedData.galleryUrls = existingUrls;
+          console.log('📋 Preserved existing gallery URLs:', existingUrls.length);
+        }
       }
     }
 
@@ -706,6 +791,7 @@ export const createEnhancedFeatureFilm = async (
     const docData: Omit<FeatureFilm, 'id'> = {
       ...cleanData,
       slug,
+      logline: '', // Add default logline since it's required in FeatureFilm interface
       files: {},
       createdBy: userId,
       updatedBy: userId,
@@ -859,6 +945,7 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     // Map legacy fields to new structure
     title: legacyData.titleEn || legacyData.title || 'Untitled',
     titleTh: legacyData.titleTh,
+    logline: legacyData.logline || '', // Add logline field
     synopsis: legacyData.synopsis || '',
     synopsisTh: undefined,
     director: legacyData.director || 'Unknown',

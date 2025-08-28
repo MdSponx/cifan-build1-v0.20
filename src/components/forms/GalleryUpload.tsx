@@ -7,7 +7,9 @@ import {
   StarOff, 
   GripVertical,
   Upload,
-  X
+  X,
+  Shield,
+  ShieldOff
 } from 'lucide-react';
 import { validateFileForUpload, formatFileSize, isImageFile, createFilePreview, cleanupFilePreview } from '../../utils/fileUpload';
 
@@ -17,13 +19,15 @@ interface GalleryItem {
   url?: string;
   preview?: string;
   isCover: boolean;
+  isLogo: boolean;
 }
 
 interface GalleryUploadProps {
   value: File[];
   urls: string[];
   coverIndex?: number;
-  onChange: (files: File[], coverIndex?: number) => void;
+  logoIndex?: number;
+  onChange: (files: File[], coverIndex?: number, logoIndex?: number) => void;
   onUrlsChange: (urls: string[]) => void;
   error?: string;
   className?: string;
@@ -33,6 +37,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
   value = [],
   urls = [],
   coverIndex = 0,
+  logoIndex,
   onChange,
   onUrlsChange,
   error,
@@ -48,12 +53,14 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
       id: `file-${index}`,
       file,
       preview: createFilePreview(file),
-      isCover: index === coverIndex
+      isCover: index === coverIndex,
+      isLogo: index === logoIndex
     })),
     ...urls.map((url, index) => ({
       id: `url-${index}`,
       url,
-      isCover: (value.length + index) === coverIndex
+      isCover: (value.length + index) === coverIndex,
+      isLogo: (value.length + index) === logoIndex
     }))
   ];
 
@@ -64,19 +71,35 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     const validFiles: File[] = [];
+    const errors: string[] = [];
+
+    console.log('🔄 Processing selected files:', files.length);
 
     files.forEach(file => {
+      console.log(`📋 Validating file: ${file.name} (${file.size} bytes, ${file.type})`);
       const validation = validateFileForUpload(file, 'IMAGE');
       if (validation.isValid) {
         validFiles.push(file);
+        console.log(`✅ File validated: ${file.name}`);
       } else {
-        alert(`${file.name}: ${validation.error}`);
+        const errorMsg = `${file.name}: ${validation.error}`;
+        errors.push(errorMsg);
+        console.error(`❌ File validation failed: ${errorMsg}`);
       }
     });
 
+    // Show errors if any
+    if (errors.length > 0) {
+      const errorMessage = `File validation errors:\n${errors.join('\n')}`;
+      alert(errorMessage);
+    }
+
     if (validFiles.length > 0) {
       const newFiles = [...value, ...validFiles];
+      console.log(`📤 Adding ${validFiles.length} valid files to gallery. Total files: ${newFiles.length}`);
       onChange(newFiles, coverIndex);
+    } else if (files.length > 0) {
+      console.warn('⚠️ No valid files were selected');
     }
 
     // Reset input
@@ -100,24 +123,56 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
     setDragOver(false);
 
     const files = Array.from(e.dataTransfer.files);
+    console.log('🔄 Processing dropped files:', files.length);
+    
+    if (files.length === 0) {
+      console.warn('⚠️ No files were dropped');
+      return;
+    }
+
     const imageFiles = files.filter(file => isImageFile(file));
+    const nonImageFiles = files.filter(file => !isImageFile(file));
+    
+    // Show warning for non-image files
+    if (nonImageFiles.length > 0) {
+      const nonImageNames = nonImageFiles.map(f => f.name).join(', ');
+      console.warn(`⚠️ Non-image files ignored: ${nonImageNames}`);
+      alert(`The following files are not images and were ignored:\n${nonImageNames}`);
+    }
     
     if (imageFiles.length > 0) {
       const validFiles: File[] = [];
+      const errors: string[] = [];
       
       imageFiles.forEach(file => {
+        console.log(`📋 Validating dropped file: ${file.name} (${file.size} bytes, ${file.type})`);
         const validation = validateFileForUpload(file, 'IMAGE');
         if (validation.isValid) {
           validFiles.push(file);
+          console.log(`✅ Dropped file validated: ${file.name}`);
         } else {
-          alert(`${file.name}: ${validation.error}`);
+          const errorMsg = `${file.name}: ${validation.error}`;
+          errors.push(errorMsg);
+          console.error(`❌ Dropped file validation failed: ${errorMsg}`);
         }
       });
 
+      // Show errors if any
+      if (errors.length > 0) {
+        const errorMessage = `File validation errors:\n${errors.join('\n')}`;
+        alert(errorMessage);
+      }
+
       if (validFiles.length > 0) {
         const newFiles = [...value, ...validFiles];
+        console.log(`📤 Adding ${validFiles.length} valid dropped files to gallery. Total files: ${newFiles.length}`);
         onChange(newFiles, coverIndex);
+      } else if (imageFiles.length > 0) {
+        console.warn('⚠️ No valid image files were dropped');
       }
+    } else {
+      console.warn('⚠️ No image files were found in the dropped files');
+      alert('Please drop image files only (JPG, PNG, GIF)');
     }
   };
 
@@ -145,7 +200,11 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
   };
 
   const handleSetCover = (globalIndex: number) => {
-    onChange(value, globalIndex);
+    onChange(value, globalIndex, logoIndex);
+  };
+
+  const handleSetLogo = (globalIndex: number) => {
+    onChange(value, coverIndex, globalIndex);
   };
 
   const handleDragStart = (e: React.DragEvent, index: number) => {
@@ -319,6 +378,20 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
                     {item.isCover ? <Star className="w-4 h-4" /> : <StarOff className="w-4 h-4" />}
                   </button>
 
+                  {/* Set as Logo */}
+                  <button
+                    type="button"
+                    onClick={() => handleSetLogo(index)}
+                    className={`p-2 rounded-lg transition-colors ${
+                      item.isLogo
+                        ? 'bg-blue-500 text-white'
+                        : 'bg-white/20 text-white hover:bg-blue-500'
+                    }`}
+                    title={item.isLogo ? 'Logo Image' : 'Set as Logo'}
+                  >
+                    {item.isLogo ? <Shield className="w-4 h-4" /> : <ShieldOff className="w-4 h-4" />}
+                  </button>
+
                   {/* Remove */}
                   <button
                     type="button"
@@ -348,6 +421,15 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
               {item.isCover && (
                 <div className="absolute top-2 right-2 px-2 py-1 bg-yellow-500 text-white text-xs rounded-full font-medium">
                   Cover
+                </div>
+              )}
+
+              {/* Logo Badge */}
+              {item.isLogo && (
+                <div className={`absolute px-2 py-1 bg-blue-500 text-white text-xs rounded-full font-medium ${
+                  item.isCover ? 'top-8 right-2' : 'top-2 right-2'
+                }`}>
+                  Logo
                 </div>
               )}
 
@@ -407,7 +489,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
       <div className="mt-4 p-3 bg-white/5 rounded-lg">
         <p className="text-xs text-white/70">
           💡 <strong>Tips:</strong> Drag images to reorder them. Click the star icon to set an image as the cover. 
-          The cover image will be displayed as the main gallery image.
+          Click the shield icon to set an image as the logo. The cover image will be displayed as the main gallery image.
         </p>
       </div>
     </div>

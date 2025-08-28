@@ -10,7 +10,7 @@ import { UnifiedSubmissionForm } from './components/forms';
 import AboutPage from './components/pages/AboutPage';
 import CompetitionPage from './components/pages/CompetitionPage';
 import OneHeroSection from './components/sections/OneHeroSection';
-import OfficialSelectionSection from './components/sections/OfficialSelectionSection';
+import OfficialSelectionShelf from './components/sections/OfficialSelectionShelf';
 import QuickInfoSection from './components/sections/QuickInfoSection';
 import ProgramsSection from './components/sections/ProgramsSection';
 import EntertainmentExpoSection from './components/sections/EntertainmentExpoSection';
@@ -381,7 +381,7 @@ function App() {
           <>
             <OneHeroSection />
             <ProgramsSection />
-            <OfficialSelectionSection />
+            <OfficialSelectionShelf />
             <CompetitionHighlight />
             <WorkshopsSection />
             <EntertainmentExpoSection />

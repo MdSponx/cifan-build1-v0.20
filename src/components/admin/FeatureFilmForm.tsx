@@ -95,6 +95,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     genres: [],
     countries: [],
     languages: [],
+    logline: '',
     synopsis: '',
     targetAudience: [],
     length: undefined,
@@ -116,6 +117,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     galleryFiles: [],
     galleryUrls: [''],
     galleryCoverIndex: 0,
+    galleryLogoIndex: undefined,
     afterScreenActivities: [],
     status: '' as FilmStatus,
     publicationStatus: 'draft' as PublicationStatus,
@@ -308,13 +310,14 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       newErrors.languages = 'At least one language is required';
     }
 
+    if (!formData.logline.trim()) {
+      newErrors.logline = 'Logline is required';
+    }
+
     if (!formData.synopsis.trim()) {
       newErrors.synopsis = 'Synopsis is required';
     }
 
-    if (!formData.screeningDate1) {
-      newErrors.screeningDate1 = 'First screening date is required';
-    }
 
     if (!formData.timeEstimate) {
       newErrors.timeEstimate = 'Time estimate is required';
@@ -443,6 +446,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       genres: [],
       countries: [],
       languages: [],
+      logline: '',
       synopsis: '',
       targetAudience: [],
       length: undefined,
@@ -705,6 +709,27 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
 
             </div>
 
+            {/* Logline */}
+            <div className="mt-6">
+              <label className="block text-sm font-medium text-white/90 mb-2">
+                Logline *
+              </label>
+              <input
+                type="text"
+                value={formData.logline}
+                onChange={(e) => handleInputChange('logline', e.target.value)}
+                className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors"
+                placeholder="A brief, compelling one-sentence summary of the film (e.g., 'A young wizard discovers his magical heritage and battles dark forces.')"
+                maxLength={200}
+              />
+              {errors.logline && (
+                <p className="mt-1 text-sm text-red-400">{errors.logline}</p>
+              )}
+              <p className="mt-1 text-xs text-white/60">
+                Ultra-short synopsis in one sentence. Maximum 200 characters.
+              </p>
+            </div>
+
             {/* Synopsis */}
             <div className="mt-6">
               <label className="block text-sm font-medium text-white/90 mb-2">
@@ -759,7 +784,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
               {/* Screening Date 1 */}
               <div>
                 <label className="block text-sm font-medium text-white/90 mb-2">
-                  {t('featureFilm.fields.screeningDate1')} *
+                  {t('featureFilm.fields.screeningDate1')} <span className="text-white/50 text-xs">(optional)</span>
                 </label>
                 <input
                   type="datetime-local"
@@ -949,9 +974,11 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                 value={formData.galleryFiles || []}
                 urls={formData.galleryUrls}
                 coverIndex={formData.galleryCoverIndex}
-                onChange={(files, coverIndex) => {
+                logoIndex={formData.galleryLogoIndex}
+                onChange={(files, coverIndex, logoIndex) => {
                   handleInputChange('galleryFiles', files);
                   handleInputChange('galleryCoverIndex', coverIndex);
+                  handleInputChange('galleryLogoIndex', logoIndex);
                 }}
                 onUrlsChange={(urls) => handleInputChange('galleryUrls', urls)}
                 error={errors.galleryUrls}
