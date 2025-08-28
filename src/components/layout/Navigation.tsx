@@ -106,6 +106,7 @@ const Navigation = () => {
               <NavLink href="#home" active>{t('navigation.home')}</NavLink>
               <NavLink href="#about">{t('navigation.about')}</NavLink>
               <NavLink href="#coming-soon">{t('navigation.programs')}</NavLink>
+              <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
               <NavLink href="#competition">{t('navigation.competition')}</NavLink>
               <NavLink href="#coming-soon">{t('navigation.events')}</NavLink>
               <NavLink href="#coming-soon">{t('navigation.awards')}</NavLink>
@@ -284,6 +285,7 @@ const Navigation = () => {
             <MobileNavLink href="#home">{t('navigation.home')}</MobileNavLink>
             <MobileNavLink href="#about">{t('navigation.about')}</MobileNavLink>
             <MobileNavLink href="#coming-soon">{t('navigation.programs')}</MobileNavLink>
+            <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
             <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
             <MobileNavLink href="#coming-soon">{t('navigation.events')}</MobileNavLink>
             <MobileNavLink href="#coming-soon">{t('navigation.awards')}</MobileNavLink>

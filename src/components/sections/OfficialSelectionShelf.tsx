@@ -8,6 +8,7 @@ import { FeatureFilm } from "../../types/featureFilm.types";
 export interface Film {
   id: string;
   title: string;
+  titleTh?: string;
   publicationStatus?: string;
   year?: number;
   galleryUrls?: Array<string | { url: string; isCover?: boolean; isLogo?: boolean; tag?: string }>;
@@ -15,7 +16,10 @@ export interface Film {
   logoUrl?: string;
   genres?: string[] | string;
   runtimeMinutes?: number;
-  synopsis?: string;
+  logline?: string;
+  targetAudiences?: string[];
+  afterScreenActivities?: string[];
+  category?: string;
 }
 
 // --- Data Conversion ---
@@ -51,6 +55,7 @@ function convertFeatureFilmToFilm(featureFilm: FeatureFilm | any): Film {
     return {
       id: featureFilm.id,
       title: featureFilm.titleEn || featureFilm.title || 'Untitled',
+      titleTh: featureFilm.titleTh,
       publicationStatus: featureFilm.publicationStatus || 'public',
       year: featureFilm.releaseYear || new Date().getFullYear(),
       galleryUrls: processedGalleryUrls,
@@ -58,7 +63,10 @@ function convertFeatureFilmToFilm(featureFilm: FeatureFilm | any): Film {
       logoUrl: getLogoUrl({ galleryUrls: processedGalleryUrls }) || undefined,
       genres: featureFilm.genres || [],
       runtimeMinutes: featureFilm.length || featureFilm.duration,
-      synopsis: featureFilm.synopsis || ''
+      logline: featureFilm.logline || featureFilm.synopsis || '',
+      targetAudiences: featureFilm.targetAudience || [],
+      afterScreenActivities: featureFilm.afterScreenActivities || [],
+      category: featureFilm.category || 'Official Selection'
     };
   }
   
@@ -73,6 +81,7 @@ function convertFeatureFilmToFilm(featureFilm: FeatureFilm | any): Film {
   return {
     id: featureFilm.id,
     title: featureFilm.title,
+    titleTh: featureFilm.titleTh,
     publicationStatus: featureFilm.publicationStatus || (featureFilm.status === 'published' ? 'public' : 'draft'),
     year: featureFilm.releaseYear,
     galleryUrls: processedGalleryUrls,
@@ -80,7 +89,9 @@ function convertFeatureFilmToFilm(featureFilm: FeatureFilm | any): Film {
     logoUrl: getLogoUrl({ galleryUrls: processedGalleryUrls }) || undefined,
     genres: featureFilm.genres,
     runtimeMinutes: featureFilm.duration,
-    synopsis: featureFilm.synopsis
+    logline: featureFilm.logline,
+    targetAudiences: featureFilm.targetAudiences || [],
+    afterScreenActivities: featureFilm.afterScreenActivities || []
   };
 }
 
@@ -130,6 +141,53 @@ function formatRuntime(min?: number): string {
   const h = Math.floor(min / 60);
   const m = min % 60;
   return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
+}
+
+// Emoji mapping functions
+function getGenreEmoji(genre: string): string {
+  const genreEmojiMap: { [key: string]: string } = {
+    'Horror': '👻',
+    'Comedy': '😂',
+    'Action': '💥',
+    'Sci Fi': '🚀',
+    'Crime/Thriller': '🔍',
+    'Adventure': '🗺️',
+    'Animation': '🎨',
+    'Drama': '🎭',
+    'Documentary': '📹',
+    'Fantasy': '🧙‍♂️',
+    'Mystery': '🔮',
+    'Slasher': '🔪',
+    'Thriller': '😱'
+  };
+  return genreEmojiMap[genre] || '🎬';
+}
+
+function getTargetAudienceEmoji(audience: string): string {
+  const audienceEmojiMap: { [key: string]: string } = {
+    'Popcorn': '🍿',
+    'Cinephile': '🎭',
+    'College Student': '🎓',
+    'Student': '📚',
+    'Art People': '🎨',
+    'Folk': '🌾',
+    'Novel Fan': '📖',
+    'J-Horror Fan': '👹',
+    'Youth': '🧑‍🎤',
+    'Family': '👨‍👩‍👧‍👦'
+  };
+  return audienceEmojiMap[audience] || '👥';
+}
+
+function getActivityEmoji(activity: string): string {
+  const activityEmojiMap: { [key: string]: string } = {
+    'qna': '❓',
+    'talk': '💬',
+    'redcarpet': '🎪',
+    'fanmeeting': '🤝',
+    'education': '📚'
+  };
+  return activityEmojiMap[activity] || '🎪';
 }
 
 // --- UI Subcomponents ---
@@ -233,44 +291,132 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
           </span>
         </div>
       ) : (
-        <div className="absolute inset-0 flex items-center">
-          <div className="px-4 sm:px-6 md:px-8 py-4 max-w-[48ch]">
-            <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight drop-shadow">
-              {film.title}
-            </h3>
-            {film.year && (
-              <p className="mt-0.5 text-white/70">{film.year}</p>
-            )}
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] sm:text-xs text-white/85">
-              <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/15">
-                แนวหนัง: {formatGenres(film.genres)}
-              </span>
-              <span className="rounded-full bg-white/10 px-2 py-1 ring-1 ring-white/15">
-                ความยาว: {formatRuntime(film.runtimeMinutes)}
-              </span>
+        <div className="absolute inset-0 flex">
+          {/* Info container - bottom-left */}
+          <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 md:p-8">
+            <div className="max-w-[48ch]">
+              {/* Film logo as large header */}
+              {film.logoUrl && (
+                <div className="mb-4">
+                  <img
+                    src={film.logoUrl}
+                    alt={`${film.title} logo`}
+                    className="h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
+                    style={{
+                      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))'
+                    }}
+                  />
+                </div>
+              )}
+              
+              {/* Thai and English titles as subtitle */}
+              <div className="mb-4">
+                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight drop-shadow mb-1">
+                  {film.title}
+                </h3>
+                {film.titleTh && (
+                  <p className="text-sm sm:text-base text-white/80 drop-shadow">
+                    {film.titleTh}
+                  </p>
+                )}
+              </div>
+
+              {/* Category banner and Runtime badge */}
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {/* Category banner */}
+                {film.category && (
+                  <span className="rounded-lg bg-gradient-to-r from-red-500/30 to-pink-500/30 px-4 py-2 ring-1 ring-red-400/40 backdrop-blur-sm text-xs sm:text-sm text-red-100 font-bold uppercase tracking-wide">
+                    🏆 {film.category}
+                  </span>
+                )}
+                
+                {/* Runtime badge */}
+                <span className="rounded-full bg-blue-500/20 px-3 py-1.5 ring-1 ring-blue-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-blue-200 font-medium">
+                  ⏱️ {formatRuntime(film.runtimeMinutes)}
+                </span>
+              </div>
+
+              {/* Genres row with heading on same line */}
+              <div className="mb-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
+                    Genre:
+                  </h4>
+                  {Array.isArray(film.genres) ? film.genres.map((genre, index) => (
+                    <span key={index} className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
+                      {getGenreEmoji(genre)} {genre}
+                    </span>
+                  )) : film.genres && (
+                    <span className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
+                      {getGenreEmoji(film.genres)} {film.genres}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Target Audience row with heading on same line */}
+              {film.targetAudiences && film.targetAudiences.length > 0 && (
+                <div className="mb-4">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
+                      Target Audience:
+                    </h4>
+                    {film.targetAudiences.map((audience, index) => (
+                      <span key={index} className="rounded-full bg-amber-500/20 px-3 py-1.5 ring-1 ring-amber-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-amber-200 font-medium">
+                        {getTargetAudienceEmoji(audience)} {audience}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Logline (short synopsis) */}
+              <p className="mb-4 text-sm sm:text-base text-white/90 leading-6 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
+                {film.logline ?? "ยังไม่มีเรื่องย่อ"}
+              </p>
+
+              {/* Activities small banners */}
+              {film.afterScreenActivities && film.afterScreenActivities.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  {film.afterScreenActivities.map((activity, index) => (
+                    <span key={index} className="rounded-lg bg-gradient-to-r from-green-500/30 to-emerald-500/30 px-3 py-2 ring-1 ring-green-400/40 backdrop-blur-sm text-[11px] sm:text-xs text-green-100 font-medium uppercase tracking-wide">
+                      {getActivityEmoji(activity)} {activity}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="mt-3 text-sm text-white/90 leading-6 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
-              {film.synopsis ?? "ยังไม่มีเรื่องย่อ"}
-            </p>
+          </div>
+
+          {/* CTA buttons - bottom-right */}
+          <div className="flex justify-end items-end p-4 sm:p-6 md:p-8">
+            <div className="flex gap-3">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.hash = '#coming-soon';
+                }}
+                className="group relative overflow-hidden rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-white ring-1 ring-white/20 transition-all duration-300 hover:bg-white/20 hover:scale-105 hover:ring-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+              >
+                <span className="relative z-10">ดูรายละเอียดภาพยนตร์</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-orange-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              </button>
+              
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  window.location.hash = '#coming-soon';
+                }}
+                className="group relative overflow-hidden rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-white ring-1 ring-white/20 transition-all duration-300 hover:bg-white/20 hover:scale-105 hover:ring-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+              >
+                <span className="relative z-10">ดูตารางการฉาย</span>
+                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {/* Logo in lower part of card */}
-      {film.logoUrl && (
-        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2">
-          <div className="relative flex justify-center">
-            <img
-              src={film.logoUrl}
-              alt={`${film.title} logo`}
-              className="h-8 sm:h-10 md:h-12 w-auto object-contain opacity-90 drop-shadow-lg"
-              style={{
-                filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.5))'
-              }}
-            />
-          </div>
-        </div>
-      )}
 
       {/* bottom cap to mimic VHS plastic (kept subtle) */}
       <div className="absolute inset-x-0 bottom-0 h-8 bg-black/40 backdrop-blur-[1px] ring-t-1 ring-white/10" />
@@ -325,7 +471,10 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
 
   // Convert FeatureFilm[] to Film[] and filter for public status
   const films = useMemo(() => {
-    if (!featureFilms) return null;
+    if (!featureFilms || error) {
+      // Use sample data when there's an error or no data for testing
+      return SAMPLE_FILMS;
+    }
     
     return featureFilms
       .filter(film => {
@@ -333,7 +482,7 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
         return publicationStatus === 'public';
       })
       .map(convertFeatureFilmToFilm);
-  }, [featureFilms]);
+  }, [featureFilms, error]);
 
   // ensure the active card scrolls into view
   useEffect(() => {
@@ -396,86 +545,113 @@ const SAMPLE_FILMS: Film[] = [
   {
     id: "1",
     title: "Halloween",
+    titleTh: "ฮัลโลวีน",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1604079628040-94301bb21b93?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror", "Slasher"],
     runtimeMinutes: 91,
-    synopsis:
-      "ในคืนวันฮัลโลวีน เด็กหนุ่มที่เคยก่อเหตุสะเทือนขวัญกลับมาอีกครั้งเพื่อไล่ล่าเหยื่อรายใหม่ ๆ เมืองทั้งเมืองต้องเผชิญหน้ากับความกลัวที่ฝังรากลึก",
+    logline: "ในคืนวันฮัลโลวีน เด็กหนุ่มที่เคยก่อเหตุสะเทือนขวัญกลับมาอีกครั้งเพื่อไล่ล่าเหยื่อรายใหม่",
+    targetAudiences: ["J-Horror Fan", "Youth"],
+    afterScreenActivities: ["qna", "talk"],
+    category: "Official Selection",
     year: 1978,
   },
   {
     id: "2",
     title: "Halloween II",
+    titleTh: "ฮัลโลวีน 2",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1531259683007-016a7b628fc3?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror"],
     runtimeMinutes: 92,
-    synopsis: "การตามล่าเดินหน้าต่อในโรงพยาบาลที่ดูเหมือนปลอดภัย แต่กลับกลายเป็นเขาวงกตแห่งความสยอง",
+    logline: "การตามล่าเดินหน้าต่อในโรงพยาบาลที่ดูเหมือนปลอดภัย แต่กลับกลายเป็นเขาวงกตแห่งความสยอง",
+    targetAudiences: ["Cinephile", "J-Horror Fan"],
+    afterScreenActivities: ["qna"],
+    category: "CIFAN Premiere",
     year: 1981,
   },
   {
     id: "3",
     title: "Season of the Witch",
+    titleTh: "ฤดูกาลแห่งแม่มด",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror", "Mystery"],
     runtimeMinutes: 98,
-    synopsis: "คำสาปและหน้ากากลึกลับเชื่อมโยงกับแผนชั่วร้ายที่ค่อย ๆ เผยตัวในคืนปล่อยผี",
+    logline: "คำสาปและหน้ากากลึกลับเชื่อมโยงกับแผนชั่วร้ายที่ค่อย ๆ เผยตัวในคืนปล่อยผี",
+    targetAudiences: ["Art People", "Cinephile"],
+    afterScreenActivities: ["talk", "education"],
+    category: "Opening Film",
     year: 1982,
   },
   {
     id: "4",
     title: "Return of the Shape",
+    titleTh: "การกลับมาของเงามืด",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1495562569060-2eec283d3391?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror", "Thriller"],
     runtimeMinutes: 95,
-    synopsis: "เขากลับมาอีกครั้งพร้อมเงามืดที่ยาวนานกว่าเดิม เมืองเล็ก ๆ ต้องรวมพลังเอาตัวรอด",
+    logline: "เขากลับมาอีกครั้งพร้อมเงามืดที่ยาวนานกว่าเดิม เมืองเล็ก ๆ ต้องรวมพลังเอาตัวรอด",
+    targetAudiences: ["Popcorn", "Youth"],
+    afterScreenActivities: ["fanmeeting"],
+    category: "Park Film",
     year: 1988,
   },
   {
     id: "5",
     title: "Revenge of Michael",
+    titleTh: "การล้างแค้นของไมเคิล",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror"],
     runtimeMinutes: 96,
-    synopsis: "การล้างแค้นที่ไม่รู้จบทำให้ค่ำคืนกลายเป็นฝันร้ายที่ไม่มีใครตื่นได้",
+    logline: "การล้างแค้นที่ไม่รู้จบทำให้ค่ำคืนกลายเป็นฝันร้ายที่ไม่มีใครตื่นได้",
+    targetAudiences: ["J-Horror Fan"],
+    afterScreenActivities: ["qna", "redcarpet"],
+    category: "THAIMAX",
     year: 1989,
   },
   {
     id: "6",
     title: "Curse of the Mask",
+    titleTh: "คำสาปแห่งหน้ากาก",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1501127122-f385ca6ddd9d?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror", "Mystery"],
     runtimeMinutes: 87,
-    synopsis: "หน้ากากเก่าที่ถูกค้นพบปลุกคำสาปอันชั่วร้ายและอดีตที่ถูกฝัง",
+    logline: "หน้ากากเก่าที่ถูกค้นพบปลุกคำสาปอันชั่วร้ายและอดีตที่ถูกฝัง",
+    targetAudiences: ["Art People", "Novel Fan"],
+    afterScreenActivities: ["talk"],
+    category: "Closing Film",
     year: 1995,
   },
   {
     id: "7",
     title: "H20",
+    titleTh: "เอช ทู โอ",
     publicationStatus: "public",
     galleryUrls: [
       "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop",
     ],
     genres: ["Horror", "Drama"],
     runtimeMinutes: 86,
-    synopsis: "การเผชิญหน้าระหว่างอดีตกับปัจจุบันที่นำไปสู่การตัดสินใจครั้งสำคัญ",
+    logline: "การเผชิญหน้าระหว่างอดีตกับปัจจุบันที่นำไปสู่การตัดสินใจครั้งสำคัญ",
+    targetAudiences: ["Family", "Student"],
+    afterScreenActivities: ["education"],
+    category: "Nostalgia",
     year: 1998,
   },
 ];

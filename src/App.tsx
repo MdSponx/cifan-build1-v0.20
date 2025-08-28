@@ -48,6 +48,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute';
 import FeatureFilmForm from './components/admin/FeatureFilmForm';
 import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
 import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
+import PublicFeatureFilmsPage from './components/pages/PublicFeatureFilmsPage';
+import PublicFeatureFilmDetailPage from './components/pages/PublicFeatureFilmDetailPage';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Component to handle HTML lang attribute
@@ -151,6 +153,14 @@ function App() {
         return <ComingSoonPage />;
       case 'activities':
         return <PublicActivitiesPage />;
+      case 'public/feature-films':
+        return (
+          <PublicFeatureFilmsPage 
+            onNavigateToDetail={(filmId) => {
+              handleNavigate(`public/feature-films/detail/${filmId}`);
+            }}
+          />
+        );
       case 'admin/dashboard':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
@@ -369,6 +379,17 @@ function App() {
                 </AdminZoneLayout>
               </AdminProtectedRoute>
             </ProtectedRoute>
+          );
+        }
+        
+        // Handle public feature film detail page with dynamic ID
+        if (currentPage.startsWith('public/feature-films/detail/')) {
+          const filmId = currentPage.replace('public/feature-films/detail/', '');
+          return (
+            <PublicFeatureFilmDetailPage 
+              filmId={filmId}
+              onNavigateBack={() => handleNavigate('public/feature-films')}
+            />
           );
         }
         

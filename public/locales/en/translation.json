@@ -15,7 +15,8 @@
     "language": "EN",
     "profile": "Profile",
     "myApplications": "My Applications",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "featureFilms": "Feature Films"
   },
   "menu": {
     "contentManagement": "Content Management",
@@ -456,5 +457,24 @@
     "manual": "Manual",
     "actions": "Actions",
     "noRemarks": "No remarks"
+  },
+  "publicFeatureFilms": {
+    "title": "Official Selection",
+    "year": "2025",
+    "searchPlaceholder": "Search movie titles or directors...",
+    "allYears": "All Years",
+    "film": "film",
+    "films": "films",
+    "matching": "matching",
+    "from": "from",
+    "noFilmsFound": "No Films Found",
+    "tryAdjustingFilters": "Try adjusting your search or filters",
+    "noPublishedFilms": "No published films available",
+    "backToGallery": "Back to Gallery",
+    "shareFilm": "Share Film",
+    "filmNotFound": "Film Not Found",
+    "filmNotFoundMessage": "The requested film could not be found.",
+    "loadingFilmDetails": "Loading film details...",
+    "filmNotAvailable": "This film is not available for public viewing"
   }
 }

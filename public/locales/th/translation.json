@@ -15,7 +15,8 @@
     "language": "TH",
     "profile": "โปรไฟล์",
     "myApplications": "ใบสมัครของฉัน",
-    "signOut": "ออกจากระบบ"
+    "signOut": "ออกจากระบบ",
+    "featureFilms": "ภาพยนตร์เรื่องยาว"
   },
   "menu": {
     "contentManagement": "จัดการเนื้อหา",
@@ -446,5 +447,24 @@
     "default": "ค่าเริ่มต้น",
     "auto": "อัตโนมัติ",
     "manual": "ด้วยตนเอง"
+  },
+  "publicFeatureFilms": {
+    "title": "Official Selection",
+    "year": "2025",
+    "searchPlaceholder": "ค้นหาชื่อหนังหรือผู้กำกับ...",
+    "allYears": "ทุกปี",
+    "film": "ภาพยนตร์",
+    "films": "ภาพยนตร์",
+    "matching": "ที่ตรงกับ",
+    "from": "จากปี",
+    "noFilmsFound": "ไม่พบภาพยนตร์",
+    "tryAdjustingFilters": "ลองปรับเปลี่ยนคำค้นหาหรือตัวกรอง",
+    "noPublishedFilms": "ยังไม่มีภาพยนตร์ที่เผยแพร่",
+    "backToGallery": "กลับไปแกลเลอรี่",
+    "shareFilm": "แชร์ภาพยนตร์",
+    "filmNotFound": "ไม่พบภาพยนตร์",
+    "filmNotFoundMessage": "ไม่พบภาพยนตร์ที่ร้องขอ",
+    "loadingFilmDetails": "กำลังโหลดรายละเอียดภาพยนตร์...",
+    "filmNotAvailable": "ภาพยนตร์นี้ไม่สามารถดูได้สำหรับสาธารณะ"
   }
 }

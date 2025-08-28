@@ -29,14 +29,14 @@ export const FILE_TYPES = {
     types: ['video/mp4', 'video/quicktime']
   },
   IMAGE: {
-    accept: '.jpg,.jpeg,.png',
+    accept: '.jpg,.jpeg,.png,.gif,.webp',
     maxSize: 10 * 1024 * 1024, // 10MB
-    types: ['image/jpeg', 'image/png']
+    types: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
   },
   DOCUMENT: {
-    accept: '.pdf,.jpg,.jpeg,.png',
+    accept: '.pdf,.jpg,.jpeg,.png,.gif,.webp',
     maxSize: 10 * 1024 * 1024, // 10MB
-    types: ['application/pdf', 'image/jpeg', 'image/png']
+    types: ['application/pdf', 'image/jpeg', 'image/png', 'image/gif', 'image/webp']
   }
 };
 

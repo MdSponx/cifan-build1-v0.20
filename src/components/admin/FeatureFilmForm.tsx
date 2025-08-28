@@ -382,11 +382,24 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
     const loadingId = showLoading('Saving Film', 'Please wait while we save the film data...');
 
     try {
-      // Filter out empty gallery URLs
+      // Filter out empty gallery URLs and prepare data for submission
       const cleanedData = {
         ...formData,
         galleryUrls: formData.galleryUrls.filter(url => url.trim() !== '')
       };
+
+      console.log('🚀 Form submission data:', {
+        mode,
+        filmId,
+        hasGalleryFiles: !!(cleanedData.galleryFiles && cleanedData.galleryFiles.length > 0),
+        galleryFileCount: cleanedData.galleryFiles?.length || 0,
+        hasGalleryUrls: !!(cleanedData.galleryUrls && cleanedData.galleryUrls.length > 0),
+        galleryUrlCount: cleanedData.galleryUrls?.length || 0,
+        hasPosterFile: !!cleanedData.posterFile,
+        hasTrailerFile: !!cleanedData.trailerFile,
+        coverIndex: cleanedData.galleryCoverIndex,
+        logoIndex: cleanedData.galleryLogoIndex
+      });
 
       // Check if user is authenticated
       if (!user) {
@@ -396,6 +409,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
 
       let result;
       if (mode === 'edit' && filmId) {
+        console.log('📝 Updating existing film:', filmId);
         // Use helper function to update film with guests in films collection
         const { filmId: updatedFilmId, guestIds } = await updateFeatureFilmWithGuests(filmId, cleanedData);
         result = {
@@ -404,6 +418,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
         };
         console.log('✅ Film updated with guests:', updatedFilmId, 'Guest IDs:', guestIds);
       } else {
+        console.log('🆕 Creating new film');
         // Use helper function to create film with guests in films collection
         const { filmId: newFilmId, guestIds } = await createFeatureFilmWithGuests(user.uid, cleanedData);
         result = {
@@ -428,7 +443,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
         updateToError(loadingId, 'Error', 'Failed to save film');
       }
     } catch (error) {
-      console.error('Error saving film with guests:', error);
+      console.error('💥 Error saving film with guests:', error);
       updateToError(loadingId, 'Error', error instanceof Error ? error.message : 'An unexpected error occurred');
     } finally {
       setIsSubmitting(false);
@@ -982,6 +997,8 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                 }}
                 onUrlsChange={(urls) => handleInputChange('galleryUrls', urls)}
                 error={errors.galleryUrls}
+                mode={mode}
+                filmId={filmId}
               />
 
               {/* Screener URL */}
