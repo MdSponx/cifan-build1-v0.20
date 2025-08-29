@@ -27,6 +27,7 @@ import { useNotificationHelpers } from '../ui/NotificationContext';
 import { useFeatureFilms } from '../../hooks/useFeatureFilms';
 import { FeatureFilm, FilmFilters } from '../../types/featureFilm.types';
 import { formatFileSize } from '../../utils/fileUpload';
+import AnimatedBackground from '../ui/AnimatedBackground';
 
 interface FeatureFilmGalleryPageProps {
   onNavigateToForm?: (mode: 'create' | 'edit', filmId?: string) => void;
@@ -231,7 +232,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
   const renderFilmCard = (film: FeatureFilm) => (
     <div
       key={film.id}
-      className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden hover:bg-white/10 transition-all duration-300 group"
+      className="border border-white/10 rounded-2xl overflow-hidden hover:bg-white/5 transition-all duration-300 group"
     >
       {/* Film Poster */}
       <div className="relative aspect-[2/3] bg-gradient-to-br from-[#1a1a2e] to-[#16213e] overflow-hidden">
@@ -342,7 +343,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
             </span>
           ))}
           {film.genres.length > 3 && (
-            <span className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs">
+            <span className="px-2 py-1 border border-white/20 text-white/70 rounded-full text-xs">
               +{film.genres.length - 3}
             </span>
           )}
@@ -372,7 +373,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
   const renderFilmRow = (film: FeatureFilm) => (
     <div
       key={film.id}
-      className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all duration-300 group"
+      className="border border-white/10 rounded-xl p-4 hover:bg-white/5 transition-all duration-300 group"
     >
       <div className="flex items-center space-x-4">
         {/* Selection Checkbox */}
@@ -435,13 +436,13 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
                 {film.genres.slice(0, 4).map((genre, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs"
+                    className="px-2 py-1 border border-white/20 text-white/70 rounded-full text-xs"
                   >
                     {genre}
                   </span>
                 ))}
                 {film.genres.length > 4 && (
-                  <span className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs">
+                  <span className="px-2 py-1 border border-white/20 text-white/70 rounded-full text-xs">
                     +{film.genres.length - 4}
                   </span>
                 )}
@@ -495,10 +496,12 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
   );
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] p-4">
-      <div className="max-w-7xl mx-auto">
+    <div className="min-h-screen bg-[#110D16] text-white relative">
+      <AnimatedBackground />
+      <div className="relative z-10 p-4">
+        <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 mb-6">
+        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-6 mb-6 shadow-lg">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-3">
               <div className="p-3 bg-gradient-to-r from-[#FCB283] to-[#AA4626] rounded-xl">
@@ -580,7 +583,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
 
           {/* Filters Panel */}
           {showFilters && (
-            <div className="mt-6 p-4 bg-white/5 rounded-xl border border-white/10">
+            <div className="mt-6 p-4 bg-white/5 backdrop-blur-md border border-white/10 rounded-xl shadow-lg">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 {/* Status Filter */}
                 <div>
@@ -650,7 +653,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
 
         {/* Bulk Actions */}
         {selectedFilms.length > 0 && (
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-4 mb-6">
+          <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 mb-6 shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
                 <span className="text-white/90">
@@ -686,7 +689,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
             </div>
           </div>
         ) : error ? (
-          <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-6 text-center">
+          <div className="border border-red-500/30 rounded-2xl p-6 text-center">
             <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-red-400 mb-2">Error Loading Films</h3>
             <p className="text-red-300 mb-4">{error}</p>
@@ -698,7 +701,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
             </button>
           </div>
         ) : films.length === 0 ? (
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-12 text-center">
+          <div className="border border-white/10 rounded-2xl p-12 text-center">
             <Film className="w-16 h-16 text-white/30 mx-auto mb-4" />
             <h3 className="text-xl font-semibold text-white mb-2">No Films Found</h3>
             <p className="text-white/60 mb-6">
@@ -730,7 +733,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
               <div className="text-center">
                 <button
                   onClick={loadMore}
-                  className="px-6 py-3 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
+                  className="px-6 py-3 border border-white/20 text-white rounded-xl hover:bg-white/10 transition-colors"
                 >
                   Load More Films
                 </button>
@@ -746,6 +749,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   );

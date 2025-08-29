@@ -36,6 +36,7 @@ import { getFeatureFilm } from '../../services/featureFilmService';
 import { formatFileSize } from '../../utils/fileUpload';
 import FormSection from '../forms/FormSection';
 import { getCountryFlag, getLanguageFlag, getTargetAudienceEmoji, getGenreEmoji } from '../../utils/flagsAndEmojis';
+import AnimatedBackground from '../ui/AnimatedBackground';
 
 interface FeatureFilmDetailPageProps {
   filmId: string;
@@ -775,10 +776,13 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A] flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FCB283] mx-auto mb-4"></div>
-          <p className="text-white/70">Loading film details...</p>
+      <div className="min-h-screen bg-[#110D16] text-white relative">
+        <AnimatedBackground />
+        <div className="relative z-10 flex items-center justify-center min-h-screen">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#FCB283] mx-auto mb-4"></div>
+            <p className="text-white/70">Loading film details...</p>
+          </div>
         </div>
       </div>
     );
@@ -786,25 +790,30 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
 
   if (error || !film) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A] flex items-center justify-center">
-        <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-8 text-center max-w-md">
-          <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-red-400 mb-2">Film Not Found</h2>
-          <p className="text-red-300 mb-6">{error || 'The requested film could not be found.'}</p>
-          <button
-            onClick={onNavigateBack}
-            className="flex items-center space-x-2 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors mx-auto"
-          >
-            <ArrowLeft className="w-5 h-5" />
-            <span>Back to Gallery</span>
-          </button>
+      <div className="min-h-screen bg-[#110D16] text-white relative">
+        <AnimatedBackground />
+        <div className="relative z-10 flex items-center justify-center min-h-screen">
+          <div className="bg-red-500/20 border border-red-500/30 rounded-2xl p-8 text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-red-400 mb-2">Film Not Found</h2>
+            <p className="text-red-300 mb-6">{error || 'The requested film could not be found.'}</p>
+            <button
+              onClick={onNavigateBack}
+              className="flex items-center space-x-2 px-6 py-3 bg-red-500/20 text-red-400 rounded-xl hover:bg-red-500/30 transition-colors mx-auto"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              <span>Back to Gallery</span>
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A]">
+    <div className="min-h-screen bg-[#110D16] text-white relative">
+      <AnimatedBackground />
+      <div className="relative z-10">
       {/* Header - Only show in admin mode */}
       {mode === 'admin' && (
         <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40 h-16 sm:h-20">
@@ -1065,6 +1074,7 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
           </button>
         </div>
       )}
+      </div>
     </div>
   );
 };
