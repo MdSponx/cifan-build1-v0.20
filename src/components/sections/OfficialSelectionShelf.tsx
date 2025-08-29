@@ -463,26 +463,37 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
   const [activeId, setActiveId] = useState<string | null>(null);
   const scrollerRef = useRef<HTMLDivElement>(null);
 
-  // Use real-time feature films hook with filters for published films
+  // Use real-time feature films hook with filters for public films
   const { films: featureFilms, loading, error } = useFeatureFilms(
-    { status: 'published' }, // Only get published films
+    { publicationStatus: 'public' }, // Only get films with publicationStatus: 'public'
     true // Enable real-time updates
   );
 
-  // Convert FeatureFilm[] to Film[] and filter for public status
+  // Convert FeatureFilm[] to Film[] - filtering is now handled by the service layer
   const films = useMemo(() => {
-    if (!featureFilms || error) {
-      // Use sample data when there's an error or no data for testing
-      return SAMPLE_FILMS;
+    console.log('🎬 Processing films in OfficialSelectionShelf:', {
+      featureFilmsCount: featureFilms?.length || 0,
+      loading,
+      error,
+      hasFeatureFilms: !!featureFilms
+    });
+
+    if (error) {
+      console.error('❌ Error in useFeatureFilms:', error);
+      return null; // Return null to show error state
     }
     
-    return featureFilms
-      .filter(film => {
-        const publicationStatus = film.publicationStatus || (film.status === 'published' ? 'public' : 'draft');
-        return publicationStatus === 'public';
-      })
-      .map(convertFeatureFilmToFilm);
-  }, [featureFilms, error]);
+    if (!featureFilms) {
+      console.log('ℹ️ No feature films data available yet');
+      return null; // Return null to show loading state
+    }
+    
+    // Service layer already filters for publicationStatus: 'public', so just convert the data
+    const convertedFilms = featureFilms.map(convertFeatureFilmToFilm);
+    
+    console.log('✅ Final converted films:', convertedFilms.length);
+    return convertedFilms;
+  }, [featureFilms, error, loading]);
 
   // ensure the active card scrolls into view
   useEffect(() => {

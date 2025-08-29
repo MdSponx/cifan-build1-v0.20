@@ -30,7 +30,7 @@ import { createMultipleGuests, getGuests, deleteAllGuests } from './guestService
 import { uploadFile, generateFeatureFilmUploadPath } from '../utils/fileUpload';
 
 const COLLECTION_NAME = 'films';
-const NEW_COLLECTION_NAME = 'films'; // Use the existing films collection
+const NEW_COLLECTION_NAME = 'films'; // Use the existing films collection consistently
 
 export interface FeatureFilmServiceResult {
   success: boolean;
@@ -1025,10 +1025,11 @@ export const getEnhancedFeatureFilm = async (filmId: string): Promise<FeatureFil
 const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
   // Determine the correct status - prioritize publicationStatus if it exists
   let status: 'draft' | 'published' | 'archived' = 'draft';
-  if (legacyData.publicationStatus) {
-    // Use the publicationStatus field directly if it exists
-    status = legacyData.publicationStatus;
-  } else if (legacyData.status === 'ตอบรับ / Accepted') {
+  if (legacyData.publicationStatus === 'public') {
+    status = 'published';
+  } else if (legacyData.publicationStatus === 'draft') {
+    status = 'draft';
+  } else if (typeof legacyData.status === 'string' && legacyData.status === 'ตอบรับ / Accepted') {
     // Fall back to legacy status mapping
     status = 'published';
   }
@@ -1121,6 +1122,8 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
  */
 export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<FeatureFilmServiceResult> => {
   try {
+    console.log('🎬 Getting enhanced feature films with filters:', filters);
+    
     let q = query(collection(db, NEW_COLLECTION_NAME));
     
     // For legacy data, we need to be more flexible with filtering
@@ -1131,7 +1134,7 @@ export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<Fe
     try {
       q = query(q, orderBy(sortBy, sortOrder));
     } catch (error) {
-      // If the field doesn't exist, fall back to createdAt
+      console.warn('⚠️ Sorting field not available, falling back to createdAt:', error);
       q = query(q, orderBy('createdAt', 'desc'));
     }
     
@@ -1140,11 +1143,21 @@ export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<Fe
       q = query(q, limit(filters.limit));
     }
     
+    console.log('📡 Executing Firestore query...');
     const querySnapshot = await getDocs(q);
+    console.log('📊 Query returned', querySnapshot.size, 'documents');
+    
     const films: FeatureFilm[] = [];
     
     querySnapshot.forEach((doc) => {
       const data = doc.data();
+      console.log('🎭 Processing film document:', doc.id, {
+        titleEn: data.titleEn,
+        title: data.title,
+        status: data.status,
+        publicationStatus: data.publicationStatus
+      });
+      
       try {
         // Convert legacy data to enhanced format
         const enhancedFilm = convertLegacyToEnhanced({
@@ -1152,41 +1165,70 @@ export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<Fe
           ...data
         });
         films.push(enhancedFilm);
+        console.log('✅ Successfully converted film:', enhancedFilm.title);
       } catch (error) {
-        console.warn('Error converting legacy film data:', error);
+        console.warn('❌ Error converting legacy film data for', doc.id, ':', error);
         // Skip this film if conversion fails
       }
     });
     
+    console.log('🔄 Total films after conversion:', films.length);
+    
     // Apply client-side filters for complex queries
     let filteredFilms = films;
     
-    // Status filter
+    // Publication Status filter - simplified logic using only publicationStatus
+    if (filters?.publicationStatus) {
+      console.log('🔍 Applying publicationStatus filter:', filters.publicationStatus);
+      filteredFilms = filteredFilms.filter(film => {
+        const filmPublicationStatus = film.publicationStatus || (film.status === 'published' ? 'public' : 'draft');
+        const matches = filmPublicationStatus === filters.publicationStatus;
+        console.log('🔍 Film:', film.title, 'publicationStatus:', filmPublicationStatus, 'matches:', matches);
+        return matches;
+      });
+      console.log('📊 Films after publicationStatus filter:', filteredFilms.length);
+    }
+    
+    // Status filter - handle both new and legacy status formats (kept for backward compatibility)
     if (filters?.status) {
-      filteredFilms = filteredFilms.filter(film => film.status === filters.status);
+      console.log('🔍 Applying status filter:', filters.status);
+      filteredFilms = filteredFilms.filter(film => {
+        const matchesNewStatus = film.status === filters.status;
+        const matchesLegacyStatus = filters.status === 'published' && 
+          (film.publicationStatus === 'public');
+        return matchesNewStatus || matchesLegacyStatus;
+      });
+      console.log('📊 Films after status filter:', filteredFilms.length);
     }
     
     // Genre filter
     if (filters?.genre) {
+      console.log('🔍 Applying genre filter:', filters.genre);
       filteredFilms = filteredFilms.filter(film => 
         film.genres.some(genre => genre.toLowerCase().includes(filters.genre!.toLowerCase()))
       );
+      console.log('📊 Films after genre filter:', filteredFilms.length);
     }
     
     // Country filter
     if (filters?.country) {
+      console.log('🔍 Applying country filter:', filters.country);
       filteredFilms = filteredFilms.filter(film => 
         film.country.toLowerCase().includes(filters.country!.toLowerCase())
       );
+      console.log('📊 Films after country filter:', filteredFilms.length);
     }
     
     // Featured filter
     if (filters?.featured !== undefined) {
+      console.log('🔍 Applying featured filter:', filters.featured);
       filteredFilms = filteredFilms.filter(film => film.featured === filters.featured);
+      console.log('📊 Films after featured filter:', filteredFilms.length);
     }
     
     // Search filter
     if (filters?.search) {
+      console.log('🔍 Applying search filter:', filters.search);
       const searchLower = filters.search.toLowerCase();
       filteredFilms = filteredFilms.filter(film => 
         film.title.toLowerCase().includes(searchLower) ||
@@ -1194,32 +1236,39 @@ export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<Fe
         film.director.toLowerCase().includes(searchLower) ||
         film.synopsis.toLowerCase().includes(searchLower)
       );
+      console.log('📊 Films after search filter:', filteredFilms.length);
     }
     
     // Year filters
     if (filters?.yearFrom || filters?.yearTo) {
+      console.log('🔍 Applying year filters:', { yearFrom: filters.yearFrom, yearTo: filters.yearTo });
       filteredFilms = filteredFilms.filter(film => {
         if (filters.yearFrom && film.releaseYear < filters.yearFrom) return false;
         if (filters.yearTo && film.releaseYear > filters.yearTo) return false;
         return true;
       });
+      console.log('📊 Films after year filter:', filteredFilms.length);
     }
     
     // Duration filters
     if (filters?.durationFrom || filters?.durationTo) {
+      console.log('🔍 Applying duration filters:', { durationFrom: filters.durationFrom, durationTo: filters.durationTo });
       filteredFilms = filteredFilms.filter(film => {
         if (filters.durationFrom && film.duration < filters.durationFrom) return false;
         if (filters.durationTo && film.duration > filters.durationTo) return false;
         return true;
       });
+      console.log('📊 Films after duration filter:', filteredFilms.length);
     }
+    
+    console.log('🎉 Final filtered films count:', filteredFilms.length);
     
     return {
       success: true,
       data: filteredFilms
     };
   } catch (error) {
-    console.error('Error getting enhanced feature films:', error);
+    console.error('💥 Error getting enhanced feature films:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Failed to get feature films'
@@ -1271,24 +1320,108 @@ export const getPublishedFeatureFilms = async (): Promise<FeatureFilmServiceResu
 
 /**
  * Subscribe to feature films changes (Enhanced System)
+ * Now properly handles filtering and legacy data conversion
  */
-export const subscribeToFeatureFilms = (callback: (films: FeatureFilm[]) => void): (() => void) => {
+export const subscribeToFeatureFilms = (
+  callback: (films: FeatureFilm[]) => void,
+  filters?: FilmFilters
+): (() => void) => {
+  console.log('🔔 Setting up real-time subscription with filters:', filters);
+  
   const q = query(collection(db, NEW_COLLECTION_NAME), orderBy('createdAt', 'desc'));
   
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
-    const films: FeatureFilm[] = [];
+    console.log('📡 Real-time update received, processing', querySnapshot.size, 'documents');
+    
+    const allFilms: FeatureFilm[] = [];
+    
     querySnapshot.forEach((doc) => {
       const data = doc.data();
-      films.push({
-        id: doc.id,
-        ...data,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date()
-      } as FeatureFilm);
+      console.log('🎭 Processing real-time film document:', doc.id, {
+        titleEn: data.titleEn,
+        title: data.title,
+        status: data.status,
+        publicationStatus: data.publicationStatus
+      });
+      
+      try {
+        // Convert legacy data to enhanced format
+        const enhancedFilm = convertLegacyToEnhanced({
+          id: doc.id,
+          ...data
+        });
+        allFilms.push(enhancedFilm);
+        console.log('✅ Successfully converted real-time film:', enhancedFilm.title);
+      } catch (error) {
+        console.warn('❌ Error converting legacy film data in real-time for', doc.id, ':', error);
+        // Skip this film if conversion fails
+      }
     });
-    callback(films);
+    
+    console.log('🔄 Total films after real-time conversion:', allFilms.length);
+    
+    // Apply client-side filters if provided
+    let filteredFilms = allFilms;
+    
+    if (filters) {
+      // Publication Status filter - simplified logic using only publicationStatus
+      if (filters.publicationStatus) {
+        console.log('🔍 Applying real-time publicationStatus filter:', filters.publicationStatus);
+        filteredFilms = filteredFilms.filter(film => {
+          const filmPublicationStatus = film.publicationStatus || (film.status === 'published' ? 'public' : 'draft');
+          const matches = filmPublicationStatus === filters.publicationStatus;
+          console.log('🔍 Real-time Film:', film.title, 'publicationStatus:', filmPublicationStatus, 'matches:', matches);
+          return matches;
+        });
+        console.log('📊 Films after real-time publicationStatus filter:', filteredFilms.length);
+      }
+      
+      // Status filter - handle both new and legacy status formats
+      if (filters.status) {
+        console.log('🔍 Applying real-time status filter:', filters.status);
+        filteredFilms = filteredFilms.filter(film => {
+          const matchesNewStatus = film.status === filters.status;
+          const matchesLegacyStatus = filters.status === 'published' && 
+            (film.publicationStatus === 'public');
+          return matchesNewStatus || matchesLegacyStatus;
+        });
+        console.log('📊 Films after real-time status filter:', filteredFilms.length);
+      }
+      
+      // Apply other filters if needed
+      if (filters.genre) {
+        filteredFilms = filteredFilms.filter(film => 
+          film.genres.some(genre => genre.toLowerCase().includes(filters.genre!.toLowerCase()))
+        );
+      }
+      
+      if (filters.country) {
+        filteredFilms = filteredFilms.filter(film => 
+          film.country.toLowerCase().includes(filters.country!.toLowerCase())
+        );
+      }
+      
+      if (filters.featured !== undefined) {
+        filteredFilms = filteredFilms.filter(film => film.featured === filters.featured);
+      }
+      
+      if (filters.search) {
+        const searchLower = filters.search.toLowerCase();
+        filteredFilms = filteredFilms.filter(film => 
+          film.title.toLowerCase().includes(searchLower) ||
+          (film.titleTh && film.titleTh.toLowerCase().includes(searchLower)) ||
+          film.director.toLowerCase().includes(searchLower) ||
+          film.synopsis.toLowerCase().includes(searchLower)
+        );
+      }
+    }
+    
+    console.log('🎉 Final real-time filtered films count:', filteredFilms.length);
+    callback(filteredFilms);
   }, (error) => {
-    console.error('Error in feature films subscription:', error);
+    console.error('💥 Error in feature films real-time subscription:', error);
+    // Call callback with empty array on error to prevent infinite loading
+    callback([]);
   });
   
   return unsubscribe;

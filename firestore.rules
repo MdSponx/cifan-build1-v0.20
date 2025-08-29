@@ -285,10 +285,9 @@ service cloud.firestore {
     // Films collection - for feature film management (includes editors)
     match /films/{filmId} {
       allow create: if request.auth != null;
-      // Public read access for published films (for public gallery)
-      // Editors, admins, and super-admins can read all films
-      allow read: if resource.data.status == 'published' || 
-        resource.data.publicationStatus == 'public' ||
+      // Public read access for films with publicationStatus: 'public' - NO AUTH REQUIRED
+      // Simplified logic: prioritize publicationStatus field as primary criteria
+      allow read: if resource.data.publicationStatus == 'public' ||
         (request.auth != null && 
          (isAdmin() || isEditor() || 
           (exists(/databases/$(database)/documents/films/$(filmId)) && 
@@ -321,88 +320,6 @@ service cloud.firestore {
       }
     }
     
-    // FeatureFilms collection - enhanced feature film management system
-    match /featureFilms/{filmId} {
-      // Public read access for published films (for public gallery)
-      // Editors, admins, and super-admins can read all films
-      allow read: if resource.data.status == 'published' || 
-        (request.auth != null && 
-         (isAdmin() || isEditor() || 
-          (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
-           request.auth.uid == resource.data.createdBy)));
-      
-      // Editors, admins, and authenticated users can create films
-      allow create: if request.auth != null && (isAdmin() || isEditor() || true) &&
-        // Validate required fields for creation
-        request.resource.data.keys().hasAll(['title', 'director', 'synopsis', 'duration', 
-          'releaseYear', 'country', 'language', 'genres', 'status', 'createdBy', 'updatedBy']) &&
-        // Ensure creator is the authenticated user
-        request.resource.data.createdBy == request.auth.uid &&
-        request.resource.data.updatedBy == request.auth.uid &&
-        // Validate data types
-        request.resource.data.title is string &&
-        request.resource.data.title.size() >= 1 &&
-        request.resource.data.title.size() <= 200 &&
-        request.resource.data.director is string &&
-        request.resource.data.director.size() >= 1 &&
-        request.resource.data.director.size() <= 100 &&
-        request.resource.data.synopsis is string &&
-        request.resource.data.synopsis.size() >= 10 &&
-        request.resource.data.duration is int &&
-        request.resource.data.duration > 0 &&
-        request.resource.data.releaseYear is int &&
-        request.resource.data.releaseYear >= 1900 &&
-        request.resource.data.releaseYear <= 2030 &&
-        request.resource.data.country is string &&
-        request.resource.data.language is string &&
-        request.resource.data.genres is list &&
-        request.resource.data.genres.size() > 0 &&
-        request.resource.data.status in ['draft', 'published', 'archived'];
-      
-      // Editors and admins can update all films, users can update their own films
-      allow update: if request.auth != null && 
-        (isAdmin() || isEditor() || 
-         (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
-          request.auth.uid == resource.data.createdBy)) &&
-        // Ensure immutable fields are not changed
-        request.resource.data.createdBy == resource.data.createdBy &&
-        request.resource.data.createdAt == resource.data.createdAt &&
-        request.resource.data.updatedBy == request.auth.uid &&
-        // Validate updated fields if they exist
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['title']) ||
-         (request.resource.data.title is string &&
-          request.resource.data.title.size() >= 1 &&
-          request.resource.data.title.size() <= 200)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['director']) ||
-         (request.resource.data.director is string &&
-          request.resource.data.director.size() >= 1 &&
-          request.resource.data.director.size() <= 100)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['synopsis']) ||
-         (request.resource.data.synopsis is string &&
-          request.resource.data.synopsis.size() >= 10)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['duration']) ||
-         (request.resource.data.duration is int &&
-          request.resource.data.duration > 0)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['releaseYear']) ||
-         (request.resource.data.releaseYear is int &&
-          request.resource.data.releaseYear >= 1900 &&
-          request.resource.data.releaseYear <= 2030)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['country']) ||
-         request.resource.data.country is string) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['language']) ||
-         request.resource.data.language is string) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['genres']) ||
-         (request.resource.data.genres is list &&
-          request.resource.data.genres.size() > 0)) &&
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['status']) ||
-         request.resource.data.status in ['draft', 'published', 'archived']);
-      
-      // Editors and admins can delete all films, users can delete their own films
-      allow delete: if request.auth != null && 
-        (isAdmin() || isEditor() || 
-         (exists(/databases/$(database)/documents/featureFilms/$(filmId)) && 
-          request.auth.uid == resource.data.createdBy));
-    }
     
     // Public collections (read-only for all users)
     match /public/{document=**} {

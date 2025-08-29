@@ -242,19 +242,19 @@ export const useFeatureFilms = (
   // Initial fetch and realtime subscription setup
   useEffect(() => {
     if (enableRealtime) {
-      // Set up realtime subscription
+      // Set up realtime subscription with filters
       const unsubscribe = subscribeToFeatureFilms((updatedFilms) => {
         setFilms(updatedFilms);
         setTotalCount(updatedFilms.length);
         setLoading(false);
-      });
+      }, currentFilters); // Pass filters to subscription
 
       return unsubscribe;
     } else {
       // One-time fetch
       fetchFilms();
     }
-  }, [fetchFilms, enableRealtime]);
+  }, [fetchFilms, enableRealtime, currentFilters]);
 
   // Update filters
   useEffect(() => {

@@ -218,6 +218,7 @@ export interface UpdateFeatureFilmData extends Partial<CreateFeatureFilmData> {
 // Filter interface for querying films
 export interface FilmFilters {
   status?: 'draft' | 'published' | 'archived';
+  publicationStatus?: PublicationStatus;
   genre?: string;
   country?: string;
   yearFrom?: number;
