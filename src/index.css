@@ -1855,7 +1855,7 @@ html[lang="th"] .partner-card-text {
   }
 }
 
-/* Fixed: Trailer container with proper video display */
+/* Fixed: Trailer container with proper video display - Performance Optimized */
 .trailer-container-wrapper {
   background: rgba(255, 255, 255, 0.08);
   backdrop-filter: blur(20px);
@@ -1865,6 +1865,8 @@ html[lang="th"] .partner-card-text {
   padding: 1.5rem;
   margin-bottom: 2rem;
   position: relative;
+  contain: layout style;
+  will-change: auto;
 }
 
 /* Outer container with reasonable bounds */
@@ -1898,7 +1900,7 @@ html[lang="th"] .partner-card-text {
   overflow: hidden;
 }
 
-/* Iframe-specific rules - simplified and functional */
+/* Iframe-specific rules - simplified and functional with performance optimization */
 .video-iframe-container iframe {
   position: absolute;
   top: 0;
@@ -1909,9 +1911,11 @@ html[lang="th"] .partner-card-text {
   outline: none;
   border-radius: 0.75rem;
   background: #000;
+  will-change: auto;
+  transform: translateZ(0);
 }
 
-/* Video element styling for direct videos */
+/* Video element styling for direct videos - Performance Optimized */
 .video-iframe-container video {
   position: absolute;
   top: 0;
@@ -1921,6 +1925,8 @@ html[lang="th"] .partner-card-text {
   object-fit: cover;
   border-radius: 0.75rem;
   background: #000;
+  will-change: auto;
+  transform: translateZ(0);
 }
 
 /* Mobile responsive adjustments */
@@ -1972,6 +1978,8 @@ html[lang="th"] .partner-card-text {
     rgba(0, 0, 0, 0.4) 50%,
     rgba(0, 0, 0, 0.1) 100%
   );
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 /* Cover Photo Typography */
@@ -1994,15 +2002,22 @@ html[lang="th"] .partner-card-text {
   font-weight: 500;
 }
 
-/* Film Poster Styling */
+/* Film Poster Styling - Performance Optimized */
 .film-poster {
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
   border-radius: 8px;
   transition: transform 0.3s ease;
+  will-change: transform;
+  transform: translateZ(0);
 }
 
 .film-poster:hover {
-  transform: scale(1.02);
+  transform: scale(1.02) translateZ(0);
+}
+
+.film-poster img {
+  will-change: auto;
+  transform: translateZ(0);
 }
 
 .overlay-badge {
@@ -2213,5 +2228,74 @@ html[lang="th"] .partner-card-text {
 @media (min-width: 1024px) {
   .lg\:w-43 {
     width: 10.75rem; /* 172px */
+  }
+}
+
+/* Performance Optimizations for Feature Film Detail Pages */
+.feature-film-hero {
+  contain: layout style paint;
+  will-change: transform;
+  transform: translateZ(0);
+}
+
+.feature-film-content {
+  contain: layout style;
+  will-change: auto;
+}
+
+/* Image loading optimization */
+.lazy-image {
+  will-change: auto;
+  transform: translateZ(0);
+  transition: opacity 0.3s ease;
+}
+
+.lazy-image[loading="lazy"] {
+  opacity: 0;
+}
+
+.lazy-image.loaded {
+  opacity: 1;
+}
+
+/* Reduce paint operations */
+.glass-container,
+.glass-card,
+.trailer-container-wrapper {
+  contain: layout style;
+}
+
+/* Optimize backdrop-filter performance */
+@supports (backdrop-filter: blur(20px)) {
+  .glass-container,
+  .glass-card {
+    backdrop-filter: blur(20px);
+  }
+}
+
+@supports not (backdrop-filter: blur(20px)) {
+  .glass-container,
+  .glass-card {
+    background: rgba(255, 255, 255, 0.15);
+  }
+}
+
+/* Optimize animations for 60fps */
+@media (prefers-reduced-motion: no-preference) {
+  .film-poster,
+  .cover-photo-overlay,
+  .video-iframe-container iframe,
+  .video-iframe-container video {
+    will-change: transform;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .film-poster,
+  .cover-photo-overlay,
+  .video-iframe-container iframe,
+  .video-iframe-container video {
+    will-change: auto;
+    transition: none;
   }
 }

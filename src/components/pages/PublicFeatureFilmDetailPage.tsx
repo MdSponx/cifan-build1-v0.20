@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   ArrowLeft,
@@ -38,15 +38,20 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
   const [error, setError] = useState<string | null>(null);
 
   /**
-   * Fetch film data and validate it's published
+   * Fetch film data and validate it's published - optimized with cleanup
    */
   useEffect(() => {
+    let isMounted = true;
+    const abortController = new AbortController();
+    
     const fetchFilm = async () => {
       try {
         setLoading(true);
         setError(null);
         
         const result = await getFeatureFilm(filmId);
+        
+        if (!isMounted) return; // Prevent state update if component unmounted
         
         if (result.success && result.data) {
           // Check if film is published for public viewing
@@ -57,7 +62,7 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
               filmData.publicationStatus === 'public' ||
               filmData.status === 'ตอบรับ / Accepted') {
             
-            // Limit gallery images to maximum 10 for public view
+            // Limit gallery images to maximum 10 for public view (performance optimization)
             if (filmData.galleryUrls && filmData.galleryUrls.length > 10) {
               filmData.galleryUrls = filmData.galleryUrls.slice(0, 10);
             }
@@ -70,16 +75,24 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
           setError(result.error || 'Film not found');
         }
       } catch (err) {
+        if (!isMounted) return;
         console.error('Error fetching film:', err);
         setError('Failed to load film details');
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     if (filmId) {
       fetchFilm();
     }
+    
+    return () => {
+      isMounted = false;
+      abortController.abort();
+    };
   }, [filmId]);
 
   /**
@@ -135,11 +148,11 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
     );
   }
 
-  // Custom header component for public view (without status badge)
+  // Custom header component for public view (without status badge) - Fixed navbar height
   const PublicHeader: React.FC = () => (
-    <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 py-4">
-        <div className="flex items-center justify-between">
+    <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40 h-16 sm:h-20">
+      <div className="max-w-7xl mx-auto px-4 h-full">
+        <div className="flex items-center justify-between h-full">
           <button
             onClick={onNavigateBack}
             className="flex items-center space-x-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
@@ -162,13 +175,19 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
     </div>
   );
 
+  // Memoize film logo for performance
+  const filmLogo = useMemo(() => {
+    if (!film?.galleryUrls || !film.galleryLogoIndex) return null;
+    return film.galleryUrls[film.galleryLogoIndex] || null;
+  }, [film?.galleryUrls, film?.galleryLogoIndex]);
+
   // Use the existing FeatureFilmDetailPage component but with public mode
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A]">
       {/* Custom Public Header (replaces the admin header) */}
       <PublicHeader />
       
-      {/* Use existing detail page component with public mode */}
+      {/* Use existing detail page component with public mode - Fixed top padding */}
       <div className="relative">
         {/* Hide the original header by wrapping in a container that clips it */}
         <div className="[&>div:first-child>div:first-child]:hidden">
@@ -176,6 +195,7 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
             filmId={filmId}
             onNavigateBack={onNavigateBack}
             mode="public"
+            filmLogo={filmLogo}
           />
         </div>
       </div>

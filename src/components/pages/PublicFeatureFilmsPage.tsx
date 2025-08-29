@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Search,
@@ -10,8 +10,11 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { useTypography } from '../../utils/typography';
-import { FeatureFilm } from '../../types/featureFilm.types';
-import { getPublishedFeatureFilms } from '../../services/featureFilmService';
+import { FeatureFilm, FeatureFilmData } from '../../types/featureFilm.types';
+import { useFeatureFilms } from '../../hooks/useFeatureFilms';
+
+// Union type to handle both legacy and new data structures
+type FilmDataUnion = FeatureFilm | (FeatureFilmData & { publicationStatus?: string });
 
 interface PublicFeatureFilmsPageProps {
   onNavigateToDetail: (filmId: string) => void;
@@ -34,50 +37,89 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
   const { t } = useTranslation();
   const { getClass } = useTypography();
 
-  // State management
-  const [films, setFilms] = useState<FeatureFilm[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // State management for UI
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedYear, setSelectedYear] = useState<string>('');
   const [showYearDropdown, setShowYearDropdown] = useState(false);
 
-  /**
-   * Fetch published films on component mount
-   */
-  useEffect(() => {
-    const fetchFilms = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-        
-        const result = await getPublishedFeatureFilms();
-        
-        if (result.success && result.data) {
-          // Use the enhanced films directly
-          setFilms(result.data as FeatureFilm[]);
-        } else {
-          setError(result.error || 'Failed to load films');
-        }
-      } catch (err) {
-        console.error('Error fetching films:', err);
-        setError('Failed to load films');
-      } finally {
-        setLoading(false);
+  // Use the useFeatureFilms hook with published status filter
+  const { films: allFilms, loading, error } = useFeatureFilms(
+    { status: 'published' }, // Only get published films
+    true // Enable real-time updates
+  );
+
+  // Filter films for public publication status with enhanced debugging and data structure handling
+  const films = useMemo(() => {
+    if (!allFilms) {
+      console.log('PublicFeatureFilmsPage: No films data available');
+      return [];
+    }
+
+    console.log('PublicFeatureFilmsPage: Raw films data:', allFilms);
+    console.log('PublicFeatureFilmsPage: Total films received:', allFilms.length);
+
+    const publicFilms = (allFilms as FilmDataUnion[]).filter(film => {
+      // Handle both legacy FeatureFilmData and new FeatureFilm structures
+      const filmTitle = film.title || (film as any).titleEn || 'Unknown Title';
+      const filmStatus = film.status;
+      const publicationStatus = (film as any).publicationStatus;
+      
+      console.log(`Film "${filmTitle}":`, {
+        id: film.id,
+        status: filmStatus,
+        publicationStatus: publicationStatus,
+        hasTitle: !!(film.title || (film as any).titleEn),
+        hasDirector: !!film.director,
+        dataStructure: film.title ? 'new' : 'legacy'
+      });
+
+      // Primary filter: publicationStatus must be 'public'
+      const isPublic = publicationStatus === 'public';
+      
+      if (!isPublic) {
+        console.log(`Film "${filmTitle}" filtered out: publicationStatus = ${publicationStatus}`);
+        return false;
       }
-    };
 
-    fetchFilms();
-  }, []);
+      // Additional validation: ensure film has required fields
+      const hasRequiredFields = (film.title || (film as any).titleEn) && film.director;
+      if (!hasRequiredFields) {
+        console.log(`Film "${filmTitle}" filtered out: missing required fields`);
+        return false;
+      }
+
+      return true;
+    });
+
+    console.log('PublicFeatureFilmsPage: Public films after filtering:', publicFilms.length);
+    console.log('PublicFeatureFilmsPage: Public films:', publicFilms.map(f => ({
+      id: f.id,
+      title: f.title || (f as any).titleEn,
+      director: f.director,
+      publicationStatus: (f as any).publicationStatus
+    })));
+
+    return publicFilms;
+  }, [allFilms]);
 
   /**
-   * Get available years from films for filter dropdown
+   * Get available years from films for filter dropdown - Handle both data structures
    */
   const availableYears = useMemo(() => {
     const years = films
       .map(film => {
-        // Use releaseYear instead of createdAt for proper year filtering
-        return film.releaseYear || new Date().getFullYear();
+        // Handle both new FeatureFilm (releaseYear) and legacy FeatureFilmData (createdAt year)
+        if ((film as any).releaseYear) {
+          return (film as any).releaseYear;
+        }
+        
+        // Fallback to creation year for legacy data
+        if (film.createdAt) {
+          const createdDate = film.createdAt instanceof Date ? film.createdAt : new Date(film.createdAt);
+          return createdDate.getFullYear();
+        }
+        
+        return new Date().getFullYear();
       })
       .filter((year, index, array) => array.indexOf(year) === index)
       .sort((a, b) => b - a); // Newest first
@@ -86,25 +128,39 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
   }, [films]);
 
   /**
-   * Filter films based on search term and selected year
+   * Filter films based on search term and selected year - Handle both data structures
    */
   const filteredFilms = useMemo(() => {
     let filtered = films;
 
-    // Search filter
+    // Search filter - handle both data structures
     if (searchTerm.trim()) {
       const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(film => 
-        film.title.toLowerCase().includes(searchLower) ||
-        (film.titleTh && film.titleTh.toLowerCase().includes(searchLower)) ||
-        film.director.toLowerCase().includes(searchLower)
-      );
+      filtered = filtered.filter(film => {
+        const title = film.title || (film as any).titleEn || '';
+        const titleTh = film.titleTh || '';
+        const director = film.director || '';
+        
+        return title.toLowerCase().includes(searchLower) ||
+               titleTh.toLowerCase().includes(searchLower) ||
+               director.toLowerCase().includes(searchLower);
+      });
     }
 
-    // Year filter
+    // Year filter - handle both data structures
     if (selectedYear) {
       filtered = filtered.filter(film => {
-        const filmYear = film.releaseYear || new Date().getFullYear();
+        let filmYear;
+        
+        if ((film as any).releaseYear) {
+          filmYear = (film as any).releaseYear;
+        } else if (film.createdAt) {
+          const createdDate = film.createdAt instanceof Date ? film.createdAt : new Date(film.createdAt);
+          filmYear = createdDate.getFullYear();
+        } else {
+          filmYear = new Date().getFullYear();
+        }
+        
         return filmYear === parseInt(selectedYear);
       });
     }
@@ -113,15 +169,24 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
   }, [films, searchTerm, selectedYear]);
 
   /**
-   * Get poster image URL with fallback priority
+   * Get poster image URL with fallback priority - Handle both data structures
    */
-  const getPosterUrl = (film: FeatureFilm): string | null => {
-    // Priority 1: poster file from new structure
+  const getPosterUrl = (film: any): string | null => {
+    // Priority 1: poster file from new FeatureFilm structure
     if (film.files?.poster?.url) return film.files.poster.url;
     
-    // Priority 2: first still image as fallback
+    // Priority 2: legacy posterUrl field (for backward compatibility with FeatureFilmData)
+    if (film.posterUrl) return film.posterUrl;
+    
+    // Priority 3: first still image as fallback from new structure
     if (film.files?.stills && film.files.stills.length > 0) {
       return film.files.stills[0].url;
+    }
+    
+    // Priority 4: legacy galleryUrls first image from FeatureFilmData
+    if (film.galleryUrls && Array.isArray(film.galleryUrls) && film.galleryUrls.length > 0) {
+      const firstGallery = film.galleryUrls[0];
+      return typeof firstGallery === 'string' ? firstGallery : firstGallery?.url || null;
     }
     
     return null;
@@ -166,9 +231,9 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] pt-16 sm:pt-20">
       {/* Header Section */}
-      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10">
+      <div className="bg-white/2 backdrop-blur-sm border-b border-white/5">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="text-center">
             {/* Official Selection Logo */}
@@ -191,7 +256,7 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
 
       {/* Search and Filter Bar */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-8">
+        <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1 relative">
@@ -201,7 +266,7 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
                 placeholder={t('publicFeatureFilms.searchPlaceholder')}
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#FCB283] focus:border-transparent"
+                className="w-full pl-12 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-[#FCB283] focus:border-transparent"
               />
             </div>
 
@@ -209,7 +274,7 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
             <div className="relative">
               <button
                 onClick={() => setShowYearDropdown(!showYearDropdown)}
-                className="flex items-center justify-between w-full md:w-48 px-4 py-3 bg-white/10 border border-white/20 rounded-xl text-white hover:bg-white/20 transition-colors"
+                className="flex items-center justify-between w-full md:w-48 px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white hover:bg-white/15 transition-colors"
               >
                 <div className="flex items-center space-x-2">
                   <Calendar className="w-5 h-5 text-white/60" />
@@ -259,30 +324,38 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-6">
             {filteredFilms.map((film) => {
               const posterUrl = getPosterUrl(film);
+              const filmTitle = film.title || (film as any).titleEn || 'Unknown Title';
+              const filmId = film.id;
               
               return (
                 <button
-                  key={film.id}
-                  onClick={() => handlePosterClick(film.id!)}
+                  key={filmId}
+                  onClick={() => handlePosterClick(filmId!)}
                   className="group aspect-[2/3] bg-gradient-to-br from-[#1a1a2e] to-[#16213e] rounded-lg overflow-hidden hover:scale-105 transition-transform duration-300 shadow-lg hover:shadow-2xl"
                 >
                   {posterUrl ? (
                     <img
                       src={posterUrl}
-                      alt={film.title}
+                      alt={filmTitle}
                       className="w-full h-full object-cover group-hover:brightness-110 transition-all duration-300"
                       loading="lazy"
+                      onError={(e) => {
+                        console.log(`Failed to load poster for ${filmTitle}:`, posterUrl);
+                        // Hide the image and show fallback
+                        e.currentTarget.style.display = 'none';
+                      }}
                     />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <Film className="w-12 h-12 text-white/30 mx-auto mb-2" />
-                        <p className="text-white/60 text-sm px-2 leading-tight">
-                          {film.title}
-                        </p>
-                      </div>
+                  ) : null}
+                  
+                  {/* Always show fallback content, but hide it when image loads successfully */}
+                  <div className={`w-full h-full flex items-center justify-center ${posterUrl ? 'absolute inset-0 opacity-0 group-hover:opacity-100 bg-black/50 transition-opacity' : ''}`}>
+                    <div className="text-center">
+                      <Film className="w-12 h-12 text-white/30 mx-auto mb-2" />
+                      <p className="text-white/60 text-sm px-2 leading-tight">
+                        {filmTitle}
+                      </p>
                     </div>
-                  )}
+                  </div>
                 </button>
               );
             })}

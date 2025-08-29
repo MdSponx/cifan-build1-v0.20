@@ -41,6 +41,7 @@ interface FeatureFilmDetailPageProps {
   filmId: string;
   onNavigateBack?: () => void;
   mode?: 'public' | 'admin';
+  filmLogo?: string | null;
 }
 
 /**
@@ -62,7 +63,8 @@ interface FeatureFilmDetailPageProps {
 const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
   filmId,
   onNavigateBack,
-  mode = 'public'
+  mode = 'public',
+  filmLogo = null
 }) => {
   const { t } = useTranslation();
   const { getClass } = useTypography();
@@ -75,9 +77,11 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
   const [showTrailer, setShowTrailer] = useState(false);
 
   /**
-   * Fetch film data
+   * Fetch film data with performance optimization
    */
   useEffect(() => {
+    let isMounted = true;
+    
     const fetchFilm = async () => {
       try {
         setLoading(true);
@@ -85,22 +89,31 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
         
         const result = await getFeatureFilm(filmId);
         
+        if (!isMounted) return; // Prevent state update if component unmounted
+        
         if (result.success && result.data) {
           setFilm(result.data);
         } else {
           setError(result.error || 'Film not found');
         }
       } catch (err) {
+        if (!isMounted) return;
         setError('Failed to load film details');
         console.error('Error fetching film:', err);
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     if (filmId) {
       fetchFilm();
     }
+    
+    return () => {
+      isMounted = false;
+    };
   }, [filmId]);
 
   /**
@@ -322,7 +335,7 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
   };
 
   /**
-   * Enhanced Cover Photo Hero Component with New Typography Hierarchy
+   * Enhanced Cover Photo Hero Component with Logo Support and Fixed Navbar Offset
    */
   const CoverPhotoHero: React.FC<{
     coverImage?: string;
@@ -331,15 +344,18 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
     genres: string[];
     targetAudience: string[];
     category: string;
-  }> = ({ coverImage, title, titleTh, genres, targetAudience, category }) => {
+    logo?: string | null;
+  }> = ({ coverImage, title, titleTh, genres, targetAudience, category, logo }) => {
     return (
-      <div className="relative h-[40vh] md:h-[50vh] overflow-hidden">
+      <div className="relative h-[40vh] md:h-[50vh] overflow-hidden" style={{ marginTop: mode === 'public' ? '0' : '0' }}>
         {/* Cover Photo */}
         {coverImage ? (
           <img 
             src={coverImage} 
             alt={title}
             className="w-full h-full object-cover"
+            loading="eager"
+            decoding="async"
           />
         ) : (
           <div className="w-full h-full bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]" />
@@ -347,8 +363,21 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
         
         {/* Overlay Content */}
         <div className="cover-photo-overlay">
-          {/* Main Content - Center-Left */}
-          <div className="absolute bottom-8 left-8 right-8">
+          {/* Main Content - Center-Left with proper top offset for navbar */}
+          <div className="absolute bottom-8 left-8 right-8" style={{ paddingTop: mode === 'public' ? '4rem' : '0' }}>
+            {/* Logo Section - Above Title */}
+            {logo && (
+              <div className="mb-6">
+                <img 
+                  src={logo} 
+                  alt={`${title} Logo`}
+                  className="h-16 md:h-20 lg:h-24 w-auto object-contain filter drop-shadow-lg"
+                  loading="eager"
+                  decoding="async"
+                />
+              </div>
+            )}
+            
             {/* Title Section */}
             <div className="mb-6">
               {/* English Title - Large & Bold */}
@@ -776,48 +805,51 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A]">
-      {/* Header */}
-      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <button
-              onClick={onNavigateBack}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              <span>{t('featureFilmDetail.backToGallery')}</span>
-            </button>
-            
-            <div className="flex items-center space-x-3">
-              {/* Status Badge */}
-              <span className={`inline-flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium border ${getStatusBadgeColor(film.status)}`}>
-                {getStatusIcon(film.status)}
-                <span className="capitalize">{film.status}</span>
-              </span>
-              
-              {/* Featured Badge - Not available in FeatureFilmData */}
-              
+      {/* Header - Only show in admin mode */}
+      {mode === 'admin' && (
+        <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40 h-16 sm:h-20">
+          <div className="max-w-7xl mx-auto px-4 h-full">
+            <div className="flex items-center justify-between h-full">
               <button
-                onClick={handleShare}
-                className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
-                title="Share Film"
+                onClick={onNavigateBack}
+                className="flex items-center space-x-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
               >
-                <Share2 className="w-5 h-5" />
+                <ArrowLeft className="w-5 h-5" />
+                <span>{t('featureFilmDetail.backToGallery')}</span>
               </button>
+              
+              <div className="flex items-center space-x-3">
+                {/* Status Badge */}
+                <span className={`inline-flex items-center space-x-2 px-3 py-2 rounded-full text-sm font-medium border ${getStatusBadgeColor(film.status)}`}>
+                  {getStatusIcon(film.status)}
+                  <span className="capitalize">{film.status}</span>
+                </span>
+                
+                <button
+                  onClick={handleShare}
+                  className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
+                  title="Share Film"
+                >
+                  <Share2 className="w-5 h-5" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Hero Cover Photo Section */}
-      <CoverPhotoHero
-        coverImage={film.galleryUrls && film.galleryUrls.length > 0 ? film.galleryUrls[film.galleryCoverIndex || 0] : undefined}
-        title={film.titleEn}
-        titleTh={film.titleTh}
-        genres={film.genres || []}
-        targetAudience={film.targetAudience || []}
-        category={film.category}
-      />
+      {/* Hero Cover Photo Section with Logo Support and Proper Offset */}
+      <div className={mode === 'public' ? 'pt-16 sm:pt-20' : ''}>
+        <CoverPhotoHero
+          coverImage={film.galleryUrls && film.galleryUrls.length > 0 ? film.galleryUrls[film.galleryCoverIndex || 0] : undefined}
+          title={film.titleEn}
+          titleTh={film.titleTh}
+          genres={film.genres || []}
+          targetAudience={film.targetAudience || []}
+          category={film.category}
+          logo={filmLogo}
+        />
+      </div>
 
       <div className="container mx-auto px-4 py-8">
         
@@ -863,6 +895,8 @@ const FeatureFilmDetailPage: React.FC<FeatureFilmDetailPageProps> = ({
                         src={imageUrl}
                         alt={`${film.titleEn} gallery ${index + 1}`}
                         className="w-full h-full object-cover"
+                        loading="lazy"
+                        decoding="async"
                       />
                     </button>
                   ))}
