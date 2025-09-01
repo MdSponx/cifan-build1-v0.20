@@ -1043,8 +1043,8 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     status = 'published';
   }
 
-  // Handle duration/length field mapping
-  const duration = legacyData.duration || legacyData.length || 120;
+  // Handle duration/length field mapping - prioritize length field for legacy data
+  const duration = legacyData.length || legacyData.duration || 120;
   
   // Handle release year - extract from various possible sources
   let releaseYear = legacyData.releaseYear;
@@ -1180,19 +1180,40 @@ export const getEnhancedFeatureFilms = async (filters?: FilmFilters): Promise<Fe
   try {
     console.log('🎬 Getting enhanced feature films with filters:', filters);
     
+    // Build Firestore query with server-side filtering for security-sensitive fields
     let q = query(collection(db, NEW_COLLECTION_NAME));
     
-    // For legacy data, we need to be more flexible with filtering
-    // Apply basic sorting first
-    const sortBy = filters?.sortBy || 'createdAt';
-    const sortOrder = filters?.sortOrder || 'desc';
-    
-    try {
-      q = query(q, orderBy(sortBy, sortOrder));
-    } catch (error) {
-      console.warn('⚠️ Sorting field not available, falling back to createdAt:', error);
-      q = query(q, orderBy('createdAt', 'desc'));
+    // CRITICAL: Apply server-side filtering for publicationStatus to respect Firestore security rules
+    if (filters?.publicationStatus) {
+      console.log('🔒 Applying server-side publicationStatus filter:', filters.publicationStatus);
+      q = query(q, where('publicationStatus', '==', filters.publicationStatus));
     }
+    
+    // Apply server-side filtering for other security-sensitive fields if needed
+    if (filters?.status) {
+      console.log('🔒 Applying server-side status filter:', filters.status);
+      // For legacy compatibility, map status to publicationStatus if needed
+      if (filters.status === 'published' && !filters.publicationStatus) {
+        q = query(q, where('publicationStatus', '==', 'public'));
+      }
+    }
+    
+    // Apply sorting after filters - temporarily disabled until Firestore index is created
+    // TODO: Re-enable after creating composite index for publicationStatus + createdAt
+    // const sortBy = filters?.sortBy || 'createdAt';
+    // const sortOrder = filters?.sortOrder || 'desc';
+    // 
+    // try {
+    //   q = query(q, orderBy(sortBy, sortOrder));
+    // } catch (error) {
+    //   console.warn('⚠️ Sorting field not available, falling back to createdAt:', error);
+    //   try {
+    //     q = query(q, orderBy('createdAt', 'desc'));
+    //   } catch (fallbackError) {
+    //     console.warn('⚠️ Could not apply any ordering, using default');
+    //   }
+    // }
+    console.log('ℹ️ Sorting temporarily disabled - waiting for Firestore index creation');
     
     // Apply pagination
     if (filters?.limit) {
@@ -1376,15 +1397,46 @@ export const getPublishedFeatureFilms = async (): Promise<FeatureFilmServiceResu
 
 /**
  * Subscribe to feature films changes (Enhanced System)
- * Now properly handles filtering and legacy data conversion
+ * Now properly handles filtering and legacy data conversion with server-side security filtering
  */
 export const subscribeToFeatureFilms = (
   callback: (films: FeatureFilm[]) => void,
+  onError: (error: string) => void,
   filters?: FilmFilters
 ): (() => void) => {
   console.log('🔔 Setting up real-time subscription with filters:', filters);
   
-  const q = query(collection(db, NEW_COLLECTION_NAME), orderBy('createdAt', 'desc'));
+  // Build Firestore query with server-side filtering for security-sensitive fields
+  let q = query(collection(db, NEW_COLLECTION_NAME));
+  
+  // CRITICAL: Apply server-side filtering for publicationStatus to respect Firestore security rules
+  if (filters?.publicationStatus) {
+    console.log('🔒 Applying server-side publicationStatus filter:', filters.publicationStatus);
+    q = query(q, where('publicationStatus', '==', filters.publicationStatus));
+  }
+  
+  // Apply server-side filtering for other security-sensitive fields if needed
+  if (filters?.status) {
+    console.log('🔒 Applying server-side status filter:', filters.status);
+    // For legacy compatibility, map status to publicationStatus if needed
+    if (filters.status === 'published' && !filters.publicationStatus) {
+      q = query(q, where('publicationStatus', '==', 'public'));
+    }
+  }
+  
+  // Apply sorting after filters - temporarily disabled until Firestore index is created
+  // TODO: Re-enable after creating composite index for publicationStatus + createdAt
+  // try {
+  //   q = query(q, orderBy('createdAt', 'desc'));
+  // } catch (error) {
+  //   console.warn('⚠️ Could not apply createdAt ordering, using default ordering');
+  // }
+  console.log('ℹ️ Sorting temporarily disabled - waiting for Firestore index creation');
+  
+  // Apply pagination if specified
+  if (filters?.limit) {
+    q = query(q, limit(filters.limit));
+  }
   
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     console.log('📡 Real-time update received, processing', querySnapshot.size, 'documents');
@@ -1527,8 +1579,7 @@ export const subscribeToFeatureFilms = (
     callback(filteredFilms);
   }, (error) => {
     console.error('💥 Error in feature films real-time subscription:', error);
-    // Call callback with empty array on error to prevent infinite loading
-    callback([]);
+    onError(error.message || 'Subscription failed');
   });
   
   return unsubscribe;

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   FeatureFilm, 
   FilmFilters, 
@@ -43,10 +43,30 @@ export const useFeatureFilms = (
   const [error, setError] = useState<string | null>(null);
   const [totalCount, setTotalCount] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  const [currentFilters, setCurrentFilters] = useState<FilmFilters | undefined>(filters);
+
+  // ✅ FIX: Memoize filters to prevent unnecessary re-renders
+  const memoizedFilters = useMemo(() => {
+    if (!filters) return undefined;
+    
+    // Create a stable reference for filters
+    return {
+      ...filters
+    };
+  }, [
+    filters?.publicationStatus,
+    filters?.status,
+    filters?.genre,
+    filters?.country,
+    filters?.search,
+    filters?.featured,
+    filters?.yearFrom,
+    filters?.yearTo,
+    filters?.limit,
+    filters?.offset
+  ]);
 
   /**
-   * Fetch films with current filters
+   * Fetch films with current filters (for non-realtime mode)
    */
   const fetchFilms = useCallback(async (appendToExisting = false) => {
     try {
@@ -55,7 +75,9 @@ export const useFeatureFilms = (
       }
       setError(null);
 
-      const result = await getEnhancedFeatureFilms(currentFilters);
+      console.log('🎬 fetchFilms called with filters:', memoizedFilters);
+
+      const result = await getEnhancedFeatureFilms(memoizedFilters);
       
       if (result.success && result.data) {
         const newFilms = result.data as FeatureFilm[];
@@ -69,19 +91,62 @@ export const useFeatureFilms = (
         setTotalCount(newFilms.length);
         
         // Check if there are more items to load
-        const limit = currentFilters?.limit || 20;
+        const limit = memoizedFilters?.limit || 20;
         setHasMore(newFilms.length === limit);
       } else {
         setError(result.error || 'Failed to fetch films');
         setFilms([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
+      setError(err instanceof Error ? err.message : 'Filter failed');
       setFilms([]);
     } finally {
       setLoading(false);
     }
-  }, [currentFilters]);
+  }, [memoizedFilters]);
+
+  // ✅ FIX: Single useEffect with proper dependency management
+  useEffect(() => {
+    console.log('🎬 useFeatureFilms useEffect triggered:', {
+      enableRealtime,
+      memoizedFilters,
+      filtersString: JSON.stringify(memoizedFilters)
+    });
+
+    if (enableRealtime) {
+      console.log('🔔 Setting up real-time subscription...');
+      
+      // Set loading state
+      setLoading(true);
+      setError(null);
+      
+      // Set up realtime subscription with filters
+      const unsubscribe = subscribeToFeatureFilms(
+        (updatedFilms) => {
+          console.log('📡 Real-time update received:', updatedFilms.length, 'films');
+          setFilms(updatedFilms);
+          setTotalCount(updatedFilms.length);
+          setLoading(false);
+        },
+        (errorMessage) => {
+          console.error('❌ Real-time subscription error:', errorMessage);
+          setError(errorMessage);
+          setLoading(false);
+        },
+        memoizedFilters
+      );
+
+      // Return cleanup function
+      return () => {
+        console.log('🧹 Cleaning up real-time subscription');
+        unsubscribe();
+      };
+    } else {
+      console.log('📥 Using one-time fetch');
+      // One-time fetch
+      fetchFilms();
+    }
+  }, [enableRealtime, memoizedFilters, fetchFilms]); // ✅ FIX: Use memoizedFilters instead of filters
 
   /**
    * Load more films (pagination)
@@ -90,7 +155,7 @@ export const useFeatureFilms = (
     if (!hasMore || loading) return;
 
     const offset = films.length;
-    const newFilters = { ...currentFilters, offset };
+    const newFilters = { ...memoizedFilters, offset };
     
     try {
       const result = await getEnhancedFeatureFilms(newFilters);
@@ -99,13 +164,13 @@ export const useFeatureFilms = (
         const newFilms = result.data as FeatureFilm[];
         setFilms(prev => [...prev, ...newFilms]);
         
-        const limit = currentFilters?.limit || 20;
+        const limit = memoizedFilters?.limit || 20;
         setHasMore(newFilms.length === limit);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load more films');
     }
-  }, [films.length, hasMore, loading, currentFilters]);
+  }, [films.length, hasMore, loading, memoizedFilters]);
 
   /**
    * Refetch films
@@ -164,7 +229,7 @@ export const useFeatureFilms = (
   }, []);
 
   /**
-   * Delete a film
+   * Delete an existing film
    */
   const deleteFilm = useCallback(async (filmId: string) => {
     try {
@@ -188,7 +253,7 @@ export const useFeatureFilms = (
   }, []);
 
   /**
-   * Search films by title
+   * Search films by term
    */
   const searchFilms = useCallback(async (searchTerm: string) => {
     try {
@@ -198,15 +263,16 @@ export const useFeatureFilms = (
       const result = await searchEnhancedFeatureFilms(searchTerm);
       
       if (result.success && result.data) {
-        setFilms(result.data as FeatureFilm[]);
-        setTotalCount(result.data.length);
+        const searchResults = result.data as FeatureFilm[];
+        setFilms(searchResults);
+        setTotalCount(searchResults.length);
         setHasMore(false); // Search results don't support pagination
       } else {
-        setError(result.error || 'Failed to search films');
+        setError(result.error || 'Search failed');
         setFilms([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Search failed');
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setFilms([]);
     } finally {
       setLoading(false);
@@ -224,42 +290,21 @@ export const useFeatureFilms = (
       const result = await getEnhancedFeatureFilmsByStatus(status);
       
       if (result.success && result.data) {
-        setFilms(result.data as FeatureFilm[]);
-        setTotalCount(result.data.length);
-        setHasMore(false);
+        const filteredFilms = result.data as FeatureFilm[];
+        setFilms(filteredFilms);
+        setTotalCount(filteredFilms.length);
+        setHasMore(false); // Status filter doesn't support pagination
       } else {
-        setError(result.error || 'Failed to filter films');
+        setError(result.error || 'Filter failed');
         setFilms([]);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Filter failed');
+      setError(err instanceof Error ? err.message : 'An unexpected error occurred');
       setFilms([]);
     } finally {
       setLoading(false);
     }
   }, []);
-
-  // Initial fetch and realtime subscription setup
-  useEffect(() => {
-    if (enableRealtime) {
-      // Set up realtime subscription with filters
-      const unsubscribe = subscribeToFeatureFilms((updatedFilms) => {
-        setFilms(updatedFilms);
-        setTotalCount(updatedFilms.length);
-        setLoading(false);
-      }, currentFilters); // Pass filters to subscription
-
-      return unsubscribe;
-    } else {
-      // One-time fetch
-      fetchFilms();
-    }
-  }, [fetchFilms, enableRealtime, currentFilters]);
-
-  // Update filters
-  useEffect(() => {
-    setCurrentFilters(filters);
-  }, [filters]);
 
   return {
     films,
