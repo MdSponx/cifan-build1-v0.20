@@ -1023,6 +1023,15 @@ export const getEnhancedFeatureFilm = async (filmId: string): Promise<FeatureFil
  * Convert legacy FeatureFilmData to new FeatureFilm format
  */
 const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
+  console.log('🔄 Converting legacy film data:', {
+    id: legacyData.id,
+    titleEn: legacyData.titleEn,
+    publicationStatus: legacyData.publicationStatus,
+    status: legacyData.status,
+    hasGalleryUrls: !!legacyData.galleryUrls,
+    hasPosterUrl: !!legacyData.posterUrl
+  });
+
   // Determine the correct status - prioritize publicationStatus if it exists
   let status: 'draft' | 'published' | 'archived' = 'draft';
   if (legacyData.publicationStatus === 'public') {
@@ -1034,25 +1043,59 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     status = 'published';
   }
 
-  return {
+  // Handle duration/length field mapping
+  const duration = legacyData.duration || legacyData.length || 120;
+  
+  // Handle release year - extract from various possible sources
+  let releaseYear = legacyData.releaseYear;
+  if (!releaseYear && legacyData.screeningDate1) {
+    try {
+      releaseYear = new Date(legacyData.screeningDate1).getFullYear();
+    } catch (e) {
+      releaseYear = new Date().getFullYear();
+    }
+  }
+  if (!releaseYear) {
+    releaseYear = new Date().getFullYear();
+  }
+
+  // Handle countries array - use first country or default
+  const country = Array.isArray(legacyData.countries) && legacyData.countries.length > 0 
+    ? legacyData.countries[0] 
+    : (legacyData.country || 'Unknown');
+
+  // Handle languages array
+  const language = Array.isArray(legacyData.languages) && legacyData.languages.length > 0
+    ? legacyData.languages
+    : (legacyData.language ? [legacyData.language] : ['Unknown']);
+
+  // Handle genres array - ensure it's always an array
+  let genres: string[] = [];
+  if (Array.isArray(legacyData.genres)) {
+    genres = legacyData.genres;
+  } else if (legacyData.genre) {
+    genres = [legacyData.genre];
+  }
+
+  const convertedFilm = {
     id: legacyData.id,
     // Map legacy fields to new structure
     title: legacyData.titleEn || legacyData.title || 'Untitled',
-    titleTh: legacyData.titleTh,
+    titleTh: legacyData.titleTh || undefined,
     logline: legacyData.logline || '', // Add logline field
     synopsis: legacyData.synopsis || '',
     synopsisTh: undefined,
     director: legacyData.director || 'Unknown',
     directorTh: undefined,
-    duration: legacyData.duration || 120, // Default to 120 minutes if not specified
-    releaseYear: legacyData.releaseYear || new Date().getFullYear(),
-    language: Array.isArray(legacyData.languages) ? legacyData.languages : (legacyData.language ? [legacyData.language] : ['Unknown']),
+    duration: duration,
+    releaseYear: releaseYear,
+    language: language,
     subtitles: [],
     format: legacyData.format || 'Digital',
     aspectRatio: legacyData.aspectRatio || '16:9',
     soundFormat: legacyData.soundFormat || 'Stereo',
-    genres: Array.isArray(legacyData.genres) ? legacyData.genres : (legacyData.genre ? [legacyData.genre] : []),
-    country: Array.isArray(legacyData.countries) ? legacyData.countries[0] : (legacyData.country || 'Unknown'),
+    genres: genres,
+    country: country,
     rating: legacyData.rating,
     files: {
       poster: legacyData.posterUrl ? {
@@ -1093,8 +1136,8 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
         role: 'Director',
         department: 'Direction'
       },
-      ...(legacyData.producer ? [{
-        name: legacyData.producer,
+      ...(legacyData.producer && legacyData.producer.trim() ? [{
+        name: legacyData.producer.trim(),
         role: 'Producer',
         department: 'Production'
       }] : [])
@@ -1115,6 +1158,19 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     metaDescription: legacyData.metaDescription,
     publicationStatus: legacyData.publicationStatus || (status === 'published' ? 'public' : 'draft')
   } as FeatureFilm;
+
+  console.log('✅ Successfully converted legacy film:', {
+    id: convertedFilm.id,
+    title: convertedFilm.title,
+    publicationStatus: convertedFilm.publicationStatus,
+    status: convertedFilm.status,
+    duration: convertedFilm.duration,
+    releaseYear: convertedFilm.releaseYear,
+    country: convertedFilm.country,
+    genres: convertedFilm.genres
+  });
+
+  return convertedFilm;
 };
 
 /**
@@ -1333,6 +1389,12 @@ export const subscribeToFeatureFilms = (
   const unsubscribe = onSnapshot(q, (querySnapshot) => {
     console.log('📡 Real-time update received, processing', querySnapshot.size, 'documents');
     
+    if (querySnapshot.empty) {
+      console.log('⚠️ No documents found in films collection');
+      callback([]);
+      return;
+    }
+    
     const allFilms: FeatureFilm[] = [];
     
     querySnapshot.forEach((doc) => {
@@ -1341,7 +1403,9 @@ export const subscribeToFeatureFilms = (
         titleEn: data.titleEn,
         title: data.title,
         status: data.status,
-        publicationStatus: data.publicationStatus
+        publicationStatus: data.publicationStatus,
+        createdAt: data.createdAt,
+        allFields: Object.keys(data)
       });
       
       try {
@@ -1351,7 +1415,10 @@ export const subscribeToFeatureFilms = (
           ...data
         });
         allFilms.push(enhancedFilm);
-        console.log('✅ Successfully converted real-time film:', enhancedFilm.title);
+        console.log('✅ Successfully converted real-time film:', enhancedFilm.title, {
+          publicationStatus: enhancedFilm.publicationStatus,
+          status: enhancedFilm.status
+        });
       } catch (error) {
         console.warn('❌ Error converting legacy film data in real-time for', doc.id, ':', error);
         // Skip this film if conversion fails
@@ -1364,48 +1431,72 @@ export const subscribeToFeatureFilms = (
     let filteredFilms = allFilms;
     
     if (filters) {
+      console.log('🔍 Applying filters to', allFilms.length, 'films:', filters);
+      
       // Publication Status filter - simplified logic using only publicationStatus
       if (filters.publicationStatus) {
         console.log('🔍 Applying real-time publicationStatus filter:', filters.publicationStatus);
+        const beforeFilter = filteredFilms.length;
         filteredFilms = filteredFilms.filter(film => {
           const filmPublicationStatus = film.publicationStatus || (film.status === 'published' ? 'public' : 'draft');
           const matches = filmPublicationStatus === filters.publicationStatus;
-          console.log('🔍 Real-time Film:', film.title, 'publicationStatus:', filmPublicationStatus, 'matches:', matches);
+          console.log('🔍 Real-time Film:', film.title, {
+            filmPublicationStatus,
+            filterValue: filters.publicationStatus,
+            matches
+          });
           return matches;
         });
-        console.log('📊 Films after real-time publicationStatus filter:', filteredFilms.length);
+        console.log('📊 Films after real-time publicationStatus filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
       
       // Status filter - handle both new and legacy status formats
       if (filters.status) {
         console.log('🔍 Applying real-time status filter:', filters.status);
+        const beforeFilter = filteredFilms.length;
         filteredFilms = filteredFilms.filter(film => {
           const matchesNewStatus = film.status === filters.status;
           const matchesLegacyStatus = filters.status === 'published' && 
             (film.publicationStatus === 'public');
-          return matchesNewStatus || matchesLegacyStatus;
+          const matches = matchesNewStatus || matchesLegacyStatus;
+          console.log('🔍 Status filter for film:', film.title, {
+            filmStatus: film.status,
+            filmPublicationStatus: film.publicationStatus,
+            filterValue: filters.status,
+            matchesNewStatus,
+            matchesLegacyStatus,
+            matches
+          });
+          return matches;
         });
-        console.log('📊 Films after real-time status filter:', filteredFilms.length);
+        console.log('📊 Films after real-time status filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
       
       // Apply other filters if needed
       if (filters.genre) {
+        const beforeFilter = filteredFilms.length;
         filteredFilms = filteredFilms.filter(film => 
           film.genres.some(genre => genre.toLowerCase().includes(filters.genre!.toLowerCase()))
         );
+        console.log('📊 Films after genre filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
       
       if (filters.country) {
+        const beforeFilter = filteredFilms.length;
         filteredFilms = filteredFilms.filter(film => 
           film.country.toLowerCase().includes(filters.country!.toLowerCase())
         );
+        console.log('📊 Films after country filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
       
       if (filters.featured !== undefined) {
+        const beforeFilter = filteredFilms.length;
         filteredFilms = filteredFilms.filter(film => film.featured === filters.featured);
+        console.log('📊 Films after featured filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
       
       if (filters.search) {
+        const beforeFilter = filteredFilms.length;
         const searchLower = filters.search.toLowerCase();
         filteredFilms = filteredFilms.filter(film => 
           film.title.toLowerCase().includes(searchLower) ||
@@ -1413,10 +1504,26 @@ export const subscribeToFeatureFilms = (
           film.director.toLowerCase().includes(searchLower) ||
           film.synopsis.toLowerCase().includes(searchLower)
         );
+        console.log('📊 Films after search filter:', filteredFilms.length, '(was', beforeFilter, ')');
       }
+    } else {
+      console.log('ℹ️ No filters applied, returning all', allFilms.length, 'films');
     }
     
     console.log('🎉 Final real-time filtered films count:', filteredFilms.length);
+    
+    // Log final films for debugging
+    if (filteredFilms.length > 0) {
+      console.log('📋 Final filtered films:', filteredFilms.map(f => ({
+        id: f.id,
+        title: f.title,
+        publicationStatus: f.publicationStatus,
+        status: f.status
+      })));
+    } else {
+      console.log('⚠️ No films match the current filters');
+    }
+    
     callback(filteredFilms);
   }, (error) => {
     console.error('💥 Error in feature films real-time subscription:', error);

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFeatureFilms } from "../../hooks/useFeatureFilms";
 import { FeatureFilm } from "../../types/featureFilm.types";
+import { debugOfficialSelectionData, quickCheckPublicFilms } from "../../utils/debugOfficialSelection";
 
 // --- Types ---
 export interface Film {
@@ -434,8 +435,35 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
 
 function EmptyState(): JSX.Element {
   return (
-    <div className="w-full rounded-xl border border-white/10 bg-white/5 p-6 text-center text-white/70">
-      ยังไม่มีภาพยนตร์ที่สถานะเป็นสาธารณะ
+    <div className="w-full rounded-xl border border-white/10 bg-white/5 p-8 text-center">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="text-4xl">🎬</div>
+        <h3 className="text-lg font-semibold text-white">No Public Films Available</h3>
+        <p className="text-white/70 max-w-md">
+          There are currently no films with public status available for display. 
+          Films need to have <code className="bg-white/10 px-2 py-1 rounded text-xs">publicationStatus: 'public'</code> to appear here.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function ErrorState({ error }: { error: string }): JSX.Element {
+  return (
+    <div className="w-full rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center">
+      <div className="flex flex-col items-center space-y-4">
+        <div className="text-4xl">❌</div>
+        <h3 className="text-lg font-semibold text-red-300">Error Loading Films</h3>
+        <p className="text-red-200/70 max-w-md">
+          {error}
+        </p>
+        <button 
+          onClick={() => window.location.reload()} 
+          className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-200 text-sm transition-colors"
+        >
+          Retry
+        </button>
+      </div>
     </div>
   );
 }
@@ -523,12 +551,10 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
             ref={scrollerRef}
             className="no-scrollbar flex gap-4 overflow-x-auto scroll-smooth py-4 snap-x snap-mandatory"
           >
-            {films === null && <LoadingSkeleton />}
-            {error && (
-              <div className="text-sm text-red-300">เกิดข้อผิดพลาดในการดึงข้อมูล: {error}</div>
-            )}
-            {films && films.length === 0 && <EmptyState />}
-            {films && films.length > 0 && (
+            {loading && films === null && <LoadingSkeleton />}
+            {error && <ErrorState error={error} />}
+            {!loading && !error && films && films.length === 0 && <EmptyState />}
+            {!loading && !error && films && films.length > 0 && (
               films.map((film) => (
                 <div
                   key={film.id}
