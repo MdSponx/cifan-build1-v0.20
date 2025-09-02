@@ -1159,7 +1159,13 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     tags: legacyData.tags || [],
     slug: legacyData.slug || generateSlug(legacyData.titleEn || legacyData.title || 'untitled'),
     metaDescription: legacyData.metaDescription,
-    publicationStatus: legacyData.publicationStatus || (status === 'published' ? 'public' : 'draft')
+    publicationStatus: legacyData.publicationStatus || (status === 'published' ? 'public' : 'draft'),
+    
+    // 🚨 CRITICAL FIX: Preserve legacy gallery fields for OfficialSelectionShelf compatibility
+    galleryUrls: legacyData.galleryUrls || [],
+    galleryCoverIndex: legacyData.galleryCoverIndex,
+    galleryLogoIndex: legacyData.galleryLogoIndex,
+    posterUrl: legacyData.posterUrl // Also preserve posterUrl for fallback
   } as FeatureFilm;
 
   console.log('✅ Successfully converted legacy film:', {

@@ -1,9 +1,11 @@
+// แก้ไข src/components/sections/OfficialSelectionShelf.tsx
+// ใช้ logic ตรงๆ โดยไม่ต้องพึ่ง helper functions
+
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFeatureFilms } from "../../hooks/useFeatureFilms";
 import { FeatureFilm } from "../../types/featureFilm.types";
-import { getFilmCoverImage, getFilmLogoImage, debugFilmImages } from "../../utils/filmImageHelpers";
 
 // --- Types ---
 export interface Film {
@@ -12,7 +14,6 @@ export interface Film {
   titleTh?: string;
   publicationStatus?: string;
   year?: number;
-  // Raw film data - no conversion needed
   galleryUrls?: string[];
   galleryCoverIndex?: number;
   galleryLogoIndex?: number;
@@ -25,138 +26,341 @@ export interface Film {
   category?: string;
 }
 
-// --- Direct Data Mapping (No Complex Conversion) ---
+// ✅ Enhanced data mapping with proper field handling and debugging
 function mapFeatureFilmToDisplayFilm(featureFilm: FeatureFilm | any): Film {
-  // Use raw data directly - no complex conversion
-  const rawFilm = {
+  console.log('🎬 Processing film data:', {
+    id: featureFilm.id,
+    title: featureFilm.title || featureFilm.titleEn,
+    publicationStatus: featureFilm.publicationStatus,
+    status: featureFilm.status,
+    hasGalleryUrls: !!featureFilm.galleryUrls,
+    hasStills: !!featureFilm.files?.stills,
+    hasPosterUrl: !!featureFilm.posterUrl,
+    hasPosterFile: !!featureFilm.files?.poster,
+    // Debug the problematic fields
+    targetAudience: featureFilm.targetAudience,
+    afterScreenActivities: featureFilm.afterScreenActivities,
+    screeningDate1: featureFilm.screeningDate1
+  });
+
+  // Handle image data from multiple sources
+  let galleryUrls: string[] = [];
+  let galleryCoverIndex: number | undefined;
+  let galleryLogoIndex: number | undefined;
+  let posterUrl: string | undefined;
+
+  // Priority 1: Legacy galleryUrls field (for backward compatibility)
+  if (featureFilm.galleryUrls && Array.isArray(featureFilm.galleryUrls) && featureFilm.galleryUrls.length > 0) {
+    galleryUrls = featureFilm.galleryUrls.filter((url: string) => url && url.trim() !== '');
+    galleryCoverIndex = featureFilm.galleryCoverIndex;
+    galleryLogoIndex = featureFilm.galleryLogoIndex;
+    console.log('📸 Using legacy galleryUrls:', galleryUrls.length, 'images');
+  }
+  // Priority 2: New files.stills structure
+  else if (featureFilm.files?.stills && Array.isArray(featureFilm.files.stills) && featureFilm.files.stills.length > 0) {
+    galleryUrls = featureFilm.files.stills.map((still: any) => still.url).filter((url: string) => url && url.trim() !== '');
+    // Find cover and logo indices from metadata
+    galleryCoverIndex = featureFilm.files.stills.findIndex((still: any) => still.isCover);
+    galleryLogoIndex = featureFilm.files.stills.findIndex((still: any) => still.isLogo);
+    // Use first image as cover if no cover is marked
+    if (galleryCoverIndex === -1 && galleryUrls.length > 0) galleryCoverIndex = 0;
+    if (galleryLogoIndex === -1) galleryLogoIndex = undefined;
+    console.log('📸 Using new files.stills:', galleryUrls.length, 'images');
+  }
+
+  // Handle poster URL from multiple sources
+  if (featureFilm.posterUrl) {
+    posterUrl = featureFilm.posterUrl;
+    console.log('🖼️ Using legacy posterUrl');
+  } else if (featureFilm.files?.poster?.url) {
+    posterUrl = featureFilm.files.poster.url;
+    console.log('🖼️ Using new files.poster.url');
+  }
+
+  // ✅ FIX: Extract year from screeningDate1 if available
+  let extractedYear = new Date().getFullYear(); // Default fallback
+  if (featureFilm.screeningDate1) {
+    try {
+      const screeningDate = new Date(featureFilm.screeningDate1);
+      if (!isNaN(screeningDate.getTime())) {
+        extractedYear = screeningDate.getFullYear();
+        console.log('📅 Extracted year from screeningDate1:', extractedYear);
+      }
+    } catch (error) {
+      console.warn('⚠️ Failed to parse screeningDate1:', featureFilm.screeningDate1);
+    }
+  }
+
+  // ✅ FIX: Properly handle targetAudience array with aggressive debugging
+  let targetAudiences: string[] = ['Cinephile']; // Default fallback
+  console.log('🔍 DEBUG targetAudience:', {
+    raw: featureFilm.targetAudience,
+    type: typeof featureFilm.targetAudience,
+    isArray: Array.isArray(featureFilm.targetAudience),
+    length: featureFilm.targetAudience?.length
+  });
+  
+  if (featureFilm.targetAudience) {
+    if (Array.isArray(featureFilm.targetAudience) && featureFilm.targetAudience.length > 0) {
+      targetAudiences = featureFilm.targetAudience;
+      console.log('👥 ✅ Using targetAudience array:', targetAudiences);
+    } else if (typeof featureFilm.targetAudience === 'string') {
+      targetAudiences = [featureFilm.targetAudience];
+      console.log('👥 ✅ Converting single targetAudience to array:', targetAudiences);
+    } else {
+      console.log('👥 ⚠️ targetAudience exists but not in expected format, using fallback');
+    }
+  } else {
+    console.log('👥 ⚠️ No targetAudience found, using fallback');
+  }
+
+  // ✅ FIX: Properly handle afterScreenActivities array with aggressive debugging
+  let afterScreenActivities: string[] = ['qna']; // Default fallback
+  console.log('🔍 DEBUG afterScreenActivities:', {
+    raw: featureFilm.afterScreenActivities,
+    type: typeof featureFilm.afterScreenActivities,
+    isArray: Array.isArray(featureFilm.afterScreenActivities),
+    length: featureFilm.afterScreenActivities?.length
+  });
+  
+  if (featureFilm.afterScreenActivities) {
+    if (Array.isArray(featureFilm.afterScreenActivities) && featureFilm.afterScreenActivities.length > 0) {
+      afterScreenActivities = featureFilm.afterScreenActivities;
+      console.log('🎪 ✅ Using afterScreenActivities array:', afterScreenActivities);
+    } else if (typeof featureFilm.afterScreenActivities === 'string') {
+      afterScreenActivities = [featureFilm.afterScreenActivities];
+      console.log('🎪 ✅ Converting single afterScreenActivities to array:', afterScreenActivities);
+    } else {
+      console.log('🎪 ⚠️ afterScreenActivities exists but not in expected format, using fallback');
+    }
+  } else {
+    console.log('🎪 ⚠️ No afterScreenActivities found, using fallback');
+  }
+
+  const mappedFilm = {
     id: featureFilm.id,
     title: featureFilm.titleEn || featureFilm.title || 'Untitled',
     titleTh: featureFilm.titleTh,
-    publicationStatus: featureFilm.publicationStatus || 'public',
-    year: featureFilm.releaseYear || new Date().getFullYear(),
-    // Keep raw data structure - exactly as stored in database
-    galleryUrls: featureFilm.galleryUrls || [],
-    galleryCoverIndex: featureFilm.galleryCoverIndex,
-    galleryLogoIndex: featureFilm.galleryLogoIndex,
-    posterUrl: featureFilm.posterUrl,
-    genres: featureFilm.genres || [],
-    runtimeMinutes: featureFilm.length || featureFilm.duration,
+    publicationStatus: featureFilm.publicationStatus,
+    year: featureFilm.releaseYear || extractedYear, // Use extracted year from screeningDate1
+    // Image data
+    galleryUrls,
+    galleryCoverIndex,
+    galleryLogoIndex,
+    posterUrl,
+    // Content data with correct field names from actual data structure
+    genres: Array.isArray(featureFilm.genres) ? featureFilm.genres : (featureFilm.genres ? [featureFilm.genres] : ['Drama']),
+    runtimeMinutes: featureFilm.length || featureFilm.duration || 120, // 'length' field in actual data
     logline: featureFilm.logline || featureFilm.synopsis || '',
-    targetAudiences: featureFilm.targetAudience || [],
-    afterScreenActivities: featureFilm.afterScreenActivities || [],
-    category: featureFilm.category || 'Official Selection'
+    targetAudiences: targetAudiences, // ✅ FIXED: Use properly handled array
+    afterScreenActivities: afterScreenActivities, // ✅ FIXED: Use properly handled array
+    category: featureFilm.category || 'Official Selection' // 'category' field in actual data
   };
 
-  // Debug the image selection process
-  debugFilmImages(rawFilm, rawFilm.title);
+  console.log('✅ Mapped film result:', {
+    title: mappedFilm.title,
+    year: mappedFilm.year,
+    targetAudiences: mappedFilm.targetAudiences,
+    afterScreenActivities: mappedFilm.afterScreenActivities,
+    hasImages: mappedFilm.galleryUrls.length > 0,
+    imageCount: mappedFilm.galleryUrls.length,
+    hasCover: mappedFilm.galleryCoverIndex !== undefined,
+    hasLogo: mappedFilm.galleryLogoIndex !== undefined,
+    hasPoster: !!mappedFilm.posterUrl
+  });
 
-  return rawFilm;
+  return mappedFilm;
 }
 
-// --- Helpers using shared utilities ---
+// ✅ Manual cover logic - เขียนใหม่ให้ชัดเจน
 function getCoverUrl(film: Film): string | null {
-  return getFilmCoverImage(film);
+  console.log(`🖼️ Getting cover for "${film.title}":`, {
+    galleryUrls: film.galleryUrls?.length || 0,
+    galleryCoverIndex: film.galleryCoverIndex,
+    posterUrl: !!film.posterUrl
+  });
+
+  // Priority 1: Gallery image at specified cover index
+  if (film.galleryUrls && film.galleryUrls.length > 0) {
+    // ใช้ galleryCoverIndex ถ้ามี ไม่งั้นใช้รูปแรก
+    const coverIndex = film.galleryCoverIndex !== undefined ? film.galleryCoverIndex : 0;
+    
+    // ตรวจสอบว่า index ไม่เกิน array length
+    if (coverIndex >= 0 && coverIndex < film.galleryUrls.length) {
+      const coverUrl = film.galleryUrls[coverIndex];
+      if (coverUrl && coverUrl.trim() !== '') {
+        console.log(`  ✅ Found cover from gallery[${coverIndex}]:`, coverUrl);
+        return coverUrl;
+      } else {
+        console.log(`  ⚠️ Gallery[${coverIndex}] is empty`);
+      }
+    } else {
+      console.log(`  ⚠️ Cover index ${coverIndex} is out of bounds (array length: ${film.galleryUrls.length})`);
+    }
+  } else {
+    console.log('  ⚠️ No gallery URLs available');
+  }
+
+  // Priority 2: Poster URL as fallback
+  if (film.posterUrl && film.posterUrl.trim() !== '') {
+    console.log('  ✅ Found cover from poster:', film.posterUrl);
+    return film.posterUrl;
+  } else {
+    console.log('  ⚠️ No poster URL available');
+  }
+
+  console.log('  ❌ No cover found');
+  return null;
 }
 
+// ✅ Manual logo logic - เขียนใหม่ให้ชัดเจน
 function getLogoUrl(film: Film): string | null {
-  return getFilmLogoImage(film);
+  console.log(`🏷️ Getting logo for "${film.title}":`, {
+    galleryUrls: film.galleryUrls?.length || 0,
+    galleryLogoIndex: film.galleryLogoIndex
+  });
+
+  // Logo จะมีแค่ถ้า galleryLogoIndex ถูกกำหนดไว้
+  if (film.galleryLogoIndex === undefined) {
+    console.log('  ⚠️ No logo index specified');
+    return null;
+  }
+
+  if (!film.galleryUrls || film.galleryUrls.length === 0) {
+    console.log('  ⚠️ No gallery URLs available');
+    return null;
+  }
+
+  // ตรวจสอบว่า logo index ไม่เกิน array length
+  if (film.galleryLogoIndex >= 0 && film.galleryLogoIndex < film.galleryUrls.length) {
+    const logoUrl = film.galleryUrls[film.galleryLogoIndex];
+    if (logoUrl && logoUrl.trim() !== '') {
+      console.log(`  ✅ Found logo from gallery[${film.galleryLogoIndex}]:`, logoUrl);
+      return logoUrl;
+    } else {
+      console.log(`  ⚠️ Gallery[${film.galleryLogoIndex}] is empty`);
+    }
+  } else {
+    console.log(`  ⚠️ Logo index ${film.galleryLogoIndex} is out of bounds (array length: ${film.galleryUrls.length})`);
+  }
+
+  console.log('  ❌ No logo found');
+  return null;
 }
 
-function formatGenres(gen?: string[] | string): string {
-  if (!gen) return "-";
-  return Array.isArray(gen) ? gen.join(", ") : gen;
-}
+// --- Main Component ---
+export default function OfficialSelectionShelf({ className = "" }: { className?: string }) {
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
-function formatRuntime(min?: number): string {
-  if (!min) return "-";
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
-}
+  // Use correct filter for published films
+  const { films: featureFilms, loading, error } = useFeatureFilms(
+    { status: 'published', publicationStatus: 'public' },
+    true
+  );
 
-// Emoji mapping functions
-function getGenreEmoji(genre: string): string {
-  const genreEmojiMap: { [key: string]: string } = {
-    'Horror': '👻',
-    'Comedy': '😂',
-    'Action': '💥',
-    'Sci Fi': '🚀',
-    'Crime/Thriller': '🔍',
-    'Adventure': '🗺️',
-    'Animation': '🎨',
-    'Drama': '🎭',
-    'Documentary': '📹',
-    'Fantasy': '🧙‍♂️',
-    'Mystery': '🔮',
-    'Slasher': '🔪',
-    'Thriller': '😱'
-  };
-  return genreEmojiMap[genre] || '🎬';
-}
+  const films = useMemo(() => {
+    console.log('📊 Processing feature films data:', {
+      featureFilms: !!featureFilms,
+      count: featureFilms?.length || 0,
+      loading,
+      error: !!error
+    });
 
-function getTargetAudienceEmoji(audience: string): string {
-  const audienceEmojiMap: { [key: string]: string } = {
-    'Popcorn': '🍿',
-    'Cinephile': '🎭',
-    'College Student': '🎓',
-    'Student': '📚',
-    'Art People': '🎨',
-    'Folk': '🌾',
-    'Novel Fan': '📖',
-    'J-Horror Fan': '👹',
-    'Youth': '🧑‍🎤',
-    'Family': '👨‍👩‍👧‍👦'
-  };
-  return audienceEmojiMap[audience] || '👥';
-}
+    if (error) {
+      console.error('❌ Error in useFeatureFilms:', error);
+      return null;
+    }
+    
+    if (!featureFilms) {
+      console.log('ℹ️ No feature films data available yet');
+      return null;
+    }
+    
+    // 🚨 DEBUG: ดูข้อมูลดิบที่ hook ส่งมา
+    console.log('🔥 RAW FEATURE FILMS FROM HOOK:');
+    featureFilms.forEach((film, index) => {
+      console.log(`   Film #${index + 1}:`, {
+        id: film.id,
+        title: (film as any).titleEn || film.title,
+        galleryUrls: film.galleryUrls?.length || 0,
+        galleryCoverIndex: film.galleryCoverIndex,
+        galleryLogoIndex: film.galleryLogoIndex,
+        posterUrl: !!film.posterUrl,
+        publicationStatus: film.publicationStatus
+      });
+    });
+    
+    console.log(`🔄 Converting ${featureFilms.length} films to display format`);
+    const convertedFilms = featureFilms.map(mapFeatureFilmToDisplayFilm);
+    
+    console.log(`✅ Final converted films: ${convertedFilms.length}`);
+    
+    // 🚨 DEBUG: ตรวจสอบผลลัพธ์หลังแปลง
+    console.log('🔥 FINAL CONVERTED FILMS:');
+    convertedFilms.forEach((film, index) => {
+      console.log(`   Converted #${index + 1}:`, {
+        id: film.id,
+        title: film.title,
+        galleryUrls: film.galleryUrls?.length || 0,
+        galleryCoverIndex: film.galleryCoverIndex,
+        galleryLogoIndex: film.galleryLogoIndex,
+        posterUrl: !!film.posterUrl
+      });
+    });
+    
+    return convertedFilms;
+  }, [featureFilms, error, loading]);
 
-function getActivityEmoji(activity: string): string {
-  const activityEmojiMap: { [key: string]: string } = {
-    'qna': '❓',
-    'talk': '💬',
-    'redcarpet': '🎪',
-    'fanmeeting': '🤝',
-    'education': '📚'
-  };
-  return activityEmojiMap[activity] || '🎪';
-}
+  useEffect(() => {
+    if (!activeId) return;
+    const el = document.getElementById(`spine-${activeId}`);
+    el?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
+  }, [activeId]);
 
-// --- UI Subcomponents ---
-function ShelfHeader(): JSX.Element {
-  const { t, i18n } = useTranslation();
-  const currentLanguage = i18n.language as 'en' | 'th';
+  const handleCardClick = useCallback((filmId: string) => {
+    setActiveId((prev) => (prev === filmId ? null : filmId));
+  }, []);
 
   return (
-    <div className="mb-8">
-      {/* Grid Layout: 20% logo, 80% text */}
-      <div className="grid grid-cols-5 gap-6 items-center">
-        {/* Logo Section (20%) */}
-        <div className="col-span-1 flex justify-center items-center">
-          <img 
-            src="https://firebasestorage.googleapis.com/v0/b/cifan-c41c6.firebasestorage.app/o/site_files%2Ffest_logos%2FT4%404x.png?alt=media&token=4b606f45-6165-4486-951b-4e4ccb0bdb23"
-            alt="Official Selection"
-            className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto object-contain brightness-0 invert opacity-90 mx-auto"
-          />
-        </div>
-        
-        {/* Text Section (80%) */}
-        <div className="col-span-4 space-y-2">
-          <h2 className={`text-xl sm:text-2xl md:text-3xl lg:text-4xl font-bold text-white ${currentLanguage === 'th' ? 'header-th' : 'header-en'}`}>
-            {t('featureFilm.categories.officialSelection')}
-          </h2>
-          <p className={`text-base sm:text-lg md:text-xl text-white/80 ${currentLanguage === 'th' ? 'body-th' : 'body-en'}`}>
-            {currentLanguage === 'th' 
-              ? 'ภาพยนตร์นานาชาติที่ได้รับการคัดเลือกในปี 2025'
-              : 'International films selected in 2025'
-            }
-          </p>
+    <section className={`relative w-full py-12 sm:py-16 md:py-20 ${className}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <ShelfHeader />
+
+        <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 p-6">
+          <div className="pointer-events-none absolute inset-x-6 bottom-3 h-2 rounded-full bg-black/50" />
+
+          <div
+            ref={scrollerRef}
+            className="no-scrollbar flex gap-4 overflow-x-auto scroll-smooth py-4 snap-x snap-mandatory"
+          >
+            {loading && films === null && <LoadingSkeleton />}
+            {error && <ErrorState error={error} />}
+            {!loading && !error && films && films.length === 0 && <EmptyState />}
+            {!loading && !error && films && films.length > 0 && (
+              films.map((film) => (
+                <div
+                  key={film.id}
+                  id={`spine-${film.id}`}
+                  className="snap-start"
+                  onClick={() => handleCardClick(film.id)}
+                >
+                  <SpineCard 
+                    film={film} 
+                    isActive={activeId === film.id} 
+                    onToggle={() => handleCardClick(film.id)} 
+                  />
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }
 
-
+// --- SpineCard Component ---
 interface SpineCardProps {
   film: Film;
   isActive: boolean;
@@ -164,9 +368,18 @@ interface SpineCardProps {
 }
 
 function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
+  const { i18n } = useTranslation();
+  
+  // ใช้ manual functions ที่เขียนใหม่
   const cover = getCoverUrl(film);
   const logo = getLogoUrl(film);
   
+  // Debug output ให้เห็นชัดๆ
+  console.log(`🎨 SpineCard for "${film.title}":`, { 
+    cover: cover ? '✅ ' + cover.substring(0, 50) + '...' : '❌ No cover', 
+    logo: logo ? '✅ ' + logo.substring(0, 50) + '...' : '❌ No logo'
+  });
+
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     onToggle();
@@ -178,6 +391,14 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
       onToggle();
     }
   }, [onToggle]);
+
+  // Get title based on language
+  const getDisplayTitle = () => {
+    if (i18n.language === 'th' && film.titleTh) {
+      return film.titleTh;
+    }
+    return film.title;
+  };
 
   return (
     <motion.article
@@ -205,440 +426,267 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
         }}
       />
 
-      {/* Gradient for readability */}
+      {/* Gradient overlay */}
       <div className={`absolute inset-0 transition-opacity ${
         isActive 
-          ? "bg-gradient-to-r from-black/70 via-black/30 to-transparent opacity-100" 
+          ? "bg-gradient-to-r from-black/80 via-black/40 to-transparent opacity-100" 
           : "bg-gradient-to-b from-black/60 via-black/10 to-black/80 opacity-100"
       }`} />
 
-      {/* Content: collapsed = vertical title; expanded = overlay info */}
+      {/* Content */}
       {!isActive ? (
+        // Collapsed: แสดงชื่อแนวตั้ง
         <div className="absolute inset-0 flex items-center justify-center">
-          <span
-            className="text-[11px] sm:text-[12px] md:text-sm font-extrabold tracking-widest uppercase text-white drop-shadow [writing-mode:vertical-rl] [text-orientation:upright] text-center"
-            title={film.title}
-          >
-            {film.title}
+          <span className="text-[11px] sm:text-[12px] md:text-sm font-extrabold tracking-widest uppercase text-white drop-shadow [writing-mode:vertical-rl] [text-orientation:upright] text-center">
+            {getDisplayTitle()}
           </span>
         </div>
       ) : (
-        <div className="absolute inset-0 flex">
-          {/* Info container - bottom-left */}
-          <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 md:p-8">
-            <div className="max-w-[48ch]">
-              {/* Film logo with better fallback handling */}
-              {logo ? (
-                <div className="mb-4">
+        // Expanded: แสดงข้อมูลตามลำดับที่กำหนด
+        <div className="absolute inset-0 flex flex-col">
+          <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 md:p-8">
+            <div className="space-y-4">
+              {/* 1. Logo */}
+              {logo && (
+                <div className="flex justify-start">
                   <img
                     src={logo}
                     alt={`${film.title} logo`}
                     className="h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
-                    style={{
-                      filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))'
-                    }}
                     onError={(e) => {
-                      console.warn(`Failed to load logo for ${film.title}:`, logo);
-                      // Hide the image if it fails to load
+                      console.warn(`❌ Logo failed to load for ${film.title}:`, logo);
                       (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
-              ) : (
-                // Show title as large text when no logo is available
-                <div className="mb-4">
-                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow">
-                    {film.title}
-                  </h2>
-                  {film.titleTh && (
-                    <p className="text-lg sm:text-xl text-white/80 drop-shadow mt-2">
-                      {film.titleTh}
-                    </p>
-                  )}
-                </div>
-              )}
-              
-              {/* Thai and English titles as subtitle (only show if logo exists) */}
-              {logo && (
-                <div className="mb-4">
-                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight drop-shadow mb-1">
-                    {film.title}
-                  </h3>
-                  {film.titleTh && (
-                    <p className="text-sm sm:text-base text-white/80 drop-shadow">
-                      {film.titleTh}
-                    </p>
-                  )}
-                </div>
               )}
 
-              {/* Category banner and Runtime badge */}
-              <div className="mb-4 flex flex-wrap items-center gap-2">
-                {/* Category banner */}
-                {film.category && (
-                  <span className="rounded-lg bg-gradient-to-r from-red-500/30 to-pink-500/30 px-4 py-2 ring-1 ring-red-400/40 backdrop-blur-sm text-xs sm:text-sm text-red-100 font-bold uppercase tracking-wide">
-                    🏆 {film.category}
+              {/* 2. Title (EN or TH following web language version) + Year (badge) */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow">
+                  {getDisplayTitle()}
+                </h2>
+                {film.year && (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    {film.year}
                   </span>
                 )}
-                
-                {/* Runtime badge */}
-                <span className="rounded-full bg-blue-500/20 px-3 py-1.5 ring-1 ring-blue-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-blue-200 font-medium">
-                  ⏱️ {formatRuntime(film.runtimeMinutes)}
+              </div>
+
+              {/* 3. Category (Banner) + Runtime (badge with clock emoji) */}
+              <div className="flex items-center gap-3 flex-wrap">
+                <span className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-pink-600/80 text-white border border-purple-500/30 shadow-lg">
+                  {film.category}
                 </span>
+                {film.runtimeMinutes && (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                    🕐 {formatRuntime(film.runtimeMinutes)}
+                  </span>
+                )}
               </div>
 
-              {/* Genres row with heading on same line */}
-              <div className="mb-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
-                    Genre:
-                  </h4>
-                  {Array.isArray(film.genres) ? film.genres.map((genre, index) => (
-                    <span key={index} className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
-                      {getGenreEmoji(genre)} {genre}
-                    </span>
-                  )) : film.genres && (
-                    <span className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
-                      {getGenreEmoji(film.genres)} {film.genres}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Target Audience row with heading on same line */}
-              {film.targetAudiences && film.targetAudiences.length > 0 && (
-                <div className="mb-4">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
-                      Target Audience:
-                    </h4>
-                    {film.targetAudiences.map((audience, index) => (
-                      <span key={index} className="rounded-full bg-amber-500/20 px-3 py-1.5 ring-1 ring-amber-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-amber-200 font-medium">
-                        {getTargetAudienceEmoji(audience)} {audience}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Logline (short synopsis) */}
-              <p className="mb-4 text-sm sm:text-base text-white/90 leading-6 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">
-                {film.logline ?? "ยังไม่มีเรื่องย่อ"}
-              </p>
-
-              {/* Activities small banners */}
-              {film.afterScreenActivities && film.afterScreenActivities.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2">
-                  {film.afterScreenActivities.map((activity, index) => (
-                    <span key={index} className="rounded-lg bg-gradient-to-r from-green-500/30 to-emerald-500/30 px-3 py-2 ring-1 ring-green-400/40 backdrop-blur-sm text-[11px] sm:text-xs text-green-100 font-medium uppercase tracking-wide">
-                      {getActivityEmoji(activity)} {activity}
+              {/* 4. Genre: (Index head text and badges with different emoji) */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-white/90">Genre:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {formatGenresWithEmojis(film.genres).map((genre, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-500/20 text-green-300 border border-green-500/30"
+                    >
+                      {genre}
                     </span>
                   ))}
                 </div>
+              </div>
+
+              {/* 5. Target Audience: (Index head text and badges with different emoji) */}
+              <div className="space-y-2">
+                <h3 className="text-lg font-semibold text-white/90">Target Audience:</h3>
+                <div className="flex flex-wrap gap-2">
+                  {formatTargetAudiencesWithEmojis(film.targetAudiences).map((audience, index) => (
+                    <span
+                      key={index}
+                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30"
+                    >
+                      {audience}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 6. Logline (Text) */}
+              {film.logline && (
+                <div className="space-y-2">
+                  <p className="text-white/90 text-sm sm:text-base leading-relaxed line-clamp-4">
+                    {film.logline}
+                  </p>
+                </div>
               )}
             </div>
-          </div>
 
-          {/* CTA buttons - bottom-right */}
-          <div className="flex justify-end items-end p-4 sm:p-6 md:p-8">
-            <div className="flex gap-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.location.hash = '#coming-soon';
-                }}
-                className="group relative overflow-hidden rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-white ring-1 ring-white/20 transition-all duration-300 hover:bg-white/20 hover:scale-105 hover:ring-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
-              >
-                <span className="relative z-10">ดูรายละเอียดภาพยนตร์</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-amber-500/20 to-orange-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-              </button>
+            {/* 7. AfterScreenActivities: small banner (bottom left) + Detail button (bottom right) */}
+            <div className="flex items-end justify-between mt-6">
+              <div className="flex flex-wrap gap-2">
+                {film.afterScreenActivities?.map((activity, index) => (
+                  <span
+                    key={index}
+                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                  >
+                    {formatAfterScreenActivity(activity)}
+                  </span>
+                ))}
+              </div>
               
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  window.location.hash = '#coming-soon';
+                  // Handle detail button click - could navigate to detail page
+                  console.log('Detail button clicked for:', film.title);
                 }}
-                className="group relative overflow-hidden rounded-lg bg-white/10 backdrop-blur-sm px-4 py-2.5 text-sm font-medium text-white ring-1 ring-white/20 transition-all duration-300 hover:bg-white/20 hover:scale-105 hover:ring-white/30 focus:outline-none focus:ring-2 focus:ring-amber-400/60"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-amber-600/80 to-orange-600/80 text-white border border-amber-500/30 shadow-lg hover:from-amber-500/80 hover:to-orange-500/80 transition-all duration-200"
               >
-                <span className="relative z-10">ดูตารางการฉาย</span>
-                <div className="absolute inset-0 bg-gradient-to-r from-blue-500/20 to-purple-500/20 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                Detail
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
               </button>
             </div>
           </div>
         </div>
       )}
-
-
-      {/* bottom cap to mimic VHS plastic (kept subtle) */}
-      <div className="absolute inset-x-0 bottom-0 h-8 bg-black/40 backdrop-blur-[1px] ring-t-1 ring-white/10" />
-
-      {/* hover glow */}
-      <div 
-        className="pointer-events-none absolute -inset-2 rounded-2xl opacity-0 blur-md transition-opacity duration-300 group-hover:opacity-60" 
-        style={{ 
-          background: "radial-gradient(60% 60% at 50% 90%, rgba(255,255,255,0.2), transparent 70%)" 
-        }} 
-      />
     </motion.article>
   );
 }
 
-function EmptyState(): JSX.Element {
-  return (
-    <div className="w-full rounded-xl border border-white/10 bg-white/5 p-8 text-center">
-      <div className="flex flex-col items-center space-y-4">
-        <div className="text-4xl">🎬</div>
-        <h3 className="text-lg font-semibold text-white">No Public Films Available</h3>
-        <p className="text-white/70 max-w-md">
-          There are currently no films with public status available for display. 
-          Films need to have <code className="bg-white/10 px-2 py-1 rounded text-xs">publicationStatus: 'public'</code> to appear here.
-        </p>
-      </div>
-    </div>
-  );
+// Helper functions
+function formatGenres(genres?: string[] | string): string {
+  if (!genres) return "-";
+  return Array.isArray(genres) ? genres.join(", ") : genres;
 }
 
-function ErrorState({ error }: { error: string }): JSX.Element {
-  return (
-    <div className="w-full rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center">
-      <div className="flex flex-col items-center space-y-4">
-        <div className="text-4xl">❌</div>
-        <h3 className="text-lg font-semibold text-red-300">Error Loading Films</h3>
-        <p className="text-red-200/70 max-w-md">
-          {error}
-        </p>
-        <button 
-          onClick={() => window.location.reload()} 
-          className="px-4 py-2 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-red-200 text-sm transition-colors"
-        >
-          Retry
-        </button>
-      </div>
-    </div>
-  );
+function formatGenresWithEmojis(genres?: string[] | string): string[] {
+  if (!genres) return [];
+  
+  const genreEmojis: { [key: string]: string } = {
+    'Horror': '👻 Horror',
+    'horror': '👻 Horror',
+    'Comedy': '😂 Comedy',
+    'comedy': '😂 Comedy',
+    'Action': '💥 Action',
+    'action': '💥 Action',
+    'Sci Fi': '🚀 Sci Fi',
+    'sci fi': '🚀 Sci Fi',
+    'Crime/Thriller': '🔍 Crime/Thriller',
+    'crime/thriller': '🔍 Crime/Thriller',
+    'thriller': '🔍 Thriller',
+    'Adventure': '🗺️ Adventure',
+    'adventure': '🗺️ Adventure',
+    'Animation': '🎨 Animation',
+    'animation': '🎨 Animation',
+    'Drama': '🎭 Drama',
+    'drama': '🎭 Drama',
+    'Documentary': '📽️ Documentary',
+    'documentary': '📽️ Documentary',
+    'Fantasy': '🧙‍♂️ Fantasy',
+    'fantasy': '🧙‍♂️ Fantasy',
+    'folklore': '🌙 Folklore',
+    'Folklore': '🌙 Folklore',
+    'magic': '✨ Magic',
+    'Magic': '✨ Magic'
+  };
+
+  const genreArray = Array.isArray(genres) ? genres : [genres];
+  return genreArray.map(genre => {
+    const lowerGenre = genre.toLowerCase();
+    return genreEmojis[genre] || genreEmojis[lowerGenre] || `🎬 ${genre}`;
+  });
 }
 
-function LoadingSkeleton(): JSX.Element {
+function formatTargetAudiencesWithEmojis(audiences?: string[]): string[] {
+  if (!audiences) return [];
+  
+  const audienceEmojis: { [key: string]: string } = {
+    'Popcorn': '🍿 Popcorn',
+    'Cinephile': '🎬 Cinephile',
+    'College Student': '🎓 College Student',
+    'Student': '📚 Student',
+    'Art People': '🎨 Art People',
+    'Folk': '🌾 Folk',
+    'Novel Fan': '📖 Novel Fan',
+    'J-Horror Fan': '👹 J-Horror Fan',
+    'Youth': '🧒 Youth',
+    'Family': '👨‍👩‍👧‍👦 Family'
+  };
+
+  return audiences.map(audience => audienceEmojis[audience] || `👥 ${audience}`);
+}
+
+function formatAfterScreenActivity(activity: string): string {
+  const activityLabels: { [key: string]: string } = {
+    'qna': '❓ Q&A',
+    'talk': '💬 Talk',
+    'redcarpet': '🎭 Red Carpet',
+    'fanmeeting': '🤝 Fan Meeting',
+    'education': '📚 Education'
+  };
+
+  return activityLabels[activity] || `🎪 ${activity}`;
+}
+
+function formatRuntime(minutes?: number): string {
+  if (!minutes) return "-";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
+}
+
+// Loading, Error, Empty states
+function LoadingSkeleton() {
   return (
-    <div className="flex gap-3 overflow-hidden">
-      {Array.from({ length: 8 }).map((_, i) => (
-        <div 
-          key={i} 
-          className="w-27 sm:w-32 md:w-38 lg:w-43 shrink-0 rounded-xl bg-white/10 animate-pulse" 
-          style={{ height: "32.4rem" }} 
+    <div className="flex gap-4">
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="w-27 sm:w-32 md:w-38 lg:w-43 bg-zinc-800 animate-pulse rounded-xl"
+          style={{ height: "32.4rem" }}
         />
       ))}
     </div>
   );
 }
 
-// --- Main Section ---
-interface OfficialSelectionShelfProps {
-  className?: string;
-}
-
-export default function OfficialSelectionShelf({ className = "" }: OfficialSelectionShelfProps): JSX.Element {
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const scrollerRef = useRef<HTMLDivElement>(null);
-
-  // Use real-time feature films hook with filters for public films
-  const { films: featureFilms, loading, error } = useFeatureFilms(
-    { publicationStatus: 'public' }, // Only get films with publicationStatus: 'public'
-    true // Enable real-time updates
-  );
-
-  // Convert FeatureFilm[] to Film[] - filtering is now handled by the service layer
-  const films = useMemo(() => {
-    console.log('🎬 Processing films in OfficialSelectionShelf:', {
-      featureFilmsCount: featureFilms?.length || 0,
-      loading,
-      error,
-      hasFeatureFilms: !!featureFilms
-    });
-
-    if (error) {
-      console.error('❌ Error in useFeatureFilms:', error);
-      return null; // Return null to show error state
-    }
-    
-    if (!featureFilms) {
-      console.log('ℹ️ No feature films data available yet');
-      return null; // Return null to show loading state
-    }
-    
-    // Service layer already filters for publicationStatus: 'public', so just convert the data
-    const convertedFilms = featureFilms.map(mapFeatureFilmToDisplayFilm);
-    
-    console.log('✅ Final converted films:', convertedFilms.length);
-    return convertedFilms;
-  }, [featureFilms, error, loading]);
-
-  // ensure the active card scrolls into view
-  useEffect(() => {
-    if (!activeId) return;
-    const el = document.getElementById(`spine-${activeId}`);
-    el?.scrollIntoView({ behavior: "smooth", inline: "start", block: "nearest" });
-  }, [activeId]);
-
-  const handleCardToggle = useCallback((filmId: string) => {
-    setActiveId((prev) => (prev === filmId ? null : filmId));
-  }, []);
-
-  const handleCardClick = useCallback((filmId: string) => {
-    setActiveId((prev) => (prev === filmId ? null : filmId));
-  }, []);
-
+function ErrorState({ error }: { error: string }) {
   return (
-    <section className={`relative w-full py-12 sm:py-16 md:py-20 ${className}`}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6">
-        <ShelfHeader />
-
-        <div className="relative rounded-2xl border border-white/10 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 p-6">
-          <div className="pointer-events-none absolute inset-x-6 bottom-3 h-2 rounded-full bg-black/50" />
-
-          {/* Shelf scroller - removed controls and header text */}
-          <div
-            ref={scrollerRef}
-            className="no-scrollbar flex gap-4 overflow-x-auto scroll-smooth py-4 snap-x snap-mandatory"
-          >
-            {loading && films === null && <LoadingSkeleton />}
-            {error && <ErrorState error={error} />}
-            {!loading && !error && films && films.length === 0 && <EmptyState />}
-            {!loading && !error && films && films.length > 0 && (
-              films.map((film) => (
-                <div
-                  key={film.id}
-                  id={`spine-${film.id}`}
-                  className="snap-start"
-                  onClick={() => handleCardClick(film.id)}
-                >
-                  <SpineCard 
-                    film={film} 
-                    isActive={activeId === film.id} 
-                    onToggle={() => handleCardToggle(film.id)} 
-                  />
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-    </section>
+    <div className="text-center py-12">
+      <p className="text-red-400 mb-4">⚠️ เกิดข้อผิดพลาด: {error}</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"
+      >
+        ลองใหม่
+      </button>
+    </div>
   );
 }
 
-// --- Sample data ---
-const SAMPLE_FILMS: Film[] = [
-  {
-    id: "1",
-    title: "Halloween",
-    titleTh: "ฮัลโลวีน",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1604079628040-94301bb21b93?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror", "Slasher"],
-    runtimeMinutes: 91,
-    logline: "ในคืนวันฮัลโลวีน เด็กหนุ่มที่เคยก่อเหตุสะเทือนขวัญกลับมาอีกครั้งเพื่อไล่ล่าเหยื่อรายใหม่",
-    targetAudiences: ["J-Horror Fan", "Youth"],
-    afterScreenActivities: ["qna", "talk"],
-    category: "Official Selection",
-    year: 1978,
-  },
-  {
-    id: "2",
-    title: "Halloween II",
-    titleTh: "ฮัลโลวีน 2",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1531259683007-016a7b628fc3?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror"],
-    runtimeMinutes: 92,
-    logline: "การตามล่าเดินหน้าต่อในโรงพยาบาลที่ดูเหมือนปลอดภัย แต่กลับกลายเป็นเขาวงกตแห่งความสยอง",
-    targetAudiences: ["Cinephile", "J-Horror Fan"],
-    afterScreenActivities: ["qna"],
-    category: "CIFAN Premiere",
-    year: 1981,
-  },
-  {
-    id: "3",
-    title: "Season of the Witch",
-    titleTh: "ฤดูกาลแห่งแม่มด",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror", "Mystery"],
-    runtimeMinutes: 98,
-    logline: "คำสาปและหน้ากากลึกลับเชื่อมโยงกับแผนชั่วร้ายที่ค่อย ๆ เผยตัวในคืนปล่อยผี",
-    targetAudiences: ["Art People", "Cinephile"],
-    afterScreenActivities: ["talk", "education"],
-    category: "Opening Film",
-    year: 1982,
-  },
-  {
-    id: "4",
-    title: "Return of the Shape",
-    titleTh: "การกลับมาของเงามืด",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1495562569060-2eec283d3391?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror", "Thriller"],
-    runtimeMinutes: 95,
-    logline: "เขากลับมาอีกครั้งพร้อมเงามืดที่ยาวนานกว่าเดิม เมืองเล็ก ๆ ต้องรวมพลังเอาตัวรอด",
-    targetAudiences: ["Popcorn", "Youth"],
-    afterScreenActivities: ["fanmeeting"],
-    category: "Park Film",
-    year: 1988,
-  },
-  {
-    id: "5",
-    title: "Revenge of Michael",
-    titleTh: "การล้างแค้นของไมเคิล",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror"],
-    runtimeMinutes: 96,
-    logline: "การล้างแค้นที่ไม่รู้จบทำให้ค่ำคืนกลายเป็นฝันร้ายที่ไม่มีใครตื่นได้",
-    targetAudiences: ["J-Horror Fan"],
-    afterScreenActivities: ["qna", "redcarpet"],
-    category: "THAIMAX",
-    year: 1989,
-  },
-  {
-    id: "6",
-    title: "Curse of the Mask",
-    titleTh: "คำสาปแห่งหน้ากาก",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1501127122-f385ca6ddd9d?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror", "Mystery"],
-    runtimeMinutes: 87,
-    logline: "หน้ากากเก่าที่ถูกค้นพบปลุกคำสาปอันชั่วร้ายและอดีตที่ถูกฝัง",
-    targetAudiences: ["Art People", "Novel Fan"],
-    afterScreenActivities: ["talk"],
-    category: "Closing Film",
-    year: 1995,
-  },
-  {
-    id: "7",
-    title: "H20",
-    titleTh: "เอช ทู โอ",
-    publicationStatus: "public",
-    galleryUrls: [
-      "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop",
-    ],
-    genres: ["Horror", "Drama"],
-    runtimeMinutes: 86,
-    logline: "การเผชิญหน้าระหว่างอดีตกับปัจจุบันที่นำไปสู่การตัดสินใจครั้งสำคัญ",
-    targetAudiences: ["Family", "Student"],
-    afterScreenActivities: ["education"],
-    category: "Nostalgia",
-    year: 1998,
-  },
-];
+function EmptyState() {
+  return (
+    <div className="text-center py-12 text-white/60">
+      <p>ยังไม่มีภาพยนตร์ในส่วนนี้</p>
+    </div>
+  );
+}
+
+function ShelfHeader() {
+  return (
+    <div className="text-center mb-8">
+      <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
+        Official Selection 2025
+      </h2>
+      <p className="text-lg text-white/80">
+        ภาพยนตร์นานาชาติที่ได้รับการคัดเลือก
+      </p>
+    </div>
+  );
+}

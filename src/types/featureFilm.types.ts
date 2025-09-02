@@ -118,6 +118,13 @@ export interface FeatureFilm {
   tags: string[];
   slug: string; // URL-friendly identifier
   metaDescription?: string;
+  
+  // 🚨 LEGACY COMPATIBILITY FIELDS for OfficialSelectionShelf
+  // These fields are preserved for backward compatibility with existing components
+  galleryUrls?: string[]; // Array of gallery image URLs
+  galleryCoverIndex?: number; // Index of cover image in galleryUrls array
+  galleryLogoIndex?: number; // Index of logo image in galleryUrls array
+  posterUrl?: string; // Direct poster URL for fallback
 }
 
 // Legacy interface for backward compatibility with existing form
