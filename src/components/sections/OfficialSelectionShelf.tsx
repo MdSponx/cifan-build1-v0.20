@@ -3,24 +3,63 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFeatureFilms } from "../../hooks/useFeatureFilms";
 import { FeatureFilm } from "../../types/featureFilm.types";
-import { SimpleFilm } from "../../types/simpleFilm.types";
-import { convertToSimpleFilm } from "../../utils/simpleFilmConverter";
+import { getFilmCoverImage, getFilmLogoImage, debugFilmImages } from "../../utils/filmImageHelpers";
 
-// --- Simple Image Helpers - INLINE ---
-const getCover = (film: SimpleFilm): string | null => {
-  if (!film.galleryUrls?.length) return null;
-  const coverIndex = film.galleryCoverIndex ?? 0;
-  return film.galleryUrls[coverIndex] || null;
-};
+// --- Types ---
+export interface Film {
+  id: string;
+  title: string;
+  titleTh?: string;
+  publicationStatus?: string;
+  year?: number;
+  // Raw film data - no conversion needed
+  galleryUrls?: string[];
+  galleryCoverIndex?: number;
+  galleryLogoIndex?: number;
+  posterUrl?: string;
+  genres?: string[] | string;
+  runtimeMinutes?: number;
+  logline?: string;
+  targetAudiences?: string[];
+  afterScreenActivities?: string[];
+  category?: string;
+}
 
-const getLogo = (film: SimpleFilm): string | null => {
-  if (!film.galleryUrls?.length || film.galleryLogoIndex === undefined) return null;
-  return film.galleryUrls[film.galleryLogoIndex] || null;
-};
+// --- Direct Data Mapping (No Complex Conversion) ---
+function mapFeatureFilmToDisplayFilm(featureFilm: FeatureFilm | any): Film {
+  // Use raw data directly - no complex conversion
+  const rawFilm = {
+    id: featureFilm.id,
+    title: featureFilm.titleEn || featureFilm.title || 'Untitled',
+    titleTh: featureFilm.titleTh,
+    publicationStatus: featureFilm.publicationStatus || 'public',
+    year: featureFilm.releaseYear || new Date().getFullYear(),
+    // Keep raw data structure - exactly as stored in database
+    galleryUrls: featureFilm.galleryUrls || [],
+    galleryCoverIndex: featureFilm.galleryCoverIndex,
+    galleryLogoIndex: featureFilm.galleryLogoIndex,
+    posterUrl: featureFilm.posterUrl,
+    genres: featureFilm.genres || [],
+    runtimeMinutes: featureFilm.length || featureFilm.duration,
+    logline: featureFilm.logline || featureFilm.synopsis || '',
+    targetAudiences: featureFilm.targetAudience || [],
+    afterScreenActivities: featureFilm.afterScreenActivities || [],
+    category: featureFilm.category || 'Official Selection'
+  };
 
-// --- Data Conversion - SIMPLIFIED ---
-function convertFeatureFilmToSimpleFilm(featureFilm: FeatureFilm | any): SimpleFilm {
-  return convertToSimpleFilm(featureFilm);
+  // Debug the image selection process
+  debugFilmImages(rawFilm, rawFilm.title);
+
+  return rawFilm;
+}
+
+// --- Helpers using shared utilities ---
+function getCoverUrl(film: Film): string | null {
+  return getFilmCoverImage(film);
+}
+
+function getLogoUrl(film: Film): string | null {
+  return getFilmLogoImage(film);
 }
 
 function formatGenres(gen?: string[] | string): string {
@@ -119,13 +158,14 @@ function ShelfHeader(): JSX.Element {
 
 
 interface SpineCardProps {
-  film: SimpleFilm;
+  film: Film;
   isActive: boolean;
   onToggle: () => void;
 }
 
 function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
-  const cover = getCover(film);
+  const cover = getCoverUrl(film);
+  const logo = getLogoUrl(film);
   
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -163,9 +203,6 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
           backgroundSize: "cover",
           backgroundPosition: "center",
         }}
-        onError={() => {
-          console.error('❌ Background image failed to load:', cover);
-        }}
       />
 
       {/* Gradient for readability */}
@@ -190,39 +227,50 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
           {/* Info container - bottom-left */}
           <div className="flex-1 flex flex-col justify-end p-4 sm:p-6 md:p-8">
             <div className="max-w-[48ch]">
-              {/* Film logo as large header */}
-              {getLogo(film) && (
+              {/* Film logo with better fallback handling */}
+              {logo ? (
                 <div className="mb-4">
                   <img
-                    src={getLogo(film)!}
+                    src={logo}
                     alt={`${film.title} logo`}
                     className="h-12 sm:h-16 md:h-20 w-auto object-contain drop-shadow-lg"
                     style={{
                       filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.6))'
                     }}
                     onError={(e) => {
-                      console.error('❌ Logo image failed to load:', getLogo(film));
-                      console.error('Film data:', { id: film.id, title: film.title });
-                      e.currentTarget.style.display = 'none';
-                    }}
-                    onLoad={() => {
-                      console.log('✅ Logo image loaded successfully:', getLogo(film)?.substring(0, 50) + '...');
+                      console.warn(`Failed to load logo for ${film.title}:`, logo);
+                      // Hide the image if it fails to load
+                      (e.target as HTMLImageElement).style.display = 'none';
                     }}
                   />
                 </div>
+              ) : (
+                // Show title as large text when no logo is available
+                <div className="mb-4">
+                  <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow">
+                    {film.title}
+                  </h2>
+                  {film.titleTh && (
+                    <p className="text-lg sm:text-xl text-white/80 drop-shadow mt-2">
+                      {film.titleTh}
+                    </p>
+                  )}
+                </div>
               )}
               
-              {/* Thai and English titles as subtitle */}
-              <div className="mb-4">
-                <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight drop-shadow mb-1">
-                  {film.title}
-                </h3>
-                {film.titleTh && (
-                  <p className="text-sm sm:text-base text-white/80 drop-shadow">
-                    {film.titleTh}
-                  </p>
-                )}
-              </div>
+              {/* Thai and English titles as subtitle (only show if logo exists) */}
+              {logo && (
+                <div className="mb-4">
+                  <h3 className="text-lg sm:text-xl md:text-2xl font-bold text-white leading-tight drop-shadow mb-1">
+                    {film.title}
+                  </h3>
+                  {film.titleTh && (
+                    <p className="text-sm sm:text-base text-white/80 drop-shadow">
+                      {film.titleTh}
+                    </p>
+                  )}
+                </div>
+              )}
 
               {/* Category banner and Runtime badge */}
               <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -245,11 +293,15 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
                   <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
                     Genre:
                   </h4>
-                  {film.genres.map((genre: string, index: number) => (
+                  {Array.isArray(film.genres) ? film.genres.map((genre, index) => (
                     <span key={index} className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
                       {getGenreEmoji(genre)} {genre}
                     </span>
-                  ))}
+                  )) : film.genres && (
+                    <span className="rounded-full bg-purple-500/20 px-3 py-1.5 ring-1 ring-purple-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-purple-200 font-medium">
+                      {getGenreEmoji(film.genres)} {film.genres}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -260,7 +312,7 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
                     <h4 className="text-xs sm:text-sm font-semibold text-white/90 uppercase tracking-wide shrink-0">
                       Target Audience:
                     </h4>
-                    {film.targetAudiences.map((audience: string, index: number) => (
+                    {film.targetAudiences.map((audience, index) => (
                       <span key={index} className="rounded-full bg-amber-500/20 px-3 py-1.5 ring-1 ring-amber-400/30 backdrop-blur-sm text-[11px] sm:text-xs text-amber-200 font-medium">
                         {getTargetAudienceEmoji(audience)} {audience}
                       </span>
@@ -277,7 +329,7 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
               {/* Activities small banners */}
               {film.afterScreenActivities && film.afterScreenActivities.length > 0 && (
                 <div className="flex flex-wrap items-center gap-2">
-                  {film.afterScreenActivities.map((activity: string, index: number) => (
+                  {film.afterScreenActivities.map((activity, index) => (
                     <span key={index} className="rounded-lg bg-gradient-to-r from-green-500/30 to-emerald-500/30 px-3 py-2 ring-1 ring-green-400/40 backdrop-blur-sm text-[11px] sm:text-xs text-green-100 font-medium uppercase tracking-wide">
                       {getActivityEmoji(activity)} {activity}
                     </span>
@@ -415,7 +467,7 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
     }
     
     // Service layer already filters for publicationStatus: 'public', so just convert the data
-    const convertedFilms = featureFilms.map(convertFeatureFilmToSimpleFilm);
+    const convertedFilms = featureFilms.map(mapFeatureFilmToDisplayFilm);
     
     console.log('✅ Final converted films:', convertedFilms.length);
     return convertedFilms;
@@ -435,7 +487,6 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
   const handleCardClick = useCallback((filmId: string) => {
     setActiveId((prev) => (prev === filmId ? null : filmId));
   }, []);
-
 
   return (
     <section className={`relative w-full py-12 sm:py-16 md:py-20 ${className}`}>
@@ -475,3 +526,119 @@ export default function OfficialSelectionShelf({ className = "" }: OfficialSelec
     </section>
   );
 }
+
+// --- Sample data ---
+const SAMPLE_FILMS: Film[] = [
+  {
+    id: "1",
+    title: "Halloween",
+    titleTh: "ฮัลโลวีน",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1604079628040-94301bb21b93?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror", "Slasher"],
+    runtimeMinutes: 91,
+    logline: "ในคืนวันฮัลโลวีน เด็กหนุ่มที่เคยก่อเหตุสะเทือนขวัญกลับมาอีกครั้งเพื่อไล่ล่าเหยื่อรายใหม่",
+    targetAudiences: ["J-Horror Fan", "Youth"],
+    afterScreenActivities: ["qna", "talk"],
+    category: "Official Selection",
+    year: 1978,
+  },
+  {
+    id: "2",
+    title: "Halloween II",
+    titleTh: "ฮัลโลวีน 2",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1531259683007-016a7b628fc3?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror"],
+    runtimeMinutes: 92,
+    logline: "การตามล่าเดินหน้าต่อในโรงพยาบาลที่ดูเหมือนปลอดภัย แต่กลับกลายเป็นเขาวงกตแห่งความสยอง",
+    targetAudiences: ["Cinephile", "J-Horror Fan"],
+    afterScreenActivities: ["qna"],
+    category: "CIFAN Premiere",
+    year: 1981,
+  },
+  {
+    id: "3",
+    title: "Season of the Witch",
+    titleTh: "ฤดูกาลแห่งแม่มด",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1515238152791-8216bfdf89a7?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror", "Mystery"],
+    runtimeMinutes: 98,
+    logline: "คำสาปและหน้ากากลึกลับเชื่อมโยงกับแผนชั่วร้ายที่ค่อย ๆ เผยตัวในคืนปล่อยผี",
+    targetAudiences: ["Art People", "Cinephile"],
+    afterScreenActivities: ["talk", "education"],
+    category: "Opening Film",
+    year: 1982,
+  },
+  {
+    id: "4",
+    title: "Return of the Shape",
+    titleTh: "การกลับมาของเงามืด",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1495562569060-2eec283d3391?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror", "Thriller"],
+    runtimeMinutes: 95,
+    logline: "เขากลับมาอีกครั้งพร้อมเงามืดที่ยาวนานกว่าเดิม เมืองเล็ก ๆ ต้องรวมพลังเอาตัวรอด",
+    targetAudiences: ["Popcorn", "Youth"],
+    afterScreenActivities: ["fanmeeting"],
+    category: "Park Film",
+    year: 1988,
+  },
+  {
+    id: "5",
+    title: "Revenge of Michael",
+    titleTh: "การล้างแค้นของไมเคิล",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror"],
+    runtimeMinutes: 96,
+    logline: "การล้างแค้นที่ไม่รู้จบทำให้ค่ำคืนกลายเป็นฝันร้ายที่ไม่มีใครตื่นได้",
+    targetAudiences: ["J-Horror Fan"],
+    afterScreenActivities: ["qna", "redcarpet"],
+    category: "THAIMAX",
+    year: 1989,
+  },
+  {
+    id: "6",
+    title: "Curse of the Mask",
+    titleTh: "คำสาปแห่งหน้ากาก",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1501127122-f385ca6ddd9d?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror", "Mystery"],
+    runtimeMinutes: 87,
+    logline: "หน้ากากเก่าที่ถูกค้นพบปลุกคำสาปอันชั่วร้ายและอดีตที่ถูกฝัง",
+    targetAudiences: ["Art People", "Novel Fan"],
+    afterScreenActivities: ["talk"],
+    category: "Closing Film",
+    year: 1995,
+  },
+  {
+    id: "7",
+    title: "H20",
+    titleTh: "เอช ทู โอ",
+    publicationStatus: "public",
+    galleryUrls: [
+      "https://images.unsplash.com/photo-1519681393784-d120267933ba?q=80&w=1200&auto=format&fit=crop",
+    ],
+    genres: ["Horror", "Drama"],
+    runtimeMinutes: 86,
+    logline: "การเผชิญหน้าระหว่างอดีตกับปัจจุบันที่นำไปสู่การตัดสินใจครั้งสำคัญ",
+    targetAudiences: ["Family", "Student"],
+    afterScreenActivities: ["education"],
+    category: "Nostalgia",
+    year: 1998,
+  },
+];

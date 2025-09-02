@@ -120,7 +120,7 @@ export interface FeatureFilm {
   metaDescription?: string;
 }
 
-// UNIFIED FEATURE FILM DATA INTERFACE - INDEX-BASED SYSTEM ONLY
+// Legacy interface for backward compatibility with existing form
 export interface FeatureFilmData {
   // Basic Film Information
   titleEn: string;
@@ -155,11 +155,9 @@ export interface FeatureFilmData {
   screenerUrl: string;
   materials: string; // Rich text format
   galleryFiles?: File[];
-  
-  // UNIFIED GALLERY STRUCTURE - INDEX-BASED ONLY
-  galleryUrls: string[];           // Simple array of URLs
-  galleryCoverIndex?: number;      // Index pointing to cover image
-  galleryLogoIndex?: number;       // Index pointing to logo image
+  galleryUrls: string[];
+  galleryCoverIndex?: number; // Index of the cover image in gallery
+  galleryLogoIndex?: number; // Index of the logo image in gallery
 
   // After Screen Activities
   afterScreenActivities: AfterScreenActivity[];

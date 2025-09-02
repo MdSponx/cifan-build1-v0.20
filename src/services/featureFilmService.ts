@@ -1121,7 +1121,10 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
           size: 0,
           type: 'image/jpeg',
           uploadedAt: legacyData.createdAt || new Date(),
-          uploadedBy: legacyData.createdBy || 'unknown'
+          uploadedBy: legacyData.createdBy || 'unknown',
+          // CRITICAL: Preserve cover and logo information from legacy indices
+          isCover: legacyData.galleryCoverIndex !== undefined ? index === legacyData.galleryCoverIndex : index === 0,
+          isLogo: legacyData.galleryLogoIndex !== undefined ? index === legacyData.galleryLogoIndex : false
         })) : undefined
     },
     cast: legacyData.mainActors ? 
