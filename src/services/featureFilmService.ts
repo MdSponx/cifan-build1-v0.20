@@ -6,6 +6,7 @@ import {
   deleteDoc, 
   getDocs, 
   getDoc, 
+  setDoc,
   query, 
   orderBy, 
   where,
@@ -39,7 +40,7 @@ export interface FeatureFilmServiceResult {
 }
 
 /**
- * Enhanced gallery data merging function
+ * Enhanced gallery data merging function - handles optional logo index
  * Properly combines existing URLs with newly uploaded file URLs while preserving indices
  */
 const mergeGalleryData = (
@@ -56,7 +57,7 @@ const mergeGalleryData = (
     existingUrls: existingUrls.length,
     newFileUrls: newFileUrls.length,
     currentCoverIndex,
-    currentLogoIndex
+    currentLogoIndex: currentLogoIndex === undefined ? 'undefined (optional)' : currentLogoIndex
   });
 
   // Filter out empty URLs from existing data
@@ -69,22 +70,25 @@ const mergeGalleryData = (
   let adjustedCoverIndex = currentCoverIndex;
   let adjustedLogoIndex = currentLogoIndex;
   
-  // If indices are beyond the merged array length, reset to first item
+  // Cover index adjustment
   if (adjustedCoverIndex !== undefined && adjustedCoverIndex >= mergedUrls.length) {
     adjustedCoverIndex = mergedUrls.length > 0 ? 0 : undefined;
     console.log('📐 Adjusted cover index due to array bounds:', adjustedCoverIndex);
   }
   
-  if (adjustedLogoIndex !== undefined && adjustedLogoIndex >= mergedUrls.length) {
-    adjustedLogoIndex = mergedUrls.length > 0 ? 0 : undefined;
-    console.log('📐 Adjusted logo index due to array bounds:', adjustedLogoIndex);
+  // Logo index adjustment - but only if it was originally defined
+  if (adjustedLogoIndex !== undefined) {
+    if (adjustedLogoIndex >= mergedUrls.length) {
+      // Reset to undefined (no logo) when out of bounds
+      adjustedLogoIndex = undefined;
+      console.log('📐 Reset logo index to undefined due to array bounds');
+    }
   }
 
   console.log('✅ Gallery data merged successfully:', {
     totalUrls: mergedUrls.length,
     adjustedCoverIndex,
-    adjustedLogoIndex,
-    urls: mergedUrls
+    adjustedLogoIndex: adjustedLogoIndex === undefined ? 'undefined (no logo)' : adjustedLogoIndex
   });
 
   return {
@@ -261,6 +265,7 @@ const uploadFeatureFilmFiles = async (
 
 /**
  * Prepare film data for Firestore (remove File objects and undefined values)
+ * Enhanced to handle optional galleryLogoIndex
  */
 const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<FeatureFilmData> => {
   const { posterFile, trailerFile, galleryFiles, ...cleanData } = filmData;
@@ -269,20 +274,21 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
   const firestoreData: any = {};
   
   Object.entries(cleanData).forEach(([key, value]) => {
+    // Handle galleryLogoIndex specially - if undefined, don't include it at all
+    if (key === 'galleryLogoIndex') {
+      // Only include galleryLogoIndex if it's a valid number
+      if (typeof value === 'number' && value >= 0) {
+        firestoreData[key] = value;
+      }
+      // If undefined or invalid, skip it completely
+      return;
+    }
+    
+    // For other fields, include if not undefined
     if (value !== undefined) {
       firestoreData[key] = value;
     }
   });
-  
-  // Special handling for galleryLogoIndex - completely omit if undefined
-  if (filmData.galleryLogoIndex === undefined) {
-    delete firestoreData.galleryLogoIndex;
-  }
-  
-  // Also handle galleryCoverIndex if it's undefined
-  if (filmData.galleryCoverIndex === undefined) {
-    delete firestoreData.galleryCoverIndex;
-  }
   
   console.log('🧹 Cleaned data for Firestore:', {
     originalKeys: Object.keys(filmData),
@@ -291,10 +297,52 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
       filmData[key as keyof FeatureFilmData] === undefined
     ),
     hasGalleryLogoIndex: 'galleryLogoIndex' in firestoreData,
+    galleryLogoIndexValue: firestoreData.galleryLogoIndex,
     hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData
   });
   
   return firestoreData;
+};
+
+/**
+ * Helper function to safely update Firestore documents with cleaned data
+ * Ensures no undefined values are sent to Firestore
+ */
+const safeUpdateDoc = async (docRef: any, updateData: any): Promise<void> => {
+  // Clean the update data to remove undefined values
+  const cleanedData: any = {};
+  
+  Object.entries(updateData).forEach(([key, value]) => {
+    // Handle galleryLogoIndex specially - if undefined, don't include it at all
+    if (key === 'galleryLogoIndex') {
+      // Only include galleryLogoIndex if it's a valid number
+      if (typeof value === 'number' && value >= 0) {
+        cleanedData[key] = value;
+      }
+      // If undefined or invalid, skip it completely
+      return;
+    }
+    
+    // For other fields, include if not undefined
+    if (value !== undefined) {
+      cleanedData[key] = value;
+    }
+  });
+  
+  console.log('🔒 Safe updateDoc - cleaned data:', {
+    originalKeys: Object.keys(updateData),
+    cleanedKeys: Object.keys(cleanedData),
+    removedUndefined: Object.keys(updateData).filter(key => updateData[key] === undefined),
+    hasGalleryLogoIndex: 'galleryLogoIndex' in cleanedData,
+    galleryLogoIndexValue: cleanedData.galleryLogoIndex
+  });
+  
+  // Only proceed with update if we have data to update
+  if (Object.keys(cleanedData).length > 0) {
+    await updateDoc(docRef, cleanedData);
+  } else {
+    console.log('⚠️ No valid data to update after cleaning, skipping updateDoc call');
+  }
 };
 
 /**
@@ -369,17 +417,19 @@ const extractCrewMembersFromFilmData = (filmData: Partial<FeatureFilmData>): any
 };
 
 /**
- * Create a new feature film record
+ * Create a new feature film with optional logo index
  */
 export const createFeatureFilm = async (
   filmData: Omit<FeatureFilmData, 'id' | 'createdAt' | 'updatedAt'>,
   userId: string
 ): Promise<FeatureFilmServiceResult> => {
   try {
-    console.log('🎬 Creating new feature film:', {
+    console.log('🚀 Creating feature film:', {
       title: filmData.titleEn,
-      userId,
-      hasFiles: !!(filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0))
+      hasGalleryFiles: !!(filmData.galleryFiles && filmData.galleryFiles.length > 0),
+      hasGalleryUrls: !!(filmData.galleryUrls && filmData.galleryUrls.length > 0),
+      galleryLogoIndex: filmData.galleryLogoIndex,
+      isLogoOptional: filmData.galleryLogoIndex === undefined
     });
 
     // Separate guests from film data and prepare clean data for Firestore
@@ -403,7 +453,7 @@ export const createFeatureFilm = async (
     const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0);
     if (hasFiles) {
       console.log('📤 Starting file upload process...');
-      const { updatedData, errors } = await uploadFeatureFilmFiles(filmId, filmData, userId);
+      const { updatedData, errors } = await uploadFeatureFilmFiles(filmId, filmData as FeatureFilmData, userId);
       
       if (errors.length > 0) {
         console.warn('⚠️ File upload errors:', errors);
@@ -412,7 +462,7 @@ export const createFeatureFilm = async (
       // Update the document with file URLs if any files were uploaded
       if (Object.keys(updatedData).length > 0) {
         console.log('💾 Updating document with file URLs:', Object.keys(updatedData));
-        await updateDoc(docRef, {
+        await safeUpdateDoc(docRef, {
           ...updatedData,
           updatedAt: serverTimestamp()
         });
@@ -496,7 +546,7 @@ export const updateFeatureFilm = async (
     };
 
     console.log('💾 Updating film document with data:', Object.keys(updateData));
-    await updateDoc(filmRef, updateData);
+    await safeUpdateDoc(filmRef, updateData);
     
     // CRITICAL: Update guests subcollection when film data changes
     const crewMembers = extractCrewMembersFromFilmData(filmData);
@@ -988,7 +1038,7 @@ export const updateEnhancedFeatureFilm = async (
       updatedAt: serverTimestamp()
     };
 
-    await updateDoc(docRef, updateData);
+    await safeUpdateDoc(docRef, updateData);
     
     return {
       success: true,

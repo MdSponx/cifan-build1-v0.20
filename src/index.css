@@ -176,11 +176,65 @@
   border-color: rgba(252, 178, 131, 0.3);
 }
 
-.rich-text-editor .ql-toolbar .ql-picker-options {
-  background: rgba(17, 13, 22, 0.95);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
-  backdrop-filter: blur(20px);
+/* Enhanced Quill Picker Dropdown Styles - Ultra-high z-index fix */
+.rich-text-editor .ql-toolbar .ql-picker-options,
+.description-editor .ql-toolbar .ql-picker-options,
+.rich-text-editor-container .ql-picker-options {
+  background: rgba(17, 13, 22, 0.95) !important;
+  border: 1px solid rgba(255, 255, 255, 0.2) !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(20px) !important;
+  z-index: 999999 !important;
+  position: fixed !important;
+  transform: translateZ(0) !important;
+  will-change: transform !important;
+  max-height: 200px !important;
+  overflow-y: auto !important;
+  min-width: 120px !important;
+  margin-top: 4px !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5) !important;
+  isolation: isolate !important;
+  pointer-events: auto !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* Ensure picker container creates proper stacking context */
+.rich-text-editor .ql-toolbar .ql-picker,
+.description-editor .ql-toolbar .ql-picker {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  margin: 2px;
+  position: relative !important;
+  z-index: 999998 !important;
+  isolation: isolate !important;
+}
+
+/* Enhanced picker expanded state */
+.rich-text-editor .ql-toolbar .ql-picker.ql-expanded,
+.description-editor .ql-toolbar .ql-picker.ql-expanded {
+  z-index: 999999 !important;
+  position: relative !important;
+  isolation: isolate !important;
+}
+
+/* Specific targeting for header dropdown */
+.rich-text-editor .ql-toolbar .ql-header .ql-picker-options,
+.description-editor .ql-toolbar .ql-header .ql-picker-options {
+  background: rgba(17, 13, 22, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(25px) !important;
+  z-index: 999999 !important;
+  position: fixed !important;
+  transform: translateZ(0) !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  min-width: 140px !important;
+  margin-top: 4px !important;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important;
+  isolation: isolate !important;
 }
 
 .rich-text-editor .ql-toolbar .ql-picker-item {
@@ -538,6 +592,13 @@ html[lang="en"] textarea::placeholder {
   overflow: hidden;
 }
 
+/* Glass container override for rich text editor sections */
+.glass-container:has(.rich-text-editor),
+.glass-container:has(.description-editor) {
+  contain: none !important;
+  overflow: visible !important;
+}
+
 /* Form Section Specific Container */
 .form-section-container {
   isolation: isolate;
@@ -621,6 +682,101 @@ html[lang="en"] textarea::placeholder {
 .user-zone-content,
 form {
   overflow: visible !important;
+}
+
+/* Global overrides for Quill dropdown positioning - Ultra-high z-index */
+body .ql-picker-options {
+  z-index: 999999 !important;
+  position: fixed !important;
+  background: rgba(17, 13, 22, 0.98) !important;
+  border: 1px solid rgba(255, 255, 255, 0.3) !important;
+  border-radius: 0.5rem !important;
+  backdrop-filter: blur(25px) !important;
+  box-shadow: 0 15px 50px rgba(0, 0, 0, 0.6) !important;
+  transform: translateZ(0) !important;
+  max-height: 250px !important;
+  overflow-y: auto !important;
+  min-width: 140px !important;
+  margin-top: 4px !important;
+  isolation: isolate !important;
+}
+
+/* Global picker container z-index */
+body .ql-picker {
+  position: relative !important;
+  z-index: 999998 !important;
+  isolation: isolate !important;
+}
+
+/* Global picker expanded state */
+body .ql-picker.ql-expanded {
+  z-index: 999999 !important;
+  isolation: isolate !important;
+}
+
+/* Force all Quill elements to respect stacking */
+.ql-container,
+.ql-toolbar {
+  isolation: isolate !important;
+}
+
+/* Ensure toolbar has proper stacking context */
+.rich-text-editor .ql-toolbar,
+.description-editor .ql-toolbar {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-bottom: none;
+  border-radius: 0.5rem 0.5rem 0 0;
+  padding: 8px 12px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  position: relative !important;
+  z-index: 100 !important;
+}
+
+/* Ensure editor container allows overflow */
+.rich-text-editor,
+.description-editor {
+  position: relative !important;
+  z-index: 1 !important;
+  overflow: visible !important;
+  contain: none !important;
+}
+
+/* Ensure all form sections allow overflow */
+.space-y-6 > div,
+.space-y-8 > div,
+.admin-news-form-section {
+  overflow: visible !important;
+  contain: none !important;
+}
+
+/* Rich text editor container specific overrides */
+.rich-text-editor,
+.description-editor {
+  overflow: visible !important;
+  contain: none !important;
+  position: relative !important;
+  z-index: 1 !important;
+  isolation: isolate !important;
+}
+
+/* Form containers with rich text editors */
+form:has(.rich-text-editor),
+form:has(.description-editor),
+div:has(.rich-text-editor),
+div:has(.description-editor) {
+  overflow: visible !important;
+  contain: none !important;
+}
+
+/* Admin layout specific overrides */
+.min-h-screen:has(.rich-text-editor),
+.min-h-screen:has(.description-editor) {
+  overflow-x: hidden !important;
+  overflow-y: visible !important;
 }
 
 /* Fixed positioning dropdown for nationality selector */

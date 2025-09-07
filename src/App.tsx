@@ -50,6 +50,13 @@ import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
 import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
 import PublicFeatureFilmsPage from './components/pages/PublicFeatureFilmsPage';
 import PublicFeatureFilmDetailPage from './components/pages/PublicFeatureFilmDetailPage';
+import PublicNewsPage from './components/pages/PublicNewsPage';
+import PublicNewsDetailPage from './components/pages/PublicNewsDetailPage';
+import AdminNewsGallery from './components/admin/AdminNewsGallery';
+import AdminNewsForm from './components/admin/AdminNewsForm';
+import { newsService } from './services/newsService';
+import { useAuth } from './components/auth/AuthContext';
+import { useNotificationHelpers } from './components/ui/NotificationContext';
 import ErrorBoundary from './components/ui/ErrorBoundary';
 
 // Component to handle HTML lang attribute
@@ -62,6 +69,75 @@ function LanguageHandler() {
   }, [i18n.language]);
 
   return null;
+}
+
+// Wrapper component for AdminNewsForm that can access useAuth and notifications
+function NewsFormWrapper({ mode, onCancel }: { mode: 'create' | 'edit'; onCancel: () => void }) {
+  const { user } = useAuth();
+  const { showSuccess, showError, showLoading, updateToSuccess, updateToError } = useNotificationHelpers();
+  
+  return (
+    <AdminNewsForm 
+      mode={mode}
+      onSubmit={async (formData) => {
+        let loadingId: string | null = null;
+        
+        try {
+          if (!user?.uid) {
+            throw new Error('User not authenticated');
+          }
+          
+          // Show loading notification
+          loadingId = showLoading(
+            'Creating Article', 
+            'Please wait while we save your article...'
+          );
+          
+          // Get user display name or email as author name
+          const authorName = user.displayName || user.email || 'Unknown Author';
+          
+          // Create the article
+          const createdArticle = await newsService.createArticle(formData, user.uid, authorName);
+          
+          // Update to success notification
+          if (loadingId) {
+            updateToSuccess(
+              loadingId,
+              'Article Created Successfully!',
+              `"${createdArticle.title}" has been saved to the news collection.`
+            );
+          }
+          
+          // Navigate back to news list after a short delay
+          setTimeout(() => {
+            onCancel();
+          }, 1500);
+          
+        } catch (error) {
+          console.error('Error creating article:', error);
+          
+          // Update to error notification
+          if (loadingId) {
+            updateToError(
+              loadingId,
+              'Failed to Create Article',
+              error instanceof Error ? error.message : 'An unexpected error occurred while saving the article.'
+            );
+          } else {
+            // Show error notification if no loading notification was shown
+            showError(
+              'Failed to Create Article',
+              error instanceof Error ? error.message : 'An unexpected error occurred while saving the article.'
+            );
+          }
+          
+          // Re-throw the error so the form can handle it
+          throw error;
+        }
+      }}
+      onCancel={onCancel}
+    />
+  );
 }
 
 function App() {
@@ -153,6 +229,8 @@ function App() {
         return <ComingSoonPage />;
       case 'activities':
         return <PublicActivitiesPage />;
+      case 'news':
+        return <PublicNewsPage />;
       case 'public/feature-films':
         return (
           <PublicFeatureFilmsPage 
@@ -242,6 +320,33 @@ function App() {
                     mode="create"
                     onSave={() => handleNavigate('admin/feature-films')}
                     onCancel={() => handleNavigate('admin/feature-films')}
+                  />
+                </ErrorBoundary>
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/news':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute requiredPermission="canManageContent">
+              <AdminZoneLayout currentPage="admin/news">
+                <AdminNewsGallery 
+                  onNavigate={handleNavigate}
+                />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/news/create':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute requiredPermission="canManageContent">
+              <AdminZoneLayout currentPage="admin/news/create">
+                <ErrorBoundary>
+                  <NewsFormWrapper 
+                    mode="create"
+                    onCancel={() => handleNavigate('admin/news')}
                   />
                 </ErrorBoundary>
               </AdminZoneLayout>
@@ -389,6 +494,17 @@ function App() {
             <PublicFeatureFilmDetailPage 
               filmId={filmId}
               onNavigateBack={() => handleNavigate('public/feature-films')}
+            />
+          );
+        }
+        
+        // Handle public news detail page with dynamic slug
+        if (currentPage.startsWith('news/')) {
+          const slug = currentPage.replace('news/', '');
+          return (
+            <PublicNewsDetailPage 
+              slug={slug}
+              onNavigateBack={() => handleNavigate('news')}
             />
           );
         }

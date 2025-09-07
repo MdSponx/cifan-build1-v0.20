@@ -23,7 +23,8 @@ import {
   ChevronRight,
   Palette,
   BookOpen,
-  Scale
+  Scale,
+  Newspaper
 } from 'lucide-react';
 import { AdminPermissions } from '../../types/admin.types';
 
@@ -138,6 +139,9 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
       applicationsDashboard: "แดชบอร์ด",
       applicationsGallery: "แกลเลอรี่",
       partnersManagement: "จัดการพาร์ทเนอร์",
+      news: "ข่าวสาร",
+      allNews: "ข่าวสารทั้งหมด",
+      createNews: "สร้างข่าวใหม่",
       contentManagement: "จัดการเนื้อหา",
       featureFilms: "ภาพยนตร์เรื่องยาว",
       articles: "บทความ",
@@ -167,6 +171,9 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
       applicationsDashboard: "Dashboard",
       applicationsGallery: "Gallery",
       partnersManagement: "Partners Management",
+      news: "News",
+      allNews: "All News",
+      createNews: "Create News",
       contentManagement: "Content Management",
       featureFilms: "Feature Films",
       articles: "Articles",
@@ -432,7 +439,7 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
   };
 
   const isArticlesPageActive = (page: string) => {
-    return page.startsWith('admin/articles');
+    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news');
   };
 
   // Permission-based submenu items generation with fallback
@@ -586,6 +593,18 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
             icon: <Plus size={18} />,
             label: 'Add New Film',
             href: '#admin/feature-films/new'
+          },
+          {
+            id: 'admin/news',
+            icon: <Eye size={18} />,
+            label: currentContent.allNews,
+            href: '#admin/news'
+          },
+          {
+            id: 'admin/news/create',
+            icon: <Plus size={18} />,
+            label: currentContent.createNews,
+            href: '#admin/news/create'
           }
         );
       }
@@ -604,6 +623,18 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
             icon: <Plus size={18} />,
             label: 'Add New Film',
             href: '#admin/feature-films/new'
+          },
+          {
+            id: 'admin/news',
+            icon: <Eye size={18} />,
+            label: currentContent.allNews,
+            href: '#admin/news'
+          },
+          {
+            id: 'admin/news/create',
+            icon: <Plus size={18} />,
+            label: currentContent.createNews,
+            href: '#admin/news/create'
           }
         );
       }

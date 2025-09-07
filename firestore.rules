@@ -321,6 +321,21 @@ service cloud.firestore {
     }
     
     
+    // News collection - for news and articles management (temporary simplified rules)
+    match /news/{articleId} {
+      // Read: Public can read published articles, authenticated users can read all
+      allow read: if resource.data.status == 'published' || request.auth != null;
+      
+      // Create: Any authenticated user can create articles (temporary for testing)
+      allow create: if request.auth != null;
+      
+      // Update: Any authenticated user can update articles (temporary for testing)
+      allow update: if request.auth != null;
+      
+      // Delete: Any authenticated user can delete articles (temporary for testing)
+      allow delete: if request.auth != null;
+    }
+    
     // Public collections (read-only for all users)
     match /public/{document=**} {
       allow read: if true;

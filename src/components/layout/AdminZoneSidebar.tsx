@@ -19,7 +19,8 @@ import {
   Film,
   Award,
   ChevronDown,
-  ChevronRight
+  ChevronRight,
+  Newspaper
 } from 'lucide-react';
 
 interface AdminZoneSidebarProps {
@@ -71,6 +72,9 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
       applicationsDashboard: "แดชบอร์ด",
       applicationsGallery: "แกลเลอรี่",
       partnersManagement: "จัดการพาร์ทเนอร์",
+      news: "ข่าวสาร",
+      allNews: "ข่าวสารทั้งหมด",
+      createNews: "สร้างข่าวใหม่",
       activitiesEvents: "กิจกรรมและอีเวนต์",
       allActivities: "กิจกรรมทั้งหมด",
       createNew: "สร้างใหม่",
@@ -92,6 +96,9 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
       applicationsDashboard: "Dashboard",
       applicationsGallery: "Gallery",
       partnersManagement: "Partners Management",
+      news: "News",
+      allNews: "All News",
+      createNews: "Create News",
       activitiesEvents: "Activities & Events",
       allActivities: "All Activities",
       createNew: "Create New",
@@ -157,10 +164,11 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
         return allMenuItems.filter(item => item.id === 'admin/applications');
       
       case 'editor':
-        // Editor sees Applications and Partners (no Admin Profile, Role Management, Activities, Articles)
+        // Editor sees Applications, Partners, and Articles & News (which includes News)
         return allMenuItems.filter(item => 
           item.id === 'admin/applications' || 
-          item.id === 'admin/partners'
+          item.id === 'admin/partners' ||
+          item.id === 'admin/articles'
         );
       
       case 'admin':
@@ -200,6 +208,7 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
     setIsApplicationsExpanded(!isApplicationsExpanded);
   };
 
+
   const handleActivitiesToggle = () => {
     setIsActivitiesExpanded(!isActivitiesExpanded);
   };
@@ -212,12 +221,13 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
     return page.startsWith('admin/dashboard') || page.startsWith('admin/gallery');
   };
 
+
   const isActivitiesPageActive = (page: string) => {
     return page.startsWith('admin/activities');
   };
 
   const isArticlesPageActive = (page: string) => {
-    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films');
+    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news');
   };
 
   // Applications submenu items
@@ -236,6 +246,7 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
     }
   ];
 
+
     // Articles & News submenu items
     const articlesSubmenuItems = [
       {
@@ -249,6 +260,18 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
         icon: <Plus size={18} />,
         label: 'Add New Film',
         href: '#admin/feature-films/new'
+      },
+      {
+        id: 'admin/news',
+        icon: <Eye size={18} />,
+        label: currentContent.allNews,
+        href: '#admin/news'
+      },
+      {
+        id: 'admin/news/create',
+        icon: <Plus size={18} />,
+        label: currentContent.createNews,
+        href: '#admin/news/create'
       }
     ];
 
@@ -444,6 +467,7 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
                   </li>
                 );
               }
+
 
               // Handle Articles & News menu item specially
               if (item.id === 'admin/articles') {
