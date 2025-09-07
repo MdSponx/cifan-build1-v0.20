@@ -54,6 +54,7 @@ import PublicNewsPage from './components/pages/PublicNewsPage';
 import PublicNewsDetailPage from './components/pages/PublicNewsDetailPage';
 import AdminNewsGallery from './components/admin/AdminNewsGallery';
 import AdminNewsForm from './components/admin/AdminNewsForm';
+import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
 import { newsService } from './services/newsService';
 import { useAuth } from './components/auth/AuthContext';
 import { useNotificationHelpers } from './components/ui/NotificationContext';
@@ -231,6 +232,8 @@ function App() {
         return <PublicActivitiesPage />;
       case 'news':
         return <PublicNewsPage />;
+      case 'test/quill-dropdown':
+        return <QuillDropdownTestPage />;
       case 'public/feature-films':
         return (
           <PublicFeatureFilmsPage 
