@@ -232,7 +232,7 @@ function App() {
         return <PublicActivitiesPage />;
       case 'news':
         return <PublicNewsPage />;
-      case 'test/quill-dropdown':
+      case 'quill-dropdown-test':
         return <QuillDropdownTestPage />;
       case 'public/feature-films':
         return (

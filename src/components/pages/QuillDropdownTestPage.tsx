@@ -1,12 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import RichTextEditor from '../ui/RichTextEditor';
+import QuillDropdownDebugPanel from '../debug/QuillDropdownDebugPanel';
 import { debugQuillDropdowns, fixContainerOverflow, testDropdownPositioning, forceDropdownFix, analyzeDropdownIssues } from '../../utils/quillDropdownDebug';
+import { useQuillDropdownFix } from '../../hooks/useQuillDropdownFix';
 
 const QuillDropdownTestPage: React.FC = () => {
   const [content1, setContent1] = useState('<p>Test content for editor 1</p>');
   const [content2, setContent2] = useState('<p>Test content for editor 2</p>');
   const [content3, setContent3] = useState('<p>Test content for editor 3</p>');
   const [debugOutput, setDebugOutput] = useState<string[]>([]);
+  const [showDebugPanel, setShowDebugPanel] = useState(true);
+
+  // Use the comprehensive dropdown fix hook
+  const { forceFixAll, runDiagnostics, isInitialized } = useQuillDropdownFix({
+    enableDebugMode: true,
+    autoApplyFix: true,
+    observeNewEditors: true
+  });
 
   const addDebugMessage = (message: string) => {
     setDebugOutput(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
@@ -37,18 +47,41 @@ const QuillDropdownTestPage: React.FC = () => {
         
         {/* Header */}
         <div className="glass-container rounded-xl p-6">
-          <h1 className="text-3xl font-bold text-white mb-2">
-            Quill Dropdown Test Page
-          </h1>
-          <p className="text-white/80">
-            Test and debug Quill rich text editor dropdown positioning issues
-          </p>
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-white mb-2">
+                Quill Dropdown Test Page
+              </h1>
+              <p className="text-white/80">
+                Test and debug Quill rich text editor dropdown positioning issues
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                isInitialized 
+                  ? 'bg-green-500/20 text-green-400 border border-green-500/30' 
+                  : 'bg-red-500/20 text-red-400 border border-red-500/30'
+              }`}>
+                {isInitialized ? '🟢 Fix Active' : '🔴 Fix Inactive'}
+              </div>
+              <button
+                onClick={() => setShowDebugPanel(!showDebugPanel)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  showDebugPanel
+                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                    : 'bg-gray-600 hover:bg-gray-700 text-white'
+                }`}
+              >
+                {showDebugPanel ? 'Hide Debug Panel' : 'Show Debug Panel'}
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Debug Controls */}
         <div className="glass-container rounded-xl p-6">
           <h2 className="text-xl font-semibold text-white mb-4">Debug Controls</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
             <button
               onClick={() => runDebugFunction(debugQuillDropdowns, 'Debug Dropdowns')}
               className="px-4 py-2 bg-blue-500/20 border border-blue-500/30 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-colors"
@@ -78,6 +111,19 @@ const QuillDropdownTestPage: React.FC = () => {
               className="px-4 py-2 bg-purple-500/20 border border-purple-500/30 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
             >
               Analyze Issues
+            </button>
+            <button
+              onClick={() => runDebugFunction(() => {
+                forceFixAll();
+                const diagnostics = runDiagnostics();
+                addDebugMessage(`Comprehensive fix applied. Issues found: ${
+                  diagnostics.hiddenDropdowns + diagnostics.positioningIssues + 
+                  diagnostics.zIndexIssues + diagnostics.containerIssues + diagnostics.contentIssues
+                }`);
+              }, 'Comprehensive Fix')}
+              className="px-4 py-2 bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-lg hover:bg-indigo-500/30 transition-colors"
+            >
+              Comprehensive Fix
             </button>
           </div>
 
@@ -233,6 +279,14 @@ const QuillDropdownTestPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Debug Panel */}
+        <QuillDropdownDebugPanel
+          isVisible={showDebugPanel}
+          position="bottom-right"
+          autoRunDiagnostics={true}
+          autoRefreshInterval={5000}
+        />
 
       </div>
     </div>
