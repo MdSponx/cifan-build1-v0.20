@@ -373,6 +373,12 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Prevent duplicate submissions
+    if (isSubmitting) {
+      console.warn('⚠️ Form submission already in progress, ignoring duplicate submission');
+      return;
+    }
+    
     if (!validateForm()) {
       showError('Validation Error', 'Please fix the errors in the form');
       return;

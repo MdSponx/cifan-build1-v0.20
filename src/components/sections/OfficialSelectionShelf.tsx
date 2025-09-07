@@ -1,11 +1,9 @@
-// แก้ไข src/components/sections/OfficialSelectionShelf.tsx
-// ใช้ logic ตรงๆ โดยไม่ต้องพึ่ง helper functions
-
 import React, { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { useFeatureFilms } from "../../hooks/useFeatureFilms";
 import { FeatureFilm } from "../../types/featureFilm.types";
+import { useTypography } from "../../utils/typography";
 
 // --- Types ---
 export interface Film {
@@ -26,24 +24,167 @@ export interface Film {
   category?: string;
 }
 
-// ✅ Enhanced data mapping with proper field handling and debugging
+// ✅ COMPREHENSIVE data mapping with ALL field variations and deep debugging
 function mapFeatureFilmToDisplayFilm(featureFilm: FeatureFilm | any): Film {
-  console.log('🎬 Processing film data:', {
-    id: featureFilm.id,
-    title: featureFilm.title || featureFilm.titleEn,
-    publicationStatus: featureFilm.publicationStatus,
-    status: featureFilm.status,
-    hasGalleryUrls: !!featureFilm.galleryUrls,
-    hasStills: !!featureFilm.files?.stills,
-    hasPosterUrl: !!featureFilm.posterUrl,
-    hasPosterFile: !!featureFilm.files?.poster,
-    // Debug the problematic fields
+  console.log('🎬 DEEP DEBUG - Processing film:', featureFilm.id);
+  
+  // === COMPREHENSIVE targetAudience handling ===
+  let targetAudiences: string[] = [];
+  
+  // Check ALL possible field name variations
+  const possibleTargetFields = [
+    featureFilm.targetAudience,
+    featureFilm.targetAudiences,
+    featureFilm.target_audience,
+    featureFilm['target-audience'],
+    featureFilm.Target_Audience,
+    featureFilm.TargetAudience
+  ];
+  
+  console.log('👥 Checking targetAudience variations:', {
     targetAudience: featureFilm.targetAudience,
-    afterScreenActivities: featureFilm.afterScreenActivities,
-    screeningDate1: featureFilm.screeningDate1
+    targetAudiences: featureFilm.targetAudiences,
+    target_audience: featureFilm.target_audience,
+    types: possibleTargetFields.map(f => typeof f)
   });
+  
+  for (const field of possibleTargetFields) {
+    if (field !== undefined && field !== null) {
+      if (Array.isArray(field)) {
+        // Handle array - filter out empty/invalid values
+        targetAudiences = field.filter(item => 
+          item && 
+          typeof item === 'string' && 
+          item.trim() !== '' &&
+          item.toLowerCase() !== 'undefined' &&
+          item.toLowerCase() !== 'null'
+        );
+        console.log('👥 ✅ Found targetAudience array:', targetAudiences);
+        break;
+      } else if (typeof field === 'string' && field.trim() !== '') {
+        // Handle single string
+        const cleanValue = field.trim();
+        if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+          targetAudiences = [cleanValue];
+          console.log('👥 ✅ Found targetAudience string:', targetAudiences);
+          break;
+        }
+      } else if (typeof field === 'object' && field.length !== undefined) {
+        // Handle object that might be array-like
+        try {
+          const arrayLike = Object.values(field).filter(item => 
+            item && typeof item === 'string' && item.trim() !== ''
+          );
+          if (arrayLike.length > 0) {
+            targetAudiences = arrayLike as string[];
+            console.log('👥 ✅ Found targetAudience object-array:', targetAudiences);
+            break;
+          }
+        } catch (e) {
+          console.log('👥 ⚠️ Could not process targetAudience object:', field);
+        }
+      }
+    }
+  }
+  
+  if (targetAudiences.length === 0) {
+    console.log('👥 ❌ No valid targetAudience found in any field variation');
+  }
 
-  // Handle image data from multiple sources
+  // === COMPREHENSIVE afterScreenActivities handling ===
+  let afterScreenActivities: string[] = [];
+  
+  // Check ALL possible field name variations
+  const possibleActivityFields = [
+    featureFilm.afterScreenActivities,
+    featureFilm.afterScreenActivity,
+    featureFilm.after_screen_activities,
+    featureFilm['after-screen-activities'],
+    featureFilm.After_Screen_Activities,
+    featureFilm.AfterScreenActivities,
+    featureFilm.postScreenActivities,
+    featureFilm.activities
+  ];
+  
+  console.log('🎪 Checking afterScreenActivities variations:', {
+    afterScreenActivities: featureFilm.afterScreenActivities,
+    afterScreenActivity: featureFilm.afterScreenActivity,
+    after_screen_activities: featureFilm.after_screen_activities,
+    types: possibleActivityFields.map(f => typeof f)
+  });
+  
+  for (const field of possibleActivityFields) {
+    if (field !== undefined && field !== null) {
+      if (Array.isArray(field)) {
+        // Handle array
+        afterScreenActivities = field.filter(item => 
+          item && 
+          typeof item === 'string' && 
+          item.trim() !== '' &&
+          item.toLowerCase() !== 'undefined' &&
+          item.toLowerCase() !== 'null'
+        );
+        console.log('🎪 ✅ Found afterScreenActivities array:', afterScreenActivities);
+        break;
+      } else if (typeof field === 'string' && field.trim() !== '') {
+        // Handle single string
+        const cleanValue = field.trim();
+        if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+          afterScreenActivities = [cleanValue];
+          console.log('🎪 ✅ Found afterScreenActivities string:', afterScreenActivities);
+          break;
+        }
+      } else if (typeof field === 'object' && field.length !== undefined) {
+        // Handle object that might be array-like
+        try {
+          const arrayLike = Object.values(field).filter(item => 
+            item && typeof item === 'string' && item.trim() !== ''
+          );
+          if (arrayLike.length > 0) {
+            afterScreenActivities = arrayLike as string[];
+            console.log('🎪 ✅ Found afterScreenActivities object-array:', afterScreenActivities);
+            break;
+          }
+        } catch (e) {
+          console.log('🎪 ⚠️ Could not process afterScreenActivities object:', field);
+        }
+      }
+    }
+  }
+  
+  if (afterScreenActivities.length === 0) {
+    console.log('🎪 ❌ No valid afterScreenActivities found in any field variation');
+  }
+
+  // === COMPREHENSIVE category handling ===
+  let category = 'Official Selection'; // Default
+  
+  const possibleCategoryFields = [
+    featureFilm.category,
+    featureFilm.Category,
+    featureFilm.film_category,
+    featureFilm.filmCategory,
+    featureFilm['film-category']
+  ];
+  
+  console.log('📂 Checking category variations:', possibleCategoryFields);
+  
+  for (const field of possibleCategoryFields) {
+    if (field && typeof field === 'string' && field.trim() !== '') {
+      const cleanValue = field.trim();
+      if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+        category = cleanValue;
+        console.log('📂 ✅ Found category:', category);
+        break;
+      }
+    }
+  }
+  
+  if (category === 'Official Selection') {
+    console.log('📂 ⚠️ Using default category (no valid category found)');
+  }
+
+  // === Handle image data from multiple sources ===
   let galleryUrls: string[] = [];
   let galleryCoverIndex: number | undefined;
   let galleryLogoIndex: number | undefined;
@@ -77,64 +218,17 @@ function mapFeatureFilmToDisplayFilm(featureFilm: FeatureFilm | any): Film {
     console.log('🖼️ Using new files.poster.url');
   }
 
-  // ✅ FIX: Extract year from screeningDate1 if available
-  let extractedYear = new Date().getFullYear(); // Default fallback
+  // Extract year from screeningDate1 if available
+  let extractedYear: number | undefined;
   if (featureFilm.screeningDate1) {
     try {
-      const screeningDate = new Date(featureFilm.screeningDate1);
-      if (!isNaN(screeningDate.getTime())) {
-        extractedYear = screeningDate.getFullYear();
-        console.log('📅 Extracted year from screeningDate1:', extractedYear);
+      const date = new Date(featureFilm.screeningDate1);
+      if (!isNaN(date.getTime())) {
+        extractedYear = date.getFullYear();
       }
-    } catch (error) {
-      console.warn('⚠️ Failed to parse screeningDate1:', featureFilm.screeningDate1);
+    } catch (e) {
+      console.log('📅 Warning: Could not extract year from screeningDate1');
     }
-  }
-
-  // ✅ FIX: Properly handle targetAudience array with aggressive debugging
-  let targetAudiences: string[] = ['Cinephile']; // Default fallback
-  console.log('🔍 DEBUG targetAudience:', {
-    raw: featureFilm.targetAudience,
-    type: typeof featureFilm.targetAudience,
-    isArray: Array.isArray(featureFilm.targetAudience),
-    length: featureFilm.targetAudience?.length
-  });
-  
-  if (featureFilm.targetAudience) {
-    if (Array.isArray(featureFilm.targetAudience) && featureFilm.targetAudience.length > 0) {
-      targetAudiences = featureFilm.targetAudience;
-      console.log('👥 ✅ Using targetAudience array:', targetAudiences);
-    } else if (typeof featureFilm.targetAudience === 'string') {
-      targetAudiences = [featureFilm.targetAudience];
-      console.log('👥 ✅ Converting single targetAudience to array:', targetAudiences);
-    } else {
-      console.log('👥 ⚠️ targetAudience exists but not in expected format, using fallback');
-    }
-  } else {
-    console.log('👥 ⚠️ No targetAudience found, using fallback');
-  }
-
-  // ✅ FIX: Properly handle afterScreenActivities array with aggressive debugging
-  let afterScreenActivities: string[] = ['qna']; // Default fallback
-  console.log('🔍 DEBUG afterScreenActivities:', {
-    raw: featureFilm.afterScreenActivities,
-    type: typeof featureFilm.afterScreenActivities,
-    isArray: Array.isArray(featureFilm.afterScreenActivities),
-    length: featureFilm.afterScreenActivities?.length
-  });
-  
-  if (featureFilm.afterScreenActivities) {
-    if (Array.isArray(featureFilm.afterScreenActivities) && featureFilm.afterScreenActivities.length > 0) {
-      afterScreenActivities = featureFilm.afterScreenActivities;
-      console.log('🎪 ✅ Using afterScreenActivities array:', afterScreenActivities);
-    } else if (typeof featureFilm.afterScreenActivities === 'string') {
-      afterScreenActivities = [featureFilm.afterScreenActivities];
-      console.log('🎪 ✅ Converting single afterScreenActivities to array:', afterScreenActivities);
-    } else {
-      console.log('🎪 ⚠️ afterScreenActivities exists but not in expected format, using fallback');
-    }
-  } else {
-    console.log('🎪 ⚠️ No afterScreenActivities found, using fallback');
   }
 
   const mappedFilm = {
@@ -142,31 +236,36 @@ function mapFeatureFilmToDisplayFilm(featureFilm: FeatureFilm | any): Film {
     title: featureFilm.titleEn || featureFilm.title || 'Untitled',
     titleTh: featureFilm.titleTh,
     publicationStatus: featureFilm.publicationStatus,
-    year: featureFilm.releaseYear || extractedYear, // Use extracted year from screeningDate1
+    year: featureFilm.releaseYear || extractedYear,
+    
     // Image data
     galleryUrls,
     galleryCoverIndex,
     galleryLogoIndex,
     posterUrl,
-    // Content data with correct field names from actual data structure
-    genres: Array.isArray(featureFilm.genres) ? featureFilm.genres : (featureFilm.genres ? [featureFilm.genres] : ['Drama']),
-    runtimeMinutes: featureFilm.length || featureFilm.duration || 120, // 'length' field in actual data
+    
+    // Content data
+    genres: Array.isArray(featureFilm.genres) ? featureFilm.genres : (featureFilm.genres ? [featureFilm.genres] : []),
+    runtimeMinutes: featureFilm.length || featureFilm.duration || 120,
     logline: featureFilm.logline || featureFilm.synopsis || '',
-    targetAudiences: targetAudiences, // ✅ FIXED: Use properly handled array
-    afterScreenActivities: afterScreenActivities, // ✅ FIXED: Use properly handled array
-    category: featureFilm.category || 'Official Selection' // 'category' field in actual data
+    
+    // ✅ Use processed data (NOT fallbacks)
+    targetAudiences: targetAudiences,
+    afterScreenActivities: afterScreenActivities,
+    category: category
   };
 
-  console.log('✅ Mapped film result:', {
+  console.log('✅ FINAL MAPPED RESULT:', {
+    id: mappedFilm.id,
     title: mappedFilm.title,
-    year: mappedFilm.year,
     targetAudiences: mappedFilm.targetAudiences,
     afterScreenActivities: mappedFilm.afterScreenActivities,
-    hasImages: mappedFilm.galleryUrls.length > 0,
-    imageCount: mappedFilm.galleryUrls.length,
-    hasCover: mappedFilm.galleryCoverIndex !== undefined,
-    hasLogo: mappedFilm.galleryLogoIndex !== undefined,
-    hasPoster: !!mappedFilm.posterUrl
+    category: mappedFilm.category,
+    dataFound: {
+      hasTargetAudiences: mappedFilm.targetAudiences.length > 0,
+      hasAfterScreenActivities: mappedFilm.afterScreenActivities.length > 0,
+      hasCustomCategory: mappedFilm.category !== 'Official Selection'
+    }
   });
 
   return mappedFilm;
@@ -246,6 +345,164 @@ function getLogoUrl(film: Film): string | null {
 
   console.log('  ❌ No logo found');
   return null;
+}
+
+// Helper functions
+function formatGenresWithEmojis(genres?: string[] | string): string[] {
+  if (!genres) return [];
+  
+  const genreEmojis: { [key: string]: string } = {
+    'Horror': '👻 Horror',
+    'horror': '👻 Horror',
+    'Comedy': '😂 Comedy',
+    'comedy': '😂 Comedy',
+    'Action': '💥 Action',
+    'action': '💥 Action',
+    'Sci Fi': '🚀 Sci Fi',
+    'sci fi': '🚀 Sci Fi',
+    'Crime/Thriller': '🔍 Crime/Thriller',
+    'crime/thriller': '🔍 Crime/Thriller',
+    'thriller': '🔍 Thriller',
+    'Adventure': '🗺️ Adventure',
+    'adventure': '🗺️ Adventure',
+    'Animation': '🎨 Animation',
+    'animation': '🎨 Animation',
+    'Drama': '🎭 Drama',
+    'drama': '🎭 Drama',
+    'Documentary': '📽️ Documentary',
+    'documentary': '📽️ Documentary',
+    'Fantasy': '🧙‍♂️ Fantasy',
+    'fantasy': '🧙‍♂️ Fantasy',
+    'folklore': '🌙 Folklore',
+    'Folklore': '🌙 Folklore',
+    'magic': '✨ Magic',
+    'Magic': '✨ Magic'
+  };
+
+  const genreArray = Array.isArray(genres) ? genres : [genres];
+  return genreArray.map(genre => {
+    const lowerGenre = genre.toLowerCase();
+    return genreEmojis[genre] || genreEmojis[lowerGenre] || `🎬 ${genre}`;
+  });
+}
+
+function formatTargetAudienceWithEmoji(audience: string): string {
+  const audienceMap: { [key: string]: string } = {
+    // Common English values
+    'general': '🌟 General Audience',
+    'adults': '👨‍👩‍👧‍👦 Adults',
+    'teens': '👦 Teens',
+    'children': '🧒 Children',
+    'family': '👨‍👩‍👧‍👦 Family',
+    'students': '🎓 Students',
+    'seniors': '👴 Seniors',
+    
+    // Possible database values
+    'popcorn': '🍿 Popcorn',
+    'cinephile': '🎭 Cinephile',
+    'college student': '🎓 College Student',
+    'art people': '🎨 Art People',
+    'folk': '🎵 Folk',
+    'novel fan': '📚 Novel Fan',
+    'j-horror fan': '👻 J-Horror Fan',
+    'youth': '🌟 Youth',
+    
+    // Exact case matches
+    'Popcorn': '🍿 Popcorn',
+    'Cinephile': '🎭 Cinephile',
+    'College Student': '🎓 College Student',
+    'Student': '📚 Student',
+    'Art People': '🎨 Art People',
+    'Folk': '🎵 Folk',
+    'Novel Fan': '📚 Novel Fan',
+    'J-Horror Fan': '👻 J-Horror Fan',
+    'Youth': '🌟 Youth',
+    'Family': '👨‍👩‍👧‍👦 Family'
+  };
+  
+  const lowerAudience = audience.toLowerCase().trim();
+  return audienceMap[audience] || audienceMap[lowerAudience] || `👥 ${audience}`;
+}
+
+function formatAfterScreenActivity(activity: string): string {
+  const activityMap: { [key: string]: string } = {
+    'qna': '🎤 Q&A Session',
+    'talk': '💬 Director Talk',
+    'redcarpet': '🔴 Red Carpet',
+    'fanmeeting': '👥 Fan Meeting',
+    'education': '📚 Education Event',
+    
+    // Variations
+    'q&a': '🎤 Q&A Session',
+    'director_talk': '💬 Director Talk',
+    'red_carpet': '🔴 Red Carpet',
+    'fan_meeting': '👥 Fan Meeting',
+    'director talk': '💬 Director Talk',
+    'red carpet': '🔴 Red Carpet',
+    'fan meeting': '👥 Fan Meeting'
+  };
+  
+  const lowerActivity = activity.toLowerCase().trim();
+  return activityMap[activity] || activityMap[lowerActivity] || `🎬 ${activity}`;
+}
+
+function formatRuntime(minutes?: number): string {
+  if (!minutes) return "-";
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
+}
+
+// Loading, Error, Empty states
+function LoadingSkeleton() {
+  return (
+    <div className="flex gap-4">
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="w-27 sm:w-32 md:w-38 lg:w-43 bg-zinc-800 animate-pulse rounded-xl"
+          style={{ height: "32.4rem" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ErrorState({ error }: { error: string }) {
+  return (
+    <div className="text-center py-12">
+      <p className="text-red-400 mb-4">⚠️ เกิดข้อผิดพลาด: {error}</p>
+      <button
+        onClick={() => window.location.reload()}
+        className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"
+      >
+        ลองใหม่
+      </button>
+    </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="text-center py-12 text-white/60">
+      <p>ยังไม่มีภาพยนตร์ในส่วนนี้</p>
+    </div>
+  );
+}
+
+function ShelfHeader() {
+  const { getClass } = useTypography();
+
+  return (
+    <div className="text-center mb-8">
+      <h2 className={`text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 ${getClass('header')}`}>
+        Official Selection 2025
+      </h2>
+      <p className={`text-lg text-white/80 ${getClass('subtitle')}`}>
+        ภาพยนตร์นานาชาติที่ได้รับการคัดเลือก
+      </p>
+    </div>
+  );
 }
 
 // --- Main Component ---
@@ -369,6 +626,7 @@ interface SpineCardProps {
 
 function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
   const { i18n } = useTranslation();
+  const { getClass } = useTypography();
   
   // ใช้ manual functions ที่เขียนใหม่
   const cover = getCoverUrl(film);
@@ -437,16 +695,18 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
       {!isActive ? (
         // Collapsed: แสดงชื่อแนวตั้ง
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[11px] sm:text-[12px] md:text-sm font-extrabold tracking-widest uppercase text-white drop-shadow [writing-mode:vertical-rl] [text-orientation:upright] text-center">
+          <span className={`text-[11px] sm:text-[12px] md:text-sm font-extrabold tracking-widest uppercase text-white drop-shadow [writing-mode:vertical-rl] [text-orientation:upright] text-center ${getClass('header')}`}>
             {getDisplayTitle()}
           </span>
         </div>
       ) : (
-        // Expanded: แสดงข้อมูลตามลำดับที่กำหนด
-        <div className="absolute inset-0 flex flex-col">
-          <div className="flex-1 flex flex-col justify-between p-4 sm:p-6 md:p-8">
-            <div className="space-y-4">
-              {/* 1. Logo */}
+        // Expanded: 4-grid layout with 3:1 ratio
+        <div className="absolute inset-0 flex flex-col p-4 sm:p-6 md:p-8">
+          {/* Main content area */}
+          <div className="flex-1 grid grid-cols-4 gap-4">
+            {/* Left section - Main info (3 columns) */}
+            <div className="col-span-3 flex flex-col space-y-4">
+              {/* Logo */}
               {logo && (
                 <div className="flex justify-start">
                   <img
@@ -461,38 +721,38 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
                 </div>
               )}
 
-              {/* 2. Title (EN or TH following web language version) + Year (badge) */}
+              {/* Title + Year */}
               <div className="flex items-center gap-3 flex-wrap">
-                <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow">
+                <h2 className={`text-2xl sm:text-3xl md:text-4xl font-bold text-white leading-tight drop-shadow ${getClass('header')}`}>
                   {getDisplayTitle()}
                 </h2>
                 {film.year && (
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 ${getClass('body')}`}>
                     {film.year}
                   </span>
                 )}
               </div>
 
-              {/* 3. Category (Banner) + Runtime (badge with clock emoji) */}
+              {/* Category + Runtime */}
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-pink-600/80 text-white border border-purple-500/30 shadow-lg">
-                  {film.category}
+                <span className={`inline-flex items-center px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-600/80 to-pink-600/80 text-white border border-purple-500/30 shadow-lg ${getClass('body')}`}>
+                  📂 {film.category || 'Not Specified'}
                 </span>
                 {film.runtimeMinutes && (
-                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                  <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-blue-500/20 text-blue-300 border border-blue-500/30 ${getClass('body')}`}>
                     🕐 {formatRuntime(film.runtimeMinutes)}
                   </span>
                 )}
               </div>
 
-              {/* 4. Genre: (Index head text and badges with different emoji) */}
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-white/90">Genre:</h3>
+              {/* Genre header and badges in same row */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <h3 className={`text-lg font-semibold text-white/90 shrink-0 ${getClass('subtitle')}`}>Genre:</h3>
                 <div className="flex flex-wrap gap-2">
                   {formatGenresWithEmojis(film.genres).map((genre, index) => (
                     <span
                       key={index}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-500/20 text-green-300 border border-green-500/30"
+                      className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-green-500/20 text-green-300 border border-green-500/30 ${getClass('body')}`}
                     >
                       {genre}
                     </span>
@@ -500,53 +760,72 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
                 </div>
               </div>
 
-              {/* 5. Target Audience: (Index head text and badges with different emoji) */}
-              <div className="space-y-2">
-                <h3 className="text-lg font-semibold text-white/90">Target Audience:</h3>
+              {/* Target Audience header and badges in same row */}
+              <div className="flex items-center gap-4 flex-wrap">
+                <h4 className={`text-lg font-semibold text-white/90 shrink-0 ${getClass('subtitle')}`}>Target Audience:</h4>
                 <div className="flex flex-wrap gap-2">
-                  {formatTargetAudiencesWithEmojis(film.targetAudiences).map((audience, index) => (
-                    <span
-                      key={index}
-                      className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30"
-                    >
-                      {audience}
+                  {film.targetAudiences && film.targetAudiences.length > 0 ? (
+                    film.targetAudiences.map((audience, index) => (
+                      <span
+                        key={index}
+                        className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-sm font-medium bg-orange-500/20 text-orange-300 border border-orange-500/30 ${getClass('body')}`}
+                      >
+                        {formatTargetAudienceWithEmoji(audience)}
+                      </span>
+                    ))
+                  ) : (
+                    <span className={`text-white/50 text-sm italic ${getClass('body')}`}>
+                      Target audience not specified in database
                     </span>
-                  ))}
+                  )}
                 </div>
               </div>
 
-              {/* 6. Logline (Text) */}
+              {/* Logline */}
               {film.logline && (
                 <div className="space-y-2">
-                  <p className="text-white/90 text-sm sm:text-base leading-relaxed line-clamp-4">
+                  <p className={`text-white/90 text-sm sm:text-base leading-relaxed line-clamp-4 ${getClass('body')}`}>
                     {film.logline}
                   </p>
                 </div>
               )}
             </div>
 
-            {/* 7. AfterScreenActivities: small banner (bottom left) + Detail button (bottom right) */}
-            <div className="flex items-end justify-between mt-6">
-              <div className="flex flex-wrap gap-2">
-                {film.afterScreenActivities?.map((activity, index) => (
-                  <span
-                    key={index}
-                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
-                  >
-                    {formatAfterScreenActivity(activity)}
-                  </span>
-                ))}
-              </div>
-              
+            {/* Right section - Empty space to maintain grid (1 column) */}
+            <div className="col-span-1">
+              {/* This space is intentionally left empty to maintain the 3:1 ratio */}
+            </div>
+          </div>
+
+          {/* Bottom row - Activities (left) and More Information button (right) */}
+          <div className="grid grid-cols-4 gap-4 mt-4">
+            {/* Left section - After Screen Activities (3 columns) */}
+            <div className="col-span-3 flex items-end">
+              {film.afterScreenActivities && film.afterScreenActivities.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {film.afterScreenActivities.map((activity, index) => (
+                    <span
+                      key={index}
+                      className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 ${getClass('body')}`}
+                    >
+                      {formatAfterScreenActivity(activity)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            
+            {/* Right section - More Information button (1 column) */}
+            <div className="col-span-1 flex items-end justify-end">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
                   // Handle detail button click - could navigate to detail page
                   console.log('Detail button clicked for:', film.title);
                 }}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-amber-600/80 to-orange-600/80 text-white border border-amber-500/30 shadow-lg hover:from-amber-500/80 hover:to-orange-500/80 transition-all duration-200"
+                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-amber-600/80 to-orange-600/80 text-white border border-amber-500/30 shadow-lg hover:from-amber-500/80 hover:to-orange-500/80 transition-all duration-200 ${getClass('body')}`}
               >
-                Detail
+                More Information
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
@@ -556,137 +835,5 @@ function SpineCard({ film, isActive, onToggle }: SpineCardProps): JSX.Element {
         </div>
       )}
     </motion.article>
-  );
-}
-
-// Helper functions
-function formatGenres(genres?: string[] | string): string {
-  if (!genres) return "-";
-  return Array.isArray(genres) ? genres.join(", ") : genres;
-}
-
-function formatGenresWithEmojis(genres?: string[] | string): string[] {
-  if (!genres) return [];
-  
-  const genreEmojis: { [key: string]: string } = {
-    'Horror': '👻 Horror',
-    'horror': '👻 Horror',
-    'Comedy': '😂 Comedy',
-    'comedy': '😂 Comedy',
-    'Action': '💥 Action',
-    'action': '💥 Action',
-    'Sci Fi': '🚀 Sci Fi',
-    'sci fi': '🚀 Sci Fi',
-    'Crime/Thriller': '🔍 Crime/Thriller',
-    'crime/thriller': '🔍 Crime/Thriller',
-    'thriller': '🔍 Thriller',
-    'Adventure': '🗺️ Adventure',
-    'adventure': '🗺️ Adventure',
-    'Animation': '🎨 Animation',
-    'animation': '🎨 Animation',
-    'Drama': '🎭 Drama',
-    'drama': '🎭 Drama',
-    'Documentary': '📽️ Documentary',
-    'documentary': '📽️ Documentary',
-    'Fantasy': '🧙‍♂️ Fantasy',
-    'fantasy': '🧙‍♂️ Fantasy',
-    'folklore': '🌙 Folklore',
-    'Folklore': '🌙 Folklore',
-    'magic': '✨ Magic',
-    'Magic': '✨ Magic'
-  };
-
-  const genreArray = Array.isArray(genres) ? genres : [genres];
-  return genreArray.map(genre => {
-    const lowerGenre = genre.toLowerCase();
-    return genreEmojis[genre] || genreEmojis[lowerGenre] || `🎬 ${genre}`;
-  });
-}
-
-function formatTargetAudiencesWithEmojis(audiences?: string[]): string[] {
-  if (!audiences) return [];
-  
-  const audienceEmojis: { [key: string]: string } = {
-    'Popcorn': '🍿 Popcorn',
-    'Cinephile': '🎬 Cinephile',
-    'College Student': '🎓 College Student',
-    'Student': '📚 Student',
-    'Art People': '🎨 Art People',
-    'Folk': '🌾 Folk',
-    'Novel Fan': '📖 Novel Fan',
-    'J-Horror Fan': '👹 J-Horror Fan',
-    'Youth': '🧒 Youth',
-    'Family': '👨‍👩‍👧‍👦 Family'
-  };
-
-  return audiences.map(audience => audienceEmojis[audience] || `👥 ${audience}`);
-}
-
-function formatAfterScreenActivity(activity: string): string {
-  const activityLabels: { [key: string]: string } = {
-    'qna': '❓ Q&A',
-    'talk': '💬 Talk',
-    'redcarpet': '🎭 Red Carpet',
-    'fanmeeting': '🤝 Fan Meeting',
-    'education': '📚 Education'
-  };
-
-  return activityLabels[activity] || `🎪 ${activity}`;
-}
-
-function formatRuntime(minutes?: number): string {
-  if (!minutes) return "-";
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return h > 0 ? `${h} ชม. ${m} นาที` : `${m} นาที`;
-}
-
-// Loading, Error, Empty states
-function LoadingSkeleton() {
-  return (
-    <div className="flex gap-4">
-      {[...Array(6)].map((_, i) => (
-        <div
-          key={i}
-          className="w-27 sm:w-32 md:w-38 lg:w-43 bg-zinc-800 animate-pulse rounded-xl"
-          style={{ height: "32.4rem" }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function ErrorState({ error }: { error: string }) {
-  return (
-    <div className="text-center py-12">
-      <p className="text-red-400 mb-4">⚠️ เกิดข้อผิดพลาด: {error}</p>
-      <button
-        onClick={() => window.location.reload()}
-        className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30"
-      >
-        ลองใหม่
-      </button>
-    </div>
-  );
-}
-
-function EmptyState() {
-  return (
-    <div className="text-center py-12 text-white/60">
-      <p>ยังไม่มีภาพยนตร์ในส่วนนี้</p>
-    </div>
-  );
-}
-
-function ShelfHeader() {
-  return (
-    <div className="text-center mb-8">
-      <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4">
-        Official Selection 2025
-      </h2>
-      <p className="text-lg text-white/80">
-        ภาพยนตร์นานาชาติที่ได้รับการคัดเลือก
-      </p>
-    </div>
   );
 }

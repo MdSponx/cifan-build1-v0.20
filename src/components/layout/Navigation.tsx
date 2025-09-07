@@ -109,9 +109,7 @@ const Navigation = () => {
               <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
               <NavLink href="#competition">{t('navigation.competition')}</NavLink>
               <NavLink href="#coming-soon">{t('navigation.events')}</NavLink>
-              <NavLink href="#coming-soon">{t('navigation.awards')}</NavLink>
               <NavLink href="#coming-soon">{t('navigation.news')}</NavLink>
-              <NavLink href="#coming-soon">{t('navigation.contact')}</NavLink>
             </div>
             
             {/* User Controls Group */}
@@ -288,9 +286,7 @@ const Navigation = () => {
             <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
             <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
             <MobileNavLink href="#coming-soon">{t('navigation.events')}</MobileNavLink>
-            <MobileNavLink href="#coming-soon">{t('navigation.awards')}</MobileNavLink>
             <MobileNavLink href="#coming-soon">{t('navigation.news')}</MobileNavLink>
-            <MobileNavLink href="#coming-soon">{t('navigation.contact')}</MobileNavLink>
             
             <div className="border-t border-white/20 pt-4 mt-4 space-y-3">
               {isAuthenticated ? (

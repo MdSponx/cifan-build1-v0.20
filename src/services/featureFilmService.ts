@@ -274,6 +274,26 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
     }
   });
   
+  // Special handling for galleryLogoIndex - completely omit if undefined
+  if (filmData.galleryLogoIndex === undefined) {
+    delete firestoreData.galleryLogoIndex;
+  }
+  
+  // Also handle galleryCoverIndex if it's undefined
+  if (filmData.galleryCoverIndex === undefined) {
+    delete firestoreData.galleryCoverIndex;
+  }
+  
+  console.log('🧹 Cleaned data for Firestore:', {
+    originalKeys: Object.keys(filmData),
+    cleanedKeys: Object.keys(firestoreData),
+    removedUndefined: Object.keys(filmData).filter(key => 
+      filmData[key as keyof FeatureFilmData] === undefined
+    ),
+    hasGalleryLogoIndex: 'galleryLogoIndex' in firestoreData,
+    hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData
+  });
+  
   return firestoreData;
 };
 
@@ -1029,7 +1049,10 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     publicationStatus: legacyData.publicationStatus,
     status: legacyData.status,
     hasGalleryUrls: !!legacyData.galleryUrls,
-    hasPosterUrl: !!legacyData.posterUrl
+    hasPosterUrl: !!legacyData.posterUrl,
+    hasTargetAudience: !!legacyData.targetAudience,
+    hasAfterScreenActivities: !!legacyData.afterScreenActivities,
+    hasCategory: !!legacyData.category
   });
 
   // Determine the correct status - prioritize publicationStatus if it exists
@@ -1075,6 +1098,115 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     genres = legacyData.genres;
   } else if (legacyData.genre) {
     genres = [legacyData.genre];
+  }
+
+  // 🚨 CRITICAL FIX: Handle targetAudience field with comprehensive field variations
+  let targetAudiences: string[] = [];
+  const possibleTargetFields = [
+    legacyData.targetAudience,
+    legacyData.targetAudiences,
+    legacyData.target_audience,
+    legacyData['target-audience'],
+    legacyData.Target_Audience,
+    legacyData.TargetAudience
+  ];
+  
+  console.log('👥 Processing targetAudience variations:', {
+    targetAudience: legacyData.targetAudience,
+    targetAudiences: legacyData.targetAudiences,
+    target_audience: legacyData.target_audience
+  });
+  
+  for (const field of possibleTargetFields) {
+    if (field !== undefined && field !== null) {
+      if (Array.isArray(field)) {
+        targetAudiences = field.filter(item => 
+          item && 
+          typeof item === 'string' && 
+          item.trim() !== '' &&
+          item.toLowerCase() !== 'undefined' &&
+          item.toLowerCase() !== 'null'
+        );
+        console.log('👥 ✅ Found targetAudience array:', targetAudiences);
+        break;
+      } else if (typeof field === 'string' && field.trim() !== '') {
+        const cleanValue = field.trim();
+        if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+          targetAudiences = [cleanValue];
+          console.log('👥 ✅ Found targetAudience string:', targetAudiences);
+          break;
+        }
+      }
+    }
+  }
+
+  // 🚨 CRITICAL FIX: Handle afterScreenActivities field with comprehensive field variations
+  let afterScreenActivities: string[] = [];
+  const possibleActivityFields = [
+    legacyData.afterScreenActivities,
+    legacyData.afterScreenActivity,
+    legacyData.after_screen_activities,
+    legacyData['after-screen-activities'],
+    legacyData.After_Screen_Activities,
+    legacyData.AfterScreenActivities,
+    legacyData.postScreenActivities,
+    legacyData.activities
+  ];
+  
+  console.log('🎪 Processing afterScreenActivities variations:', {
+    afterScreenActivities: legacyData.afterScreenActivities,
+    afterScreenActivity: legacyData.afterScreenActivity,
+    after_screen_activities: legacyData.after_screen_activities
+  });
+  
+  for (const field of possibleActivityFields) {
+    if (field !== undefined && field !== null) {
+      if (Array.isArray(field)) {
+        afterScreenActivities = field.filter(item => 
+          item && 
+          typeof item === 'string' && 
+          item.trim() !== '' &&
+          item.toLowerCase() !== 'undefined' &&
+          item.toLowerCase() !== 'null'
+        );
+        console.log('🎪 ✅ Found afterScreenActivities array:', afterScreenActivities);
+        break;
+      } else if (typeof field === 'string' && field.trim() !== '') {
+        const cleanValue = field.trim();
+        if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+          afterScreenActivities = [cleanValue];
+          console.log('🎪 ✅ Found afterScreenActivities string:', afterScreenActivities);
+          break;
+        }
+      }
+    }
+  }
+
+  // 🚨 CRITICAL FIX: Handle category field with comprehensive field variations
+  let category = 'Official Selection'; // Default
+  const possibleCategoryFields = [
+    legacyData.category,
+    legacyData.Category,
+    legacyData.film_category,
+    legacyData.filmCategory,
+    legacyData['film-category']
+  ];
+  
+  console.log('📂 Processing category variations:', {
+    category: legacyData.category,
+    Category: legacyData.Category,
+    film_category: legacyData.film_category
+  });
+  
+  for (const field of possibleCategoryFields) {
+    if (field && typeof field === 'string' && field.trim() !== '') {
+      const cleanValue = field.trim();
+      if (cleanValue.toLowerCase() !== 'undefined' && cleanValue.toLowerCase() !== 'null') {
+        category = cleanValue;
+        console.log('📂 ✅ Found category:', category);
+        break;
+      }
+    }
   }
 
   const convertedFilm = {
@@ -1165,7 +1297,12 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     galleryUrls: legacyData.galleryUrls || [],
     galleryCoverIndex: legacyData.galleryCoverIndex,
     galleryLogoIndex: legacyData.galleryLogoIndex,
-    posterUrl: legacyData.posterUrl // Also preserve posterUrl for fallback
+    posterUrl: legacyData.posterUrl, // Also preserve posterUrl for fallback
+    
+    // 🚨 CRITICAL FIX: Add the processed fields to the converted film object
+    targetAudiences: targetAudiences,
+    afterScreenActivities: afterScreenActivities,
+    category: category
   } as FeatureFilm;
 
   console.log('✅ Successfully converted legacy film:', {
@@ -1176,7 +1313,16 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     duration: convertedFilm.duration,
     releaseYear: convertedFilm.releaseYear,
     country: convertedFilm.country,
-    genres: convertedFilm.genres
+    genres: convertedFilm.genres,
+    // 🚨 CRITICAL: Log the fixed fields to verify they're preserved
+    targetAudiences: convertedFilm.targetAudiences,
+    afterScreenActivities: convertedFilm.afterScreenActivities,
+    category: convertedFilm.category,
+    dataPreserved: {
+      hasTargetAudiences: (convertedFilm.targetAudiences?.length || 0) > 0,
+      hasAfterScreenActivities: (convertedFilm.afterScreenActivities?.length || 0) > 0,
+      hasCustomCategory: convertedFilm.category !== 'Official Selection'
+    }
   });
 
   return convertedFilm;

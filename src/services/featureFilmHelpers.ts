@@ -21,9 +21,28 @@ export const createFeatureFilmWithGuests = async (
   filmData: FeatureFilmData
 ): Promise<{filmId: string, guestIds: string[]}> => {
   try {
+    // Clean the data to remove undefined values and system fields
+    const cleanCreateData: any = {};
+    Object.entries(filmData).forEach(([key, value]) => {
+      // Skip system fields and undefined values
+      if (value !== undefined && 
+          key !== 'id' && 
+          key !== 'createdAt' && 
+          key !== 'createdBy' && 
+          key !== 'updatedAt') {
+        cleanCreateData[key] = value;
+      }
+    });
+
+    // Special handling for galleryLogoIndex - convert undefined to null or omit entirely
+    if (filmData.galleryLogoIndex === undefined) {
+      // Don't include galleryLogoIndex in the create if it's undefined
+      delete cleanCreateData.galleryLogoIndex;
+    }
+
     // The existing featureFilmService already handles guest creation
     // through the extractCrewMembersFromFilmData function
-    const result = await createFeatureFilm(filmData, userId);
+    const result = await createFeatureFilm(cleanCreateData, userId);
     
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to create feature film');
@@ -62,6 +81,12 @@ export const updateFeatureFilmWithGuests = async (
         cleanUpdateData[key] = value;
       }
     });
+
+    // Special handling for galleryLogoIndex - convert undefined to null or omit entirely
+    if (filmData.galleryLogoIndex === undefined) {
+      // Don't include galleryLogoIndex in the update if it's undefined
+      delete cleanUpdateData.galleryLogoIndex;
+    }
     
     // The existing featureFilmService already handles guest updates
     // through the extractCrewMembersFromFilmData function

@@ -125,6 +125,11 @@ export interface FeatureFilm {
   galleryCoverIndex?: number; // Index of cover image in galleryUrls array
   galleryLogoIndex?: number; // Index of logo image in galleryUrls array
   posterUrl?: string; // Direct poster URL for fallback
+  
+  // 🚨 CRITICAL FIX: Add missing fields that were found in database but not in type definition
+  targetAudiences?: string[]; // Target audience information
+  afterScreenActivities?: string[]; // After screen activities
+  category?: string; // Film category
 }
 
 // Legacy interface for backward compatibility with existing form
