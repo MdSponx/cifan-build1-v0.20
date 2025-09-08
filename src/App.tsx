@@ -56,6 +56,7 @@ import AdminNewsGallery from './components/admin/AdminNewsGallery';
 import AdminNewsForm from './components/admin/AdminNewsForm';
 import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
 import { newsService } from './services/newsService';
+import { NewsArticle } from './types/news.types';
 import { useAuth } from './components/auth/AuthContext';
 import { useNotificationHelpers } from './components/ui/NotificationContext';
 import ErrorBoundary from './components/ui/ErrorBoundary';
@@ -72,14 +73,80 @@ function LanguageHandler() {
   return null;
 }
 
+// Wrapper component for editing news articles that fetches the article data
+function NewsEditWrapper({ articleId, onCancel }: { articleId: string; onCancel: () => void }) {
+  const [article, setArticle] = useState<NewsArticle | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchArticle = async () => {
+      try {
+        setLoading(true);
+        const fetchedArticle = await newsService.getArticleById(articleId);
+        setArticle(fetchedArticle);
+      } catch (err) {
+        console.error('Error fetching article:', err);
+        setError(err instanceof Error ? err.message : 'Failed to fetch article');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (articleId) {
+      fetchArticle();
+    }
+  }, [articleId]);
+
+  if (loading) {
+    return (
+      <div className="glass-container rounded-xl p-12 text-center">
+        <div className="text-white/40 mb-4">
+          <div className="animate-spin w-8 h-8 border-2 border-[#FCB283] border-t-transparent rounded-full mx-auto"></div>
+        </div>
+        <p className="text-white/70">Loading article...</p>
+      </div>
+    );
+  }
+
+  if (error || !article) {
+    return (
+      <div className="glass-container rounded-xl p-12 text-center">
+        <div className="text-red-400 mb-4">
+          <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.5 0L4.268 18.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-medium text-white mb-2">Article Not Found</h3>
+        <p className="text-white/70 mb-6">{error || 'The requested article could not be found.'}</p>
+        <button 
+          onClick={onCancel}
+          className="px-6 py-3 bg-gradient-to-r from-[#AA4626] to-[#FCB283] text-white rounded-lg hover:from-[#AA4626]/90 hover:to-[#FCB283]/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:scale-105"
+        >
+          Back to News List
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <NewsFormWrapper 
+      mode="edit"
+      article={article}
+      onCancel={onCancel}
+    />
+  );
+}
+
 // Wrapper component for AdminNewsForm that can access useAuth and notifications
-function NewsFormWrapper({ mode, onCancel }: { mode: 'create' | 'edit'; onCancel: () => void }) {
+function NewsFormWrapper({ mode, article, onCancel }: { mode: 'create' | 'edit'; article?: NewsArticle | null; onCancel: () => void }) {
   const { user } = useAuth();
   const { showSuccess, showError, showLoading, updateToSuccess, updateToError } = useNotificationHelpers();
   
   return (
     <AdminNewsForm 
       mode={mode}
+      article={article}
       onSubmit={async (formData) => {
         let loadingId: string | null = null;
         
@@ -90,22 +157,31 @@ function NewsFormWrapper({ mode, onCancel }: { mode: 'create' | 'edit'; onCancel
           
           // Show loading notification
           loadingId = showLoading(
-            'Creating Article', 
-            'Please wait while we save your article...'
+            mode === 'create' ? 'Creating Article' : 'Updating Article', 
+            mode === 'create' ? 'Please wait while we save your article...' : 'Please wait while we update your article...'
           );
           
           // Get user display name or email as author name
           const authorName = user.displayName || user.email || 'Unknown Author';
           
-          // Create the article
-          const createdArticle = await newsService.createArticle(formData, user.uid, authorName);
+          let result;
+          if (mode === 'create') {
+            // Create the article
+            result = await newsService.createArticle(formData, user.uid, authorName);
+          } else {
+            // Update the article
+            if (!article?.id) {
+              throw new Error('Article ID is required for editing');
+            }
+            result = await newsService.updateArticle(article.id, formData, user.uid);
+          }
           
           // Update to success notification
           if (loadingId) {
             updateToSuccess(
               loadingId,
-              'Article Created Successfully!',
-              `"${createdArticle.title}" has been saved to the news collection.`
+              mode === 'create' ? 'Article Created Successfully!' : 'Article Updated Successfully!',
+              `"${result.title}" has been ${mode === 'create' ? 'saved to' : 'updated in'} the news collection.`
             );
           }
           
@@ -115,20 +191,20 @@ function NewsFormWrapper({ mode, onCancel }: { mode: 'create' | 'edit'; onCancel
           }, 1500);
           
         } catch (error) {
-          console.error('Error creating article:', error);
+          console.error(`Error ${mode === 'create' ? 'creating' : 'updating'} article:`, error);
           
           // Update to error notification
           if (loadingId) {
             updateToError(
               loadingId,
-              'Failed to Create Article',
-              error instanceof Error ? error.message : 'An unexpected error occurred while saving the article.'
+              mode === 'create' ? 'Failed to Create Article' : 'Failed to Update Article',
+              error instanceof Error ? error.message : `An unexpected error occurred while ${mode === 'create' ? 'saving' : 'updating'} the article.`
             );
           } else {
             // Show error notification if no loading notification was shown
             showError(
-              'Failed to Create Article',
-              error instanceof Error ? error.message : 'An unexpected error occurred while saving the article.'
+              mode === 'create' ? 'Failed to Create Article' : 'Failed to Update Article',
+              error instanceof Error ? error.message : `An unexpected error occurred while ${mode === 'create' ? 'saving' : 'updating'} the article.`
             );
           }
           
@@ -509,6 +585,25 @@ function App() {
               slug={slug}
               onNavigateBack={() => handleNavigate('news')}
             />
+          );
+        }
+        
+        // Handle admin news edit page with dynamic ID
+        if (currentPage.startsWith('admin/news/edit/')) {
+          const articleId = currentPage.replace('admin/news/edit/', '');
+          return (
+            <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+              <AdminProtectedRoute requiredPermission="canManageContent">
+                <AdminZoneLayout currentPage="admin/news/edit">
+                  <ErrorBoundary>
+                    <NewsEditWrapper 
+                      articleId={articleId}
+                      onCancel={() => handleNavigate('admin/news')}
+                    />
+                  </ErrorBoundary>
+                </AdminZoneLayout>
+              </AdminProtectedRoute>
+            </ProtectedRoute>
           );
         }
         

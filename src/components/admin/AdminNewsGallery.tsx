@@ -186,7 +186,7 @@ export default function AdminNewsGallery({
     const originalArticle = articles.find(a => a.id === articleId);
     if (originalArticle) {
       try {
-        const duplicatedArticle = await newsService.duplicateArticle(articleId);
+        const duplicatedArticle = await newsService.duplicateArticle(articleId, 'current-user-id', 'Current User');
         setArticles(prev => [duplicatedArticle, ...prev]);
       } catch (error) {
         console.error('Error duplicating article:', error);
@@ -211,7 +211,7 @@ export default function AdminNewsGallery({
   const handleBulkStatusUpdate = async (newStatus: NewsStatus) => {
     if (selectedArticles.size > 0) {
       try {
-        await newsService.bulkUpdateArticles(Array.from(selectedArticles), { status: newStatus });
+        await newsService.bulkUpdateArticles(Array.from(selectedArticles), { status: newStatus }, 'current-user-id');
         setArticles(prev => prev.map(article => 
           selectedArticles.has(article.id) 
             ? { ...article, status: newStatus, updatedAt: new Date().toISOString() }
@@ -439,20 +439,26 @@ export default function AdminNewsGallery({
 
                 {/* Article Cover Image */}
                 <div className="relative h-48 bg-gradient-to-br from-gray-200 to-gray-300">
-                  {article.coverImageUrl ? (
-                    <img
-                      src={article.coverImageUrl}
-                      alt={article.title}
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
-                      }}
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-600 to-gray-700">
-                      <FileText className="w-12 h-12 text-gray-400" />
-                    </div>
-                  )}
+                  {(() => {
+                    // First try to get cover image from gallery
+                    const coverImage = article.images?.find(img => img.isCover);
+                    const imageUrl = coverImage?.url || article.coverImageUrl;
+                    
+                    return imageUrl ? (
+                      <img
+                        src={imageUrl}
+                        alt={article.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
+                        }}
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-600 to-gray-700">
+                        <FileText className="w-12 h-12 text-gray-400" />
+                      </div>
+                    );
+                  })()}
                   
                   {/* Status Badge */}
                   <div className="absolute top-3 right-3">

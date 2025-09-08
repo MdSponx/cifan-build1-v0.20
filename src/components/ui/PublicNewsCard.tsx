@@ -38,35 +38,41 @@ const PublicNewsCard: React.FC<PublicNewsCardProps> = ({
     <article className="group cursor-pointer" onClick={handleClick}>
       <div className="bg-white/10 backdrop-blur-sm rounded-xl overflow-hidden border border-white/20 hover:border-white/40 transition-all duration-300 hover:transform hover:scale-105">
         {/* Cover Image */}
-        {article.coverImageUrl && (
-          <div className="relative h-48 overflow-hidden">
-            <img
-              src={article.coverImageUrl}
-              alt={article.title}
-              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
-            />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
+        {(() => {
+          // First try to get cover image from gallery
+          const coverImage = article.images?.find(img => img.isCover);
+          const imageUrl = coverImage?.url || article.coverImageUrl;
+          
+          return imageUrl ? (
+            <div className="relative h-48 overflow-hidden">
+              <img
+                src={imageUrl}
+                alt={article.title}
+                className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent"></div>
             
-            {/* Categories Overlay */}
-            {showCategories && article.categories.length > 0 && (
-              <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                {article.categories.slice(0, 2).map((category) => (
-                  <span
-                    key={category}
-                    className={`px-2 py-1 text-xs font-medium rounded-full bg-${getCategoryColor(category)}-600 text-white`}
-                  >
-                    {getCategoryLabel(category)}
-                  </span>
-                ))}
-                {article.categories.length > 2 && (
-                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-600 text-white">
-                    +{article.categories.length - 2}
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-        )}
+              {/* Categories Overlay */}
+              {showCategories && article.categories.length > 0 && (
+                <div className="absolute top-4 left-4 flex flex-wrap gap-2">
+                  {article.categories.slice(0, 2).map((category) => (
+                    <span
+                      key={category}
+                      className={`px-2 py-1 text-xs font-medium rounded-full bg-${getCategoryColor(category)}-600 text-white`}
+                    >
+                      {getCategoryLabel(category)}
+                    </span>
+                  ))}
+                  {article.categories.length > 2 && (
+                    <span className="px-2 py-1 text-xs font-medium rounded-full bg-gray-600 text-white">
+                      +{article.categories.length - 2}
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : null;
+        })()}
 
         {/* Content */}
         <div className="p-6">

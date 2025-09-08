@@ -34,6 +34,7 @@ import {
 import AnimatedButton from '../ui/AnimatedButton';
 import ErrorMessage from '../forms/ErrorMessage';
 import RichTextEditor from '../ui/RichTextEditor';
+import GalleryUpload from '../forms/GalleryUpload';
 
 interface AdminNewsFormProps {
   article?: NewsArticle | null;
@@ -81,6 +82,10 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
   const [customTag, setCustomTag] = useState('');
   const [internalErrors, setInternalErrors] = useState<NewsValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Gallery upload state
+  const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
+  const [galleryCoverIndex, setGalleryCoverIndex] = useState<number | undefined>(undefined);
 
   // Combine external and internal errors
   const errors = { ...internalErrors, ...externalErrors };
@@ -242,6 +247,27 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
       if (article.coverImageUrl) {
         setCoverImagePreview(article.coverImageUrl);
       }
+
+      // Initialize gallery URLs from existing images
+      if (article.images && article.images.length > 0) {
+        const imageUrls = article.images
+          .sort((a, b) => a.sortOrder - b.sortOrder)
+          .map(img => img.url);
+        setGalleryUrls(imageUrls);
+        
+        // Find cover image index
+        const coverImageIndex = article.images.findIndex(img => img.isCover);
+        if (coverImageIndex !== -1) {
+          setGalleryCoverIndex(coverImageIndex);
+        }
+      } else {
+        setGalleryUrls([]);
+        setGalleryCoverIndex(undefined);
+      }
+    } else if (mode === 'create') {
+      // Reset gallery state for create mode
+      setGalleryUrls([]);
+      setGalleryCoverIndex(undefined);
     }
   }, [article, mode]);
 
@@ -393,7 +419,46 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      await onSubmit(formData);
+      // Prepare the form data with updated gallery information
+      const updatedFormData = {
+        ...formData,
+        // Convert gallery URLs to existing images format for proper saving
+        // CRITICAL FIX: Preserve existing image IDs and create proper NewsImage objects
+        existingImages: galleryUrls.map((url, index) => {
+          // Try to find existing image data first to preserve IDs and paths
+          const existingImage = article?.images?.find(img => img.url === url);
+          
+          if (existingImage) {
+            // Preserve existing image data but update cover status and sort order
+            return {
+              ...existingImage,
+              isCover: index === galleryCoverIndex,
+              sortOrder: index
+            };
+          } else {
+            // Create new image entry for newly added URLs
+            return {
+              id: `gallery_${index}_${Date.now()}`,
+              url: url,
+              path: `news/images/gallery_${index}_${Date.now()}`,
+              altText: `Gallery image ${index + 1}`,
+              isCover: index === galleryCoverIndex,
+              sortOrder: index
+            };
+          }
+        })
+      };
+      
+      console.log('Submitting form with updated gallery data:', {
+        galleryUrls: galleryUrls.length,
+        coverIndex: galleryCoverIndex,
+        existingImages: updatedFormData.existingImages.length,
+        preservedExistingImages: updatedFormData.existingImages.filter(img => 
+          article?.images?.some(existing => existing.id === img.id)
+        ).length
+      });
+      
+      await onSubmit(updatedFormData);
     } catch (error) {
       console.error('Form submission error:', error);
     } finally {
@@ -490,8 +555,8 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
             {/* Published Date (for scheduled posts) */}
             {formData.status === 'scheduled' && (
               <div>
-                <label className={`block text-white/90 ${getClass('body')} mb-2`}>
-                  <Calendar className="w-4 h-4 inline mr-2" />
+                <label className={`flex items-center text-white/90 ${getClass('body')} mb-2`}>
+                  <Calendar className="w-4 h-4 mr-2" />
                   {currentContent.publishedAt} <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -554,61 +619,23 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
           </div>
 
           <div className="space-y-6">
-            {/* Cover Image Upload */}
-            <div>
-              <label className={`block text-white/90 ${getClass('body')} mb-3`}>
-                <ImageIcon className="w-4 h-4 inline mr-2" />
-                {currentContent.coverImage}
-              </label>
-              
-              <div 
-                onClick={() => fileInputRef.current?.click()}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all duration-300 ${
-                  errors.coverImage 
-                    ? 'border-red-400 bg-red-500/10' 
-                    : 'border-white/30 hover:border-[#FCB283]/50 hover:bg-white/5'
-                }`}
-              >
-                {coverImagePreview ? (
-                  <div className="relative inline-block">
-                    <img 
-                      src={coverImagePreview} 
-                      alt="Cover Preview" 
-                      className="max-h-48 mx-auto rounded-lg object-cover"
-                    />
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeCoverImage();
-                      }}
-                      className="absolute -top-2 -right-2 w-8 h-8 bg-red-500 hover:bg-red-600 rounded-full flex items-center justify-center text-white transition-colors"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                ) : (
-                  <div>
-                    <ImageIcon className="w-12 h-12 text-white/40 mx-auto mb-4" />
-                    <p className={`text-white/80 ${getClass('body')} mb-2`}>
-                      {currentContent.dragDropImage}
-                    </p>
-                    <p className={`text-white/60 text-sm ${getClass('menu')}`}>
-                      {currentContent.supportedFormats}
-                    </p>
-                  </div>
-                )}
-                
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleCoverImageUpload}
-                  className="hidden"
-                />
-              </div>
-              <ErrorMessage error={errors.coverImage} />
-            </div>
+            {/* Gallery Images Section */}
+            <GalleryUpload
+              value={formData.galleryImages || []}
+              onChange={(files: File[], coverIndex?: number) => {
+                handleInputChange('galleryImages', files);
+                setGalleryCoverIndex(coverIndex);
+              }}
+              urls={galleryUrls}
+              onUrlsChange={setGalleryUrls}
+              coverIndex={galleryCoverIndex}
+              className="mb-6"
+              error={errors.galleryImages}
+              mode={mode}
+              newsId={article?.id} // For auto-upload in edit mode
+              hideUrlInputs={true} // Hide URL inputs for news
+              hideLogoSelection={true} // Hide logo selection for news
+            />
           </div>
         </div>
 
@@ -689,9 +716,9 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
                   type="button"
                   variant="secondary"
                   size="medium"
-                  icon={<Plus className="w-4 h-4" />}
                   onClick={addCustomTag}
                 >
+                  <Plus className="w-4 h-4 mr-2" />
                   {currentContent.addCustomTag}
                 </AnimatedButton>
               </div>
@@ -792,9 +819,9 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
             type="submit"
             variant="primary"
             size="large"
-            icon={<Save className="w-4 h-4" />}
             className={`${getClass('menu')} ${(isSubmitting || isLoading) ? 'opacity-50 cursor-not-allowed' : ''}`}
           >
+            <Save className="w-4 h-4 mr-2" />
             {(isSubmitting || isLoading) ? currentContent.saving : currentContent.save}
           </AnimatedButton>
         </div>

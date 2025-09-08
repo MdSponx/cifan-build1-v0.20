@@ -58,11 +58,12 @@ export class NewsService {
   /**
    * Create a new news article
    */
-  async createArticle(formData: NewsFormData, userId: string, authorName: string): Promise<NewsArticle> {
+  async createArticle(formData: NewsFormData, userId: string, authorName: string, galleryCoverIndex?: number): Promise<NewsArticle> {
     console.log('Creating news article with data:', { 
       title: formData.title, 
       userId, 
-      collection: NEWS_COLLECTION 
+      collection: NEWS_COLLECTION,
+      galleryCoverIndex 
     });
     
     try {
@@ -70,31 +71,38 @@ export class NewsService {
       let coverImagePath = '';
       const galleryImages: NewsImage[] = [];
 
-      // Upload cover image if provided
-      if (formData.coverImage) {
-        console.log('Uploading cover image...');
-        const result = await this.uploadNewsImage(formData.coverImage);
-        coverImageUrl = result.downloadURL;
-        coverImagePath = result.path;
-        console.log('Cover image uploaded successfully:', coverImageUrl);
-      }
-
       // Upload gallery images if provided
       if (formData.galleryImages && formData.galleryImages.length > 0) {
         console.log('Uploading gallery images...');
         for (let i = 0; i < formData.galleryImages.length; i++) {
           const file = formData.galleryImages[i];
           const result = await this.uploadNewsImage(file);
+          const isCover = galleryCoverIndex === i;
           galleryImages.push({
             id: `img_${Date.now()}_${i}`,
             url: result.downloadURL,
             path: result.path,
             altText: `Gallery image ${i + 1}`,
-            isCover: false,
+            isCover,
             sortOrder: i
           });
         }
         console.log('Gallery images uploaded successfully:', galleryImages.length);
+      }
+
+      // Handle cover image from gallery or separate upload
+      if (galleryCoverIndex !== undefined && galleryImages[galleryCoverIndex]) {
+        // Use gallery image as cover
+        coverImageUrl = galleryImages[galleryCoverIndex].url;
+        coverImagePath = galleryImages[galleryCoverIndex].path;
+        console.log('Using gallery image as cover:', coverImageUrl);
+      } else if (formData.coverImage) {
+        // Upload separate cover image
+        console.log('Uploading separate cover image...');
+        const result = await this.uploadNewsImage(formData.coverImage);
+        coverImageUrl = result.downloadURL;
+        coverImagePath = result.path;
+        console.log('Cover image uploaded successfully:', coverImageUrl);
       }
 
       // Generate slug from title
@@ -388,7 +396,8 @@ export class NewsService {
     articleId: string, 
     formData: Partial<NewsFormData>, 
     userId: string,
-    authorName?: string
+    authorName?: string,
+    galleryCoverIndex?: number
   ): Promise<NewsArticle> {
     try {
       const docRef = doc(db, NEWS_COLLECTION, articleId);
@@ -422,12 +431,13 @@ export class NewsService {
         for (let i = 0; i < formData.galleryImages.length; i++) {
           const file = formData.galleryImages[i];
           const result = await this.uploadNewsImage(file);
+          const isCover = galleryCoverIndex === (galleryImages.length + i);
           galleryImages.push({
             id: `img_${Date.now()}_${i}`,
             url: result.downloadURL,
             path: result.path,
             altText: `Gallery image ${galleryImages.length + i + 1}`,
-            isCover: false,
+            isCover,
             sortOrder: galleryImages.length + i
           });
         }
@@ -444,6 +454,19 @@ export class NewsService {
         }
 
         galleryImages = formData.existingImages;
+      }
+
+      // Update cover designation in gallery images based on galleryCoverIndex
+      if (galleryCoverIndex !== undefined) {
+        galleryImages.forEach((img, index) => {
+          img.isCover = index === galleryCoverIndex;
+        });
+        
+        // Set cover image from gallery if specified
+        if (galleryImages[galleryCoverIndex]) {
+          coverImageUrl = galleryImages[galleryCoverIndex].url;
+          coverImagePath = galleryImages[galleryCoverIndex].path;
+        }
       }
 
       // Prepare update data
