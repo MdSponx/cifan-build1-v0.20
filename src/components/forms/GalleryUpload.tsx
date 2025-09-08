@@ -25,7 +25,6 @@ interface UploadStatus {
   progress?: number;
   error?: string;
   url?: string;
-  retryCount?: number;
 }
 
 interface GalleryItem {
@@ -37,17 +36,6 @@ interface GalleryItem {
   isLogo: boolean;
   isExisting?: boolean; // Track if this is an existing URL vs new file
   uploadStatus?: UploadStatus;
-  originalIndex?: number; // Track original position for index management
-  fileName?: string; // Store original file name for tracking
-}
-
-// Enhanced URL interface for better state management
-interface GalleryUrlWithMetadata {
-  url: string;
-  uploadStatus?: UploadStatus;
-  originalFileName?: string;
-  isAutoUploaded?: boolean;
-  uploadedAt?: Date;
 }
 
 interface GalleryUploadProps {
@@ -85,121 +73,57 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showConflictWarning, setShowConflictWarning] = useState(false);
   const [uploadStatuses, setUploadStatuses] = useState<Map<string, UploadStatus>>(new Map());
-  const [uploadQueue, setUploadQueue] = useState<Array<{id: string, file: File, originalIndex: number}>>([]);
-  const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
-  // Generate consistent file ID for tracking
-  const generateFileId = (file: File, index: number): string => {
-    return `${file.name}-${file.size}-${index}-${Date.now()}`;
-  };
-
-  // Generate stable ID for existing URLs
-  const generateUrlId = (url: string, index: number): string => {
-    return `url-${index}-${url.substring(url.lastIndexOf('/') + 1, url.lastIndexOf('.') || url.length)}`;
-  };
-
-  // Enhanced auto-upload function with better error handling and progress tracking
-  const uploadFileImmediately = async (file: File, originalIndex: number): Promise<string> => {
+  // Auto-upload function for immediate file upload
+  const uploadFileImmediately = async (file: File): Promise<string> => {
     if (!user || !filmId) {
       throw new Error('User authentication or film ID required for upload');
     }
 
-    const fileId = generateFileId(file, originalIndex);
+    const fileId = `${file.name}-${Date.now()}`;
     
-    // Set uploading status with progress tracking
+    // Set uploading status
     setUploadStatuses(prev => new Map(prev.set(fileId, {
       status: 'uploading',
-      progress: 0,
-      retryCount: 0
+      progress: 0
     })));
 
     try {
-      console.log('🚀 Starting immediate upload for:', {
-        fileName: file.name,
-        fileSize: file.size,
-        originalIndex,
-        fileId
-      });
+      console.log('🚀 Starting immediate upload for:', file.name);
       
       // Generate upload path
       const uploadPath = generateFeatureFilmUploadPath(filmId, 'gallery', file.name, user.uid);
       
-      // Upload file with progress tracking
-      const result = await uploadFile(file, uploadPath, (progress) => {
-        setUploadStatuses(prev => new Map(prev.set(fileId, {
-          ...prev.get(fileId),
-          status: 'uploading',
-          progress
-        })));
-      });
+      // Upload file
+      const result = await uploadFile(file, uploadPath);
       
       // Set success status
       setUploadStatuses(prev => new Map(prev.set(fileId, {
         status: 'success',
-        url: result.url,
-        progress: 100
+        url: result.url
       })));
 
-      console.log('✅ File uploaded successfully:', {
-        fileName: file.name,
-        url: result.url,
-        fileId
-      });
-      
+      console.log('✅ File uploaded successfully:', result.url);
       return result.url;
     } catch (error) {
-      console.error('❌ Upload failed:', {
-        fileName: file.name,
-        fileId,
-        error
-      });
+      console.error('❌ Upload failed:', error);
       
-      // Set error status with retry capability
-      setUploadStatuses(prev => {
-        const currentStatus = prev.get(fileId);
-        return new Map(prev.set(fileId, {
-          status: 'error',
-          error: error instanceof Error ? error.message : 'Upload failed',
-          retryCount: (currentStatus?.retryCount || 0) + 1,
-          progress: 0
-        }));
-      });
+      // Set error status
+      setUploadStatuses(prev => new Map(prev.set(fileId, {
+        status: 'error',
+        error: error instanceof Error ? error.message : 'Upload failed'
+      })));
       
       throw error;
     }
   };
 
-  // Retry failed upload
-  const retryUpload = async (fileId: string, file: File, originalIndex: number) => {
-    try {
-      const url = await uploadFileImmediately(file, originalIndex);
-      
-      // Update URLs array with successful upload
-      const newUrls = [...urls, url];
-      onUrlsChange(newUrls);
-      
-      // Adjust cover/logo indices if needed
-      const totalItems = value.length + newUrls.length;
-      const newCoverIndex = coverIndex !== undefined && coverIndex >= totalItems ? 0 : coverIndex;
-      const newLogoIndex = logoIndex !== undefined && logoIndex >= totalItems ? undefined : logoIndex;
-      
-      onChange(value, newCoverIndex ?? undefined, newLogoIndex);
-      
-      console.log('✅ Retry upload successful:', { fileId, url });
-    } catch (error) {
-      console.error('❌ Retry upload failed:', { fileId, error });
-    }
-  };
-
-  // Enhanced gallery items with proper upload status tracking and index management
+  // Enhanced gallery items with conflict detection and upload status
   const galleryItems: GalleryItem[] = [
-    // File items with consistent ID generation and upload status tracking
     ...value.map((file, index) => {
-      const fileId = generateFileId(file, index);
-      const uploadStatus = uploadStatuses.get(fileId);
-      
+      const fileId = `${file.name}-${Date.now()}`;
       return {
         id: `file-${index}`,
         file,
@@ -207,38 +131,17 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
         isCover: index === coverIndex,
         isLogo: index === logoIndex,
         isExisting: false,
-        uploadStatus,
-        originalIndex: index,
-        fileName: file.name
+        uploadStatus: uploadStatuses.get(fileId)
       };
     }),
-    // URL items with proper indexing and metadata
-    ...urls.filter(url => url && url.trim() !== '').map((url, index) => {
-      const globalIndex = value.length + index;
-      const urlId = generateUrlId(url, index);
-      
-      return {
-        id: `url-${index}`,
-        url,
-        isCover: globalIndex === coverIndex,
-        isLogo: globalIndex === logoIndex,
-        isExisting: mode === 'edit', // Mark URLs as existing in edit mode
-        originalIndex: globalIndex,
-        fileName: url.substring(url.lastIndexOf('/') + 1)
-      };
-    })
+    ...urls.filter(url => url && url.trim() !== '').map((url, index) => ({
+      id: `url-${index}`,
+      url,
+      isCover: (value.length + index) === coverIndex,
+      isLogo: (value.length + index) === logoIndex,
+      isExisting: mode === 'edit' // Mark URLs as existing in edit mode
+    }))
   ];
-
-  // Debug logging for gallery items state
-  console.log('🖼️ Gallery items state:', {
-    totalItems: galleryItems.length,
-    fileItems: value.length,
-    urlItems: urls.filter(url => url && url.trim() !== '').length,
-    coverIndex,
-    logoIndex,
-    uploadStatusesCount: uploadStatuses.size,
-    activeUploads: Array.from(uploadStatuses.entries()).filter(([_, status]) => status.status === 'uploading').length
-  });
 
   // Detect conflicts between files and URLs
   useEffect(() => {
@@ -294,64 +197,39 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
     }
 
     if (validFiles.length > 0) {
-        // Enhanced auto-upload with proper index management and error handling
-        if (filmId && user) {
-          console.log('🚀 Starting auto-upload for', validFiles.length, 'files');
-          
-          const uploadPromises = validFiles.map(async (file, index) => {
-            try {
-              const originalIndex = value.length + index; // Calculate proper index
-              const uploadedUrl = await uploadFileImmediately(file, originalIndex);
-              return { url: uploadedUrl, originalIndex, fileName: file.name };
-            } catch (error) {
-              console.error('❌ Auto-upload failed for', file.name, ':', error);
-              return null;
-            }
-          });
-
+      // Auto-upload files if filmId and user are available
+      if (filmId && user) {
+        console.log('🚀 Starting auto-upload for', validFiles.length, 'files');
+        
+        const uploadPromises = validFiles.map(async (file) => {
           try {
-            const uploadResults = await Promise.all(uploadPromises);
-            const successfulUploads = uploadResults.filter(result => result !== null) as Array<{url: string, originalIndex: number, fileName: string}>;
-            
-            if (successfulUploads.length > 0) {
-              // Add successful uploads to URLs array with proper index adjustment
-              const newUrls = [...urls, ...successfulUploads.map(upload => upload.url)];
-              onUrlsChange(newUrls);
-              
-              // Adjust cover and logo indices to account for new items
-              const totalItems = value.length + newUrls.length;
-              let adjustedCoverIndex = coverIndex;
-              let adjustedLogoIndex = logoIndex;
-              
-              // If cover index is undefined or out of bounds, set to first item
-              if (adjustedCoverIndex === undefined || adjustedCoverIndex >= totalItems) {
-                adjustedCoverIndex = totalItems > 0 ? 0 : undefined;
-              }
-              
-              // If logo index is out of bounds, reset to undefined
-              if (adjustedLogoIndex !== undefined && adjustedLogoIndex >= totalItems) {
-                adjustedLogoIndex = undefined;
-              }
-              
-              // Update indices through onChange
-              onChange(value, adjustedCoverIndex ?? undefined, adjustedLogoIndex);
-              
-              console.log('✅ Auto-uploaded', successfulUploads.length, 'files to gallery URLs', {
-                newUrlsCount: newUrls.length,
-                adjustedCoverIndex,
-                adjustedLogoIndex,
-                totalItems
-              });
-            }
+            const uploadedUrl = await uploadFileImmediately(file);
+            return uploadedUrl;
           } catch (error) {
-            console.error('❌ Auto-upload process failed:', error);
+            console.error('❌ Auto-upload failed for', file.name, ':', error);
+            return null;
           }
-        } else {
-          // Fallback to traditional file handling if no auto-upload capability
-          const newFiles = [...value, ...validFiles];
-          console.log(`📤 Adding ${validFiles.length} valid files to gallery. Total files: ${newFiles.length}`);
-          onChange(newFiles, coverIndex, logoIndex);
+        });
+
+        try {
+          const uploadedUrls = await Promise.all(uploadPromises);
+          const successfulUrls = uploadedUrls.filter(url => url !== null) as string[];
+          
+          if (successfulUrls.length > 0) {
+            // Add successful uploads to URLs array
+            const newUrls = [...urls, ...successfulUrls];
+            onUrlsChange(newUrls);
+            console.log('✅ Auto-uploaded', successfulUrls.length, 'files to gallery URLs');
+          }
+        } catch (error) {
+          console.error('❌ Auto-upload process failed:', error);
         }
+      } else {
+        // Fallback to traditional file handling if no auto-upload capability
+        const newFiles = [...value, ...validFiles];
+        console.log(`📤 Adding ${validFiles.length} valid files to gallery. Total files: ${newFiles.length}`);
+        onChange(newFiles, coverIndex, logoIndex);
+      }
     } else if (files.length > 0) {
       console.warn('⚠️ No valid files were selected');
       alert('No valid image files were selected. Please choose JPG, PNG, GIF, or WebP files under 10MB.');
@@ -419,64 +297,39 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
       }
 
       if (validFiles.length > 0) {
-          // Enhanced auto-upload for dropped files with proper index management
-          if (filmId && user) {
-            console.log('🚀 Starting auto-upload for', validFiles.length, 'dropped files');
-            
-            const uploadPromises = validFiles.map(async (file, index) => {
-              try {
-                const originalIndex = value.length + index; // Calculate proper index
-                const uploadedUrl = await uploadFileImmediately(file, originalIndex);
-                return { url: uploadedUrl, originalIndex, fileName: file.name };
-              } catch (error) {
-                console.error('❌ Auto-upload failed for dropped file', file.name, ':', error);
-                return null;
-              }
-            });
-
+        // Auto-upload files if filmId and user are available
+        if (filmId && user) {
+          console.log('🚀 Starting auto-upload for', validFiles.length, 'dropped files');
+          
+          const uploadPromises = validFiles.map(async (file) => {
             try {
-              const uploadResults = await Promise.all(uploadPromises);
-              const successfulUploads = uploadResults.filter(result => result !== null) as Array<{url: string, originalIndex: number, fileName: string}>;
-              
-              if (successfulUploads.length > 0) {
-                // Add successful uploads to URLs array with proper index adjustment
-                const newUrls = [...urls, ...successfulUploads.map(upload => upload.url)];
-                onUrlsChange(newUrls);
-                
-                // Adjust cover and logo indices to account for new items
-                const totalItems = value.length + newUrls.length;
-                let adjustedCoverIndex = coverIndex;
-                let adjustedLogoIndex = logoIndex;
-                
-                // If cover index is undefined or out of bounds, set to first item
-                if (adjustedCoverIndex === undefined || adjustedCoverIndex >= totalItems) {
-                  adjustedCoverIndex = totalItems > 0 ? 0 : undefined;
-                }
-                
-                // If logo index is out of bounds, reset to undefined
-                if (adjustedLogoIndex !== undefined && adjustedLogoIndex >= totalItems) {
-                  adjustedLogoIndex = undefined;
-                }
-                
-                // Update indices through onChange
-                onChange(value, adjustedCoverIndex ?? undefined, adjustedLogoIndex);
-                
-                console.log('✅ Auto-uploaded', successfulUploads.length, 'dropped files to gallery URLs', {
-                  newUrlsCount: newUrls.length,
-                  adjustedCoverIndex,
-                  adjustedLogoIndex,
-                  totalItems
-                });
-              }
+              const uploadedUrl = await uploadFileImmediately(file);
+              return uploadedUrl;
             } catch (error) {
-              console.error('❌ Auto-upload process failed for dropped files:', error);
+              console.error('❌ Auto-upload failed for dropped file', file.name, ':', error);
+              return null;
             }
-          } else {
-            // Fallback to traditional file handling if no auto-upload capability
-            const newFiles = [...value, ...validFiles];
-            console.log(`📤 Adding ${validFiles.length} valid dropped files to gallery. Total files: ${newFiles.length}`);
-            onChange(newFiles, coverIndex, logoIndex);
+          });
+
+          try {
+            const uploadedUrls = await Promise.all(uploadPromises);
+            const successfulUrls = uploadedUrls.filter(url => url !== null) as string[];
+            
+            if (successfulUrls.length > 0) {
+              // Add successful uploads to URLs array
+              const newUrls = [...urls, ...successfulUrls];
+              onUrlsChange(newUrls);
+              console.log('✅ Auto-uploaded', successfulUrls.length, 'dropped files to gallery URLs');
+            }
+          } catch (error) {
+            console.error('❌ Auto-upload process failed for dropped files:', error);
           }
+        } else {
+          // Fallback to traditional file handling if no auto-upload capability
+          const newFiles = [...value, ...validFiles];
+          console.log(`📤 Adding ${validFiles.length} valid dropped files to gallery. Total files: ${newFiles.length}`);
+          onChange(newFiles, coverIndex);
+        }
       } else if (imageFiles.length > 0) {
         console.warn('⚠️ No valid image files were dropped');
       }
@@ -733,15 +586,13 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
                         <p className="text-red-400 text-sm">Upload failed</p>
                         <button
                           onClick={() => {
-                            if (item.file && item.originalIndex !== undefined) {
-                              const fileId = generateFileId(item.file, item.originalIndex);
-                              retryUpload(fileId, item.file, item.originalIndex);
-                            }
+                            // TODO: Implement retry functionality
+                            console.log('Retry upload for:', item.file?.name);
                           }}
                           className="mt-2 px-3 py-1 bg-red-500/20 text-red-400 rounded text-xs hover:bg-red-500/30 transition-colors"
                         >
                           <RefreshCw className="w-3 h-3 inline mr-1" />
-                          Retry ({(item.uploadStatus?.retryCount || 0) + 1})
+                          Retry
                         </button>
                       </div>
                     )}
