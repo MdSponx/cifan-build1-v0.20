@@ -132,10 +132,10 @@ service cloud.firestore {
     
     // Activities collection - admin/editor can manage, public can read published activities
     match /activities/{activityId} {
-      // Read: Allow all users to read published and public activities
+      // Read: Allow all users (including unauthenticated) to read published activities
       // Admin-level users can read all activities
-      allow read: if hasAdminLevelAccess() || 
-        (resource.data.status == 'published' && resource.data.isPublic == true);
+      allow read: if resource.data.status == 'published' || 
+        (request.auth != null && hasAdminLevelAccess());
       
       // Create: Only authenticated admin-level users can create activities
       allow create: if request.auth != null && hasAdminLevelAccess() &&

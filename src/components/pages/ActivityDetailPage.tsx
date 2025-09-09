@@ -56,6 +56,7 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
       noRegistrationNeeded: 'ไม่ต้องลงทะเบียน',
       freeEntry: 'เข้าร่วมได้เลย',
       eventDetails: 'รายละเอียดงาน',
+      speakers: 'วิทยากร',
       dateTime: 'วันที่และเวลา',
       venue: 'สถานที่',
       organizers: 'ผู้จัดงาน',
@@ -90,6 +91,7 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
       noRegistrationNeeded: 'No Registration Required',
       freeEntry: 'Free Entry',
       eventDetails: 'Event Details',
+      speakers: 'Speakers',
       dateTime: 'Date & Time',
       venue: 'Venue',
       organizers: 'Organizers',
@@ -423,6 +425,79 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
                 </div>
               </div>
             </div>
+
+            {/* Speakers */}
+            {activity.speakers && activity.speakers.length > 0 && (
+              <div className="glass-container rounded-xl p-6 sm:p-8">
+                <h2 className={`text-2xl ${getClass('header')} text-white mb-6 flex items-center`}>
+                  <Users className="w-6 h-6 text-[#FCB283] mr-3" />
+                  {currentContent.speakers}
+                </h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {activity.speakers.map((speaker, index) => (
+                    <div key={speaker.id || index} className="bg-white/5 rounded-lg p-6 border border-white/10">
+                      <div className="flex items-start space-x-4">
+                        {/* Speaker Image */}
+                        <div className="flex-shrink-0">
+                          <div className="w-16 h-16 rounded-full overflow-hidden bg-white/10 border border-white/20">
+                            {speaker.image ? (
+                              <img
+                                src={speaker.image}
+                                alt={speaker.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center">
+                                <User className="w-8 h-8 text-white/40" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        {/* Speaker Info */}
+                        <div className="flex-1 min-w-0">
+                          <h3 className={`text-lg ${getClass('header')} text-white mb-1`}>
+                            {speaker.name}
+                          </h3>
+                          <p className={`text-sm ${getClass('body')} text-[#FCB283] mb-2`}>
+                            {speaker.role === 'Other' && speaker.otherRole ? speaker.otherRole : speaker.role}
+                          </p>
+                          
+                          {/* Speaker Bio */}
+                          {speaker.bio && (
+                            <p className={`text-sm ${getClass('body')} text-white/70 mb-3 line-clamp-3`}>
+                              {speaker.bio}
+                            </p>
+                          )}
+                          
+                          {/* Speaker Contact */}
+                          <div className="flex flex-wrap gap-3 text-xs">
+                            {speaker.email && (
+                              <a
+                                href={`mailto:${speaker.email}`}
+                                className="flex items-center space-x-1 text-white/60 hover:text-[#FCB283] transition-colors"
+                              >
+                                <Mail className="w-3 h-3" />
+                                <span>{speaker.email}</span>
+                              </a>
+                            )}
+                            {speaker.phone && (
+                              <a
+                                href={`tel:${speaker.phone}`}
+                                className="flex items-center space-x-1 text-white/60 hover:text-[#FCB283] transition-colors"
+                              >
+                                <Phone className="w-3 h-3" />
+                                <span>{speaker.phone}</span>
+                              </a>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Organizers */}
             {activity.organizers.length > 0 && (

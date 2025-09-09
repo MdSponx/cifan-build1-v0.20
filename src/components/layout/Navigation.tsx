@@ -108,8 +108,8 @@ const Navigation = () => {
               <NavLink href="#coming-soon">{t('navigation.programs')}</NavLink>
               <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
               <NavLink href="#competition">{t('navigation.competition')}</NavLink>
-              <NavLink href="#coming-soon">{t('navigation.events')}</NavLink>
-              <NavLink href="#coming-soon">{t('navigation.news')}</NavLink>
+              <NavLink href="#activities">{t('navigation.events')}</NavLink>
+              <NavLink href="#news">{t('navigation.news')}</NavLink>
             </div>
             
             {/* User Controls Group */}
@@ -285,8 +285,8 @@ const Navigation = () => {
             <MobileNavLink href="#coming-soon">{t('navigation.programs')}</MobileNavLink>
             <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
             <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
-            <MobileNavLink href="#coming-soon">{t('navigation.events')}</MobileNavLink>
-            <MobileNavLink href="#coming-soon">{t('navigation.news')}</MobileNavLink>
+            <MobileNavLink href="#activities">{t('navigation.events')}</MobileNavLink>
+            <MobileNavLink href="#news">{t('navigation.news')}</MobileNavLink>
             
             <div className="border-t border-white/20 pt-4 mt-4 space-y-3">
               {isAuthenticated ? (

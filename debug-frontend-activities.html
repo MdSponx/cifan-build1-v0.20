@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Frontend Activities</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        .warning { background-color: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        pre {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            white-space: pre-wrap;
+        }
+        button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Frontend Activities Debug Tool</h1>
+        <p>This tool tests the activities service directly in the browser environment to identify issues with the PublicActivitiesPage.</p>
+        
+        <div id="status"></div>
+        
+        <button onclick="testFirebaseConnection()">Test Firebase Connection</button>
+        <button onclick="testActivitiesService()">Test Activities Service</button>
+        <button onclick="testPublicActivities()">Test Public Activities Query</button>
+        <button onclick="testSpecificActivity()">Test Specific Activity</button>
+        <button onclick="clearResults()">Clear Results</button>
+        
+        <div id="results"></div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, collection, getDocs, query, where, doc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+        import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzDuGiiL5RfqE1y1kLQp16RQPnYJbWw_I",
+            authDomain: "cifan-c41c6.firebaseapp.com",
+            projectId: "cifan-c41c6",
+            storageBucket: "cifan-c41c6.firebasestorage.app",
+            messagingSenderId: "789354543255",
+            appId: "1:789354543255:web:4506a0d3f2b5ff97e491d2",
+            measurementId: "G-EFSKHEYFWC"
+        };
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        // Make Firebase services available globally
+        window.db = db;
+        window.auth = auth;
+        window.firebaseModules = {
+            collection,
+            getDocs,
+            query,
+            where,
+            doc,
+            getDoc
+        };
+
+        // Log initialization
+        addResult('info', 'Firebase SDK loaded and initialized successfully');
+        updateStatus('info', 'Ready to test - Firebase SDK initialized');
+    </script>
+
+    <script>
+        function updateStatus(type, message) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = `<strong>Status:</strong> ${message}`;
+        }
+
+        function addResult(type, title, content = '') {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = 'container';
+            
+            let html = `<h3 style="color: ${type === 'error' ? '#721c24' : type === 'success' ? '#155724' : '#0c5460'};">${title}</h3>`;
+            
+            if (content) {
+                if (typeof content === 'object') {
+                    html += `<pre>${JSON.stringify(content, null, 2)}</pre>`;
+                } else {
+                    html += `<div class="${type}">${content}</div>`;
+                }
+            }
+            
+            resultDiv.innerHTML = html;
+            resultsDiv.appendChild(resultDiv);
+            
+            // Scroll to the new result
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+            updateStatus('info', 'Results cleared - Ready to test');
+        }
+
+        async function testFirebaseConnection() {
+            updateStatus('info', 'Testing Firebase connection...');
+            
+            try {
+                // Test basic Firebase connection
+                const testCollection = window.firebaseModules.collection(window.db, 'test');
+                addResult('success', '✅ Firebase Connection Test', 'Firebase connection established successfully');
+                
+                // Test authentication state
+                const user = window.auth.currentUser;
+                if (user) {
+                    addResult('info', '👤 Authentication Status', `Logged in as: ${user.email || user.uid}`);
+                } else {
+                    addResult('info', '👤 Authentication Status', 'Not authenticated (testing as public user)');
+                }
+                
+                updateStatus('success', 'Firebase connection test completed');
+                
+            } catch (error) {
+                console.error('Firebase connection error:', error);
+                addResult('error', '❌ Firebase Connection Error', error.message);
+                updateStatus('error', 'Firebase connection failed');
+            }
+        }
+
+        async function testActivitiesService() {
+            updateStatus('info', 'Testing activities collection access...');
+            
+            try {
+                // Test 1: Basic collection access
+                addResult('info', '🔍 Test 1: Basic Collection Access', 'Attempting to access activities collection...');
+                
+                const activitiesCollection = window.firebaseModules.collection(window.db, 'activities');
+                addResult('success', '✅ Collection Reference Created', 'Successfully created activities collection reference');
+                
+                // Test 2: Query published activities
+                addResult('info', '🔍 Test 2: Query Published Activities', 'Querying activities with status = "published"...');
+                
+                const publishedQuery = window.firebaseModules.query(
+                    activitiesCollection,
+                    window.firebaseModules.where('status', '==', 'published')
+                );
+                
+                const publishedSnapshot = await window.firebaseModules.getDocs(publishedQuery);
+                
+                addResult('success', '✅ Published Activities Query', 
+                    `Found ${publishedSnapshot.size} published activities`);
+                
+                // Display activities data
+                const activities = [];
+                publishedSnapshot.forEach((doc) => {
+                    const data = doc.data();
+                    activities.push({
+                        id: doc.id,
+                        name: data.name,
+                        status: data.status,
+                        isPublic: data.isPublic,
+                        eventDate: data.eventDate,
+                        shortDescription: data.shortDescription?.substring(0, 100) + '...'
+                    });
+                });
+                
+                if (activities.length > 0) {
+                    addResult('success', '📋 Activities Data', activities);
+                } else {
+                    addResult('warning', '⚠️ No Published Activities', 'No published activities found in the database');
+                }
+                
+                updateStatus('success', 'Activities service test completed');
+                
+            } catch (error) {
+                console.error('Activities service error:', error);
+                addResult('error', '❌ Activities Service Error', `${error.code}: ${error.message}`);
+                updateStatus('error', 'Activities service test failed');
+            }
+        }
+
+        async function testPublicActivities() {
+            updateStatus('info', 'Testing public activities access (simulating PublicActivitiesPage)...');
+            
+            try {
+                // Simulate the exact query used in PublicActivitiesPage
+                addResult('info', '🔍 Simulating PublicActivitiesPage Query', 'Using the same filters as the component...');
+                
+                const activitiesCollection = window.firebaseModules.collection(window.db, 'activities');
+                
+                // This is the exact query from PublicActivitiesPage
+                const filters = { status: 'published' };
+                const queryConstraints = [];
+                
+                if (filters.status && filters.status !== 'all') {
+                    queryConstraints.push(window.firebaseModules.where('status', '==', filters.status));
+                }
+                
+                const q = window.firebaseModules.query(activitiesCollection, ...queryConstraints);
+                const snapshot = await window.firebaseModules.getDocs(q);
+                
+                addResult('success', '✅ PublicActivitiesPage Query Simulation', 
+                    `Successfully retrieved ${snapshot.size} activities`);
+                
+                // Process activities like the component does
+                const activities = [];
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const activity = {
+                        id: doc.id,
+                        name: data.name,
+                        shortDescription: data.shortDescription,
+                        status: data.status,
+                        isPublic: data.isPublic,
+                        eventDate: data.eventDate,
+                        venueName: data.venueName,
+                        tags: data.tags || [],
+                        maxParticipants: data.maxParticipants,
+                        registeredParticipants: data.registeredParticipants || 0,
+                        image: data.imageUrl
+                    };
+                    activities.push(activity);
+                });
+                
+                if (activities.length > 0) {
+                    addResult('success', '📋 Processed Activities (as component would)', activities);
+                    
+                    // Test filtering and sorting like the component
+                    const sortedActivities = activities.sort((a, b) => {
+                        return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+                    });
+                    
+                    addResult('success', '🔄 Sorted Activities (by date)', 
+                        `Activities sorted successfully. First activity: "${sortedActivities[0].name}"`);
+                        
+                } else {
+                    addResult('warning', '⚠️ No Activities to Display', 
+                        'The query returned no activities, which would cause the "No activities found" message');
+                }
+                
+                updateStatus('success', 'Public activities test completed');
+                
+            } catch (error) {
+                console.error('Public activities test error:', error);
+                addResult('error', '❌ Public Activities Test Error', 
+                    `This is likely the cause of the "Unable to load activities" error: ${error.message}`);
+                updateStatus('error', 'Public activities test failed - This explains the frontend error');
+            }
+        }
+
+        async function testSpecificActivity() {
+            updateStatus('info', 'Testing specific activity access...');
+            
+            try {
+                // First get a published activity ID
+                const publishedQuery = window.firebaseModules.query(
+                    window.firebaseModules.collection(window.db, 'activities'),
+                    window.firebaseModules.where('status', '==', 'published')
+                );
+                
+                const publishedSnapshot = await window.firebaseModules.getDocs(publishedQuery);
+                
+                if (publishedSnapshot.size === 0) {
+                    addResult('warning', '⚠️ No Published Activities', 'Cannot test specific activity access - no published activities found');
+                    return;
+                }
+                
+                const firstDoc = publishedSnapshot.docs[0];
+                const activityId = firstDoc.id;
+                
+                addResult('info', '🔍 Testing Specific Activity Access', `Testing access to activity: ${activityId}`);
+                
+                // Test direct document access
+                const docRef = window.firebaseModules.doc(window.db, 'activities', activityId);
+                const docSnap = await window.firebaseModules.getDoc(docRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    addResult('success', '✅ Direct Document Access', {
+                        id: docSnap.id,
+                        name: data.name,
+                        status: data.status,
+                        isPublic: data.isPublic,
+                        eventDate: data.eventDate
+                    });
+                } else {
+                    addResult('error', '❌ Document Not Found', 'The activity document could not be accessed');
+                }
+                
+                updateStatus('success', 'Specific activity test completed');
+                
+            } catch (error) {
+                console.error('Specific activity test error:', error);
+                addResult('error', '❌ Specific Activity Test Error', error.message);
+                updateStatus('error', 'Specific activity test failed');
+            }
+        }
+
+        // Auto-run basic connection test on load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFirebaseConnection();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

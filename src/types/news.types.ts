@@ -82,8 +82,11 @@ export interface NewsFormData {
   
   // Media
   coverImage: File | null;
-  galleryImages: File[];
-  existingImages: NewsImage[]; // For editing existing articles
+  galleryImages?: File[]; // New files to upload
+  galleryUrls?: string[]; // New URLs added manually
+  existingImages: NewsImage[]; // Existing images for reordering/editing
+  deletedImageIds?: string[]; // IDs of images to delete
+  galleryCoverIndex?: number; // Index of the cover image in the gallery
   
   // References
   referencedActivities: string[]; // Activity IDs
@@ -92,6 +95,15 @@ export interface NewsFormData {
   // SEO
   metaTitle?: string;
   metaDescription?: string;
+}
+
+// Additional interface for gallery management
+export interface NewsGalleryUpdate {
+  newFiles: File[];
+  newUrls: string[];
+  existingImages: NewsImage[];
+  deletedImageIds: string[];
+  coverIndex?: number;
 }
 
 export interface NewsFilters {

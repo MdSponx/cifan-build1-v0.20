@@ -147,16 +147,38 @@ const PublicActivitiesPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       
-      // Get public activities with filters
+      console.log('🔍 PublicActivitiesPage: Starting to load activities...');
+      
+      // Get published activities (no need for isPublic = true)
       const filters: ActivityFilters = {
-        status: 'published',
-        isPublic: true
+        status: 'published'
       };
       
+      console.log('🔍 PublicActivitiesPage: Using filters:', filters);
+      console.log('🔍 PublicActivitiesPage: Calling activitiesService.getActivities...');
+      
       const response = await activitiesService.getActivities(filters, undefined, 1, 100);
+      
+      console.log('✅ PublicActivitiesPage: Service response:', {
+        activitiesCount: response.activities.length,
+        total: response.total,
+        page: response.page,
+        totalPages: response.totalPages
+      });
+      
       setActivities(response.activities);
+      
+      console.log('✅ Loaded activities:', response.activities.length, 'published activities');
+      if (response.activities.length === 0) {
+        console.log('⚠️ No published activities found in database');
+      }
     } catch (err) {
-      console.error('Error loading activities:', err);
+      console.error('❌ PublicActivitiesPage: Error loading activities:', err);
+      console.error('❌ Error details:', {
+        message: err instanceof Error ? err.message : 'Unknown error',
+        code: (err as any)?.code,
+        stack: err instanceof Error ? err.stack : undefined
+      });
       setError(currentContent.error);
     } finally {
       setIsLoading(false);

@@ -172,28 +172,44 @@ export class ActivitiesService {
     pageSize = 12
   ): Promise<ActivityListResponse> {
     try {
+      console.log('🔍 ActivitiesService.getActivities: Starting with params:', {
+        filters,
+        sortOptions,
+        page,
+        pageSize
+      });
+
       let baseQuery = collection(db, ACTIVITIES_COLLECTION);
       let queryConstraints: any[] = [];
 
+      console.log('🔍 ActivitiesService: Created base query for collection:', ACTIVITIES_COLLECTION);
+
       // Apply filters
       if (filters) {
+        console.log('🔍 ActivitiesService: Applying filters:', filters);
+        
         if (filters.status && filters.status !== 'all') {
+          console.log('🔍 ActivitiesService: Adding status filter:', filters.status);
           queryConstraints.push(where('status', '==', filters.status));
         }
         
         if (filters.isPublic !== undefined) {
+          console.log('🔍 ActivitiesService: Adding isPublic filter:', filters.isPublic);
           queryConstraints.push(where('isPublic', '==', filters.isPublic));
         }
 
         if (filters.tags && filters.tags.length > 0) {
+          console.log('🔍 ActivitiesService: Adding tags filter:', filters.tags);
           queryConstraints.push(where('tags', 'array-contains-any', filters.tags));
         }
 
         if (filters.organizer) {
+          console.log('🔍 ActivitiesService: Adding organizer filter:', filters.organizer);
           queryConstraints.push(where('organizers', 'array-contains', filters.organizer));
         }
 
         if (filters.dateRange) {
+          console.log('🔍 ActivitiesService: Adding date range filter:', filters.dateRange);
           if (filters.dateRange.start) {
             queryConstraints.push(where('eventDate', '>=', filters.dateRange.start));
           }
@@ -203,25 +219,35 @@ export class ActivitiesService {
         }
       }
 
-      // Apply sorting
+      // Apply sorting - only if explicitly requested to avoid index requirements
       if (sortOptions) {
+        console.log('🔍 ActivitiesService: Adding sort options:', sortOptions);
         const direction = sortOptions.direction === 'desc' ? 'desc' : 'asc';
         queryConstraints.push(orderBy(sortOptions.field, direction));
       } else {
-        // Default sort by event date (upcoming first)
-        queryConstraints.push(orderBy('eventDate', 'asc'));
+        console.log('🔍 ActivitiesService: Skipping default sort to avoid composite index requirement');
+        // Skip default sorting to avoid composite index requirement
+        // Sorting will be done client-side after fetching
       }
 
+      console.log('🔍 ActivitiesService: Final query constraints:', queryConstraints.length);
+
       // Create query with all constraints
+      console.log('🔍 ActivitiesService: Creating query with constraints...');
       const q = query(baseQuery, ...queryConstraints);
 
+      console.log('🔍 ActivitiesService: Executing query to get total count...');
       // Get total count for pagination
       const totalSnapshot = await getDocs(q);
       const total = totalSnapshot.size;
+      
+      console.log('✅ ActivitiesService: Total documents found:', total);
 
       // Apply pagination
       const offset = (page - 1) * pageSize;
       let paginatedQuery = q;
+      
+      console.log('🔍 ActivitiesService: Applying pagination - offset:', offset, 'pageSize:', pageSize);
       
       if (offset > 0) {
         const offsetQuery = query(baseQuery, ...queryConstraints, limit(offset));
@@ -236,16 +262,24 @@ export class ActivitiesService {
         paginatedQuery = query(baseQuery, ...queryConstraints, limit(pageSize));
       }
 
+      console.log('🔍 ActivitiesService: Executing paginated query...');
       const snapshot = await getDocs(paginatedQuery);
-      let activities: Activity[] = snapshot.docs.map(doc => 
-        this.convertFirestoreDocToActivity({
+      
+      console.log('✅ ActivitiesService: Paginated query returned:', snapshot.size, 'documents');
+
+      let activities: Activity[] = snapshot.docs.map(doc => {
+        console.log('🔍 ActivitiesService: Converting document:', doc.id);
+        return this.convertFirestoreDocToActivity({
           id: doc.id,
           ...doc.data()
-        } as ActivityFirestoreDoc)
-      );
+        } as ActivityFirestoreDoc);
+      });
+
+      console.log('✅ ActivitiesService: Converted', activities.length, 'activities');
 
       // Apply client-side search filter for full-text search
       if (filters?.search) {
+        console.log('🔍 ActivitiesService: Applying client-side search filter:', filters.search);
         const searchTerm = filters.search.toLowerCase();
         activities = activities.filter(activity =>
           activity.name.toLowerCase().includes(searchTerm) ||
@@ -255,16 +289,19 @@ export class ActivitiesService {
           activity.organizers.some(org => org.toLowerCase().includes(searchTerm)) ||
           activity.tags.some(tag => tag.toLowerCase().includes(searchTerm))
         );
+        console.log('✅ ActivitiesService: After search filter:', activities.length, 'activities');
       }
 
       // Apply available spots filter
       if (filters?.hasAvailableSpots) {
+        console.log('🔍 ActivitiesService: Applying available spots filter');
         activities = activities.filter(activity => 
           (activity.registeredParticipants || 0) < activity.maxParticipants
         );
+        console.log('✅ ActivitiesService: After spots filter:', activities.length, 'activities');
       }
 
-      return {
+      const result = {
         activities,
         total: filters?.search || filters?.hasAvailableSpots ? activities.length : total,
         page,
@@ -272,8 +309,22 @@ export class ActivitiesService {
         totalPages: Math.ceil((filters?.search || filters?.hasAvailableSpots ? activities.length : total) / pageSize),
         hasMore: page * pageSize < total
       };
+
+      console.log('✅ ActivitiesService: Returning result:', {
+        activitiesCount: result.activities.length,
+        total: result.total,
+        page: result.page,
+        totalPages: result.totalPages
+      });
+
+      return result;
     } catch (error) {
-      console.error('Error fetching activities:', error);
+      console.error('❌ ActivitiesService: Error fetching activities:', error);
+      console.error('❌ ActivitiesService: Error details:', {
+        message: error instanceof Error ? error.message : 'Unknown error',
+        code: (error as any)?.code,
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw new Error('Failed to fetch activities');
     }
   }
@@ -285,7 +336,6 @@ export class ActivitiesService {
     try {
       const q = query(
         collection(db, ACTIVITIES_COLLECTION),
-        where('isPublic', '==', true),
         where('status', '==', 'published'),
         orderBy('eventDate', 'asc'),
         limit(limitCount)
@@ -881,7 +931,7 @@ export class ActivitiesService {
   private convertFirestoreDocToActivity(doc: ActivityFirestoreDoc): Activity {
     return {
       id: doc.id,
-      image: doc.imageUrl,
+      image: doc.imageUrl, // Use imageUrl field from database
       name: doc.name,
       shortDescription: doc.shortDescription,
       status: doc.status,
@@ -895,11 +945,11 @@ export class ActivitiesService {
       endTime: doc.endTime,
       registrationDeadline: doc.registrationDeadline,
       venueName: doc.venueName,
-      venueLocation: doc.venueLocation,
+      venueLocation: doc.venueLocation || '',
       description: doc.description,
-      organizers: doc.organizers,
+      organizers: doc.organizers || [],
       speakers: doc.speakers || [], // Use speakers directly from the document
-      tags: doc.tags,
+      tags: doc.tags || [],
       contactEmail: doc.contactEmail,
       contactName: doc.contactName,
       contactPhone: doc.contactPhone,

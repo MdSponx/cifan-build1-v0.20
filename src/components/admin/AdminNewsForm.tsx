@@ -8,6 +8,7 @@ import {
   NewsValidationErrors,
   NewsCategory,
   NewsStatus,
+  NewsImage,
   NEWS_CATEGORY_OPTIONS,
   NEWS_STATUS_OPTIONS,
   NEWS_VALIDATION_RULES,
@@ -71,7 +72,9 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
     tags: [],
     coverImage: null,
     galleryImages: [],
+    galleryUrls: [],
     existingImages: [],
+    deletedImageIds: [],
     referencedActivities: [],
     referencedFilms: [],
     metaTitle: '',
@@ -83,9 +86,11 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
   const [internalErrors, setInternalErrors] = useState<NewsValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Gallery upload state
+  // Enhanced gallery state management
   const [galleryUrls, setGalleryUrls] = useState<string[]>([]);
   const [galleryCoverIndex, setGalleryCoverIndex] = useState<number | undefined>(undefined);
+  const [newGalleryFiles, setNewGalleryFiles] = useState<File[]>([]);
+  const [deletedImageIds, setDeletedImageIds] = useState<string[]>([]);
 
   // Combine external and internal errors
   const errors = { ...internalErrors, ...externalErrors };
@@ -236,7 +241,9 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
         tags: [...article.tags],
         coverImage: null, // File object not available from existing article
         galleryImages: [],
+        galleryUrls: [],
         existingImages: [...article.images],
+        deletedImageIds: [],
         referencedActivities: article.referencedActivities.map(ref => ref.id),
         referencedFilms: article.referencedFilms.map(ref => ref.id),
         metaTitle: article.metaTitle || '',
@@ -264,12 +271,75 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
         setGalleryUrls([]);
         setGalleryCoverIndex(undefined);
       }
+
+      // Reset new files and deleted IDs
+      setNewGalleryFiles([]);
+      setDeletedImageIds([]);
     } else if (mode === 'create') {
-      // Reset gallery state for create mode
+      // Reset all gallery state for create mode
       setGalleryUrls([]);
       setGalleryCoverIndex(undefined);
+      setNewGalleryFiles([]);
+      setDeletedImageIds([]);
     }
   }, [article, mode]);
+
+  // Enhanced gallery change handler
+  const handleGalleryChange = (files: File[], urls: string[], coverIndex?: number) => {
+    console.log('Gallery change detected:', {
+      files: files.length,
+      urls: urls.length,
+      coverIndex,
+      mode,
+      existingImages: article?.images?.length || 0
+    });
+
+    // Update gallery URLs
+    setGalleryUrls(urls);
+    setGalleryCoverIndex(coverIndex);
+    
+    // Store new files that need to be uploaded
+    setNewGalleryFiles(files);
+    
+    // Update cover image preview if cover is selected from gallery
+    if (coverIndex !== undefined && urls[coverIndex]) {
+      setCoverImagePreview(urls[coverIndex]);
+      // Clear any separate cover image file since we're using gallery image
+      setFormData(prev => ({ ...prev, coverImage: null }));
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } else if (coverIndex === undefined) {
+      // If no cover is selected from gallery, clear the preview if it was from gallery
+      const currentCoverUrl = galleryUrls[galleryCoverIndex || 0];
+      if (coverImagePreview === currentCoverUrl) {
+        setCoverImagePreview(null);
+      }
+    }
+    
+    // Calculate deleted images in edit mode
+    if (article?.images && mode === 'edit') {
+      const currentUrls = new Set(urls);
+      const deletedIds = article.images
+        .filter(img => !currentUrls.has(img.url))
+        .map(img => img.id);
+      
+      console.log('Calculating deleted images:', {
+        originalImages: article.images.length,
+        currentUrls: urls.length,
+        deletedIds: deletedIds.length,
+        deletedImageIds: deletedIds
+      });
+      
+      setDeletedImageIds(deletedIds);
+      
+      // Update form data with deleted image IDs
+      setFormData(prev => ({
+        ...prev,
+        deletedImageIds: deletedIds
+      }));
+    }
+  };
 
   // Form validation
   const validateForm = (): NewsValidationErrors => {
@@ -361,6 +431,14 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
+    
+    // If the cover image was from gallery, reset the gallery cover index
+    if (galleryCoverIndex !== undefined && galleryUrls[galleryCoverIndex]) {
+      const coverUrl = galleryUrls[galleryCoverIndex];
+      if (article?.coverImageUrl === coverUrl) {
+        setGalleryCoverIndex(undefined);
+      }
+    }
   };
 
   // Toggle category
@@ -402,14 +480,13 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
     }));
   };
 
-  // Handle form submission
+  // Enhanced form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setInternalErrors(validationErrors);
-      // Scroll to first error
       const firstErrorElement = document.querySelector('.error-field');
       if (firstErrorElement) {
         firstErrorElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -419,43 +496,41 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
 
     setIsSubmitting(true);
     try {
-      // Prepare the form data with updated gallery information
+      // Prepare existing images that are still present
+      const existingImages = galleryUrls
+        .map((url, index) => {
+          const existingImage = article?.images?.find(img => img.url === url);
+          return existingImage ? {
+            ...existingImage,
+            isCover: index === galleryCoverIndex,
+            sortOrder: index
+          } : null;
+        })
+        .filter(Boolean) as NewsImage[];
+
+      // Prepare form data with proper gallery handling
       const updatedFormData = {
         ...formData,
-        // Convert gallery URLs to existing images format for proper saving
-        // CRITICAL FIX: Preserve existing image IDs and create proper NewsImage objects
-        existingImages: galleryUrls.map((url, index) => {
-          // Try to find existing image data first to preserve IDs and paths
-          const existingImage = article?.images?.find(img => img.url === url);
-          
-          if (existingImage) {
-            // Preserve existing image data but update cover status and sort order
-            return {
-              ...existingImage,
-              isCover: index === galleryCoverIndex,
-              sortOrder: index
-            };
-          } else {
-            // Create new image entry for newly added URLs
-            return {
-              id: `gallery_${index}_${Date.now()}`,
-              url: url,
-              path: `news/images/gallery_${index}_${Date.now()}`,
-              altText: `Gallery image ${index + 1}`,
-              isCover: index === galleryCoverIndex,
-              sortOrder: index
-            };
-          }
-        })
+        // Send existing images that remain
+        existingImages: existingImages,
+        // Send new files for upload
+        galleryImages: newGalleryFiles,
+        // Send new URLs (if any) that are not existing images
+        galleryUrls: galleryUrls.filter(url => 
+          !article?.images?.some(img => img.url === url)
+        ),
+        // Send IDs of images to delete
+        deletedImageIds: deletedImageIds,
+        // Include the gallery cover index
+        galleryCoverIndex: galleryCoverIndex
       };
       
-      console.log('Submitting form with updated gallery data:', {
-        galleryUrls: galleryUrls.length,
-        coverIndex: galleryCoverIndex,
-        existingImages: updatedFormData.existingImages.length,
-        preservedExistingImages: updatedFormData.existingImages.filter(img => 
-          article?.images?.some(existing => existing.id === img.id)
-        ).length
+      console.log('Submitting form with enhanced gallery data:', {
+        existingImages: existingImages.length,
+        newGalleryFiles: newGalleryFiles.length,
+        newGalleryUrls: updatedFormData.galleryUrls.length,
+        deletedImageIds: deletedImageIds.length,
+        coverIndex: galleryCoverIndex
       });
       
       await onSubmit(updatedFormData);
@@ -621,13 +696,14 @@ const AdminNewsForm: React.FC<AdminNewsFormProps> = ({
           <div className="space-y-6">
             {/* Gallery Images Section */}
             <GalleryUpload
-              value={formData.galleryImages || []}
+              value={newGalleryFiles}
               onChange={(files: File[], coverIndex?: number) => {
-                handleInputChange('galleryImages', files);
-                setGalleryCoverIndex(coverIndex);
+                handleGalleryChange(files, galleryUrls, coverIndex);
               }}
               urls={galleryUrls}
-              onUrlsChange={setGalleryUrls}
+              onUrlsChange={(urls: string[]) => {
+                handleGalleryChange(newGalleryFiles, urls, galleryCoverIndex);
+              }}
               coverIndex={galleryCoverIndex}
               className="mb-6"
               error={errors.galleryImages}

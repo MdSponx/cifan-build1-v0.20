@@ -393,12 +393,13 @@ export class NewsService {
    * Update an existing article
    */
   async updateArticle(
-    articleId: string, 
-    formData: Partial<NewsFormData>, 
-    userId: string,
-    authorName?: string,
+    articleId: string,
+    formData: Partial<NewsFormData>,
+    authorName: string,
     galleryCoverIndex?: number
   ): Promise<NewsArticle> {
+    // Extract galleryCoverIndex from formData if not provided as parameter
+    const coverIndex = galleryCoverIndex !== undefined ? galleryCoverIndex : formData.galleryCoverIndex;
     try {
       const docRef = doc(db, NEWS_COLLECTION, articleId);
       const currentDoc = await getDoc(docRef);
@@ -412,10 +413,136 @@ export class NewsService {
       let coverImagePath = currentData.coverImagePath;
       let galleryImages = [...(currentData.images || [])];
 
-      // Handle cover image update
+      console.log('Starting article update:', {
+        articleId,
+        currentGalleryImages: galleryImages.length,
+        newGalleryFiles: formData.galleryImages?.length || 0,
+        existingImages: formData.existingImages?.length || 0,
+        deletedImageIds: formData.deletedImageIds?.length || 0,
+        newGalleryUrls: formData.galleryUrls?.length || 0
+      });
+
+      // Step 1: Handle deleted images first
+      if (formData.deletedImageIds && formData.deletedImageIds.length > 0) {
+        console.log('Processing deleted images:', formData.deletedImageIds);
+        
+        for (const imageId of formData.deletedImageIds) {
+          const imageToDelete = galleryImages.find(img => img.id === imageId);
+          if (imageToDelete) {
+            try {
+              await this.deleteNewsImage(imageToDelete.path);
+              console.log('Successfully deleted image:', imageId);
+            } catch (error) {
+              console.error('Failed to delete image:', imageId, error);
+            }
+          }
+        }
+        
+        // Remove deleted images from gallery array
+        galleryImages = galleryImages.filter(img => 
+          !formData.deletedImageIds!.includes(img.id)
+        );
+      }
+
+      // Step 2: Upload new gallery files
+      if (formData.galleryImages && formData.galleryImages.length > 0) {
+        console.log('Uploading new gallery files:', formData.galleryImages.length);
+        
+        for (let i = 0; i < formData.galleryImages.length; i++) {
+          const file = formData.galleryImages[i];
+          try {
+            const result = await this.uploadNewsImage(file);
+            const newImage: NewsImage = {
+              id: `img_${Date.now()}_${i}`,
+              url: result.downloadURL,
+              path: result.path,
+              altText: `Gallery image ${galleryImages.length + i + 1}`,
+              isCover: false, // Will be set later based on galleryCoverIndex
+              sortOrder: galleryImages.length + i
+            };
+            galleryImages.push(newImage);
+            console.log('Successfully uploaded gallery file:', newImage.id);
+          } catch (error) {
+            console.error('Failed to upload gallery file:', error);
+            // Continue with other files even if one fails
+          }
+        }
+      }
+
+      // Step 3: Add new gallery URLs (manual URL additions)
+      if (formData.galleryUrls && formData.galleryUrls.length > 0) {
+        console.log('Processing new gallery URLs:', formData.galleryUrls.length);
+        
+        for (let i = 0; i < formData.galleryUrls.length; i++) {
+          const url = formData.galleryUrls[i].trim();
+          if (url && !galleryImages.some(img => img.url === url)) {
+            const newImage: NewsImage = {
+              id: `url_${Date.now()}_${i}`,
+              url: url,
+              path: `external_url_${Date.now()}_${i}`,
+              altText: `Gallery image ${galleryImages.length + i + 1}`,
+              isCover: false,
+              sortOrder: galleryImages.length + i
+            };
+            galleryImages.push(newImage);
+            console.log('Added gallery URL:', url);
+          }
+        }
+      }
+
+      // Step 4: Update existing images (reordering and metadata)
+      if (formData.existingImages && formData.existingImages.length > 0) {
+        console.log('Updating existing images metadata');
+        
+        // Create a map for quick lookup
+        const existingImageMap = new Map(
+          formData.existingImages.map(img => [img.id, img])
+        );
+        
+        // Update existing images in galleryImages array
+        galleryImages = galleryImages.map(galleryImg => {
+          const updatedImg = existingImageMap.get(galleryImg.id);
+          if (updatedImg) {
+            return {
+              ...galleryImg,
+              ...updatedImg,
+              // Preserve original path and URL
+              url: galleryImg.url,
+              path: galleryImg.path
+            };
+          }
+          return galleryImg;
+        });
+      }
+
+      // Step 5: Sort gallery images and update cover designation
+      galleryImages.sort((a, b) => a.sortOrder - b.sortOrder);
+      
+      // Reset all cover designations
+      galleryImages.forEach(img => {
+        img.isCover = false;
+      });
+      
+      // Set new cover image if specified
+      if (coverIndex !== undefined && galleryImages[coverIndex]) {
+        galleryImages[coverIndex].isCover = true;
+        coverImageUrl = galleryImages[coverIndex].url;
+        coverImagePath = galleryImages[coverIndex].path;
+        console.log('Set cover image at index:', coverIndex, 'URL:', coverImageUrl);
+      } else {
+        // If no cover is specified, clear the cover image fields
+        coverImageUrl = '';
+        coverImagePath = '';
+        console.log('No cover image specified, clearing cover fields');
+      }
+
+      // Step 6: Handle separate cover image upload (if provided)
       if (formData.coverImage) {
-        // Delete old cover image if exists
-        if (currentData.coverImagePath) {
+        console.log('Uploading separate cover image');
+        
+        // Delete old cover image if it exists
+        if (currentData.coverImagePath && 
+            !galleryImages.some(img => img.path === currentData.coverImagePath)) {
           await this.deleteNewsImage(currentData.coverImagePath);
         }
 
@@ -425,101 +552,28 @@ export class NewsService {
         coverImagePath = result.path;
       }
 
-      // Handle gallery images update
-      if (formData.galleryImages && formData.galleryImages.length > 0) {
-        // Upload new gallery images
-        for (let i = 0; i < formData.galleryImages.length; i++) {
-          const file = formData.galleryImages[i];
-          const result = await this.uploadNewsImage(file);
-          const isCover = galleryCoverIndex === (galleryImages.length + i);
-          galleryImages.push({
-            id: `img_${Date.now()}_${i}`,
-            url: result.downloadURL,
-            path: result.path,
-            altText: `Gallery image ${galleryImages.length + i + 1}`,
-            isCover,
-            sortOrder: galleryImages.length + i
-          });
-        }
-      }
-
-      // Handle existing images update
-      if (formData.existingImages !== undefined) {
-        // Remove deleted images from storage
-        const existingImageIds = formData.existingImages.map(img => img.id);
-        const imagesToDelete = galleryImages.filter(img => !existingImageIds.includes(img.id));
-        
-        for (const img of imagesToDelete) {
-          await this.deleteNewsImage(img.path);
-        }
-
-        galleryImages = formData.existingImages;
-      }
-
-      // Update cover designation in gallery images based on galleryCoverIndex
-      if (galleryCoverIndex !== undefined) {
-        galleryImages.forEach((img, index) => {
-          img.isCover = index === galleryCoverIndex;
-        });
-        
-        // Set cover image from gallery if specified
-        if (galleryImages[galleryCoverIndex]) {
-          coverImageUrl = galleryImages[galleryCoverIndex].url;
-          coverImagePath = galleryImages[galleryCoverIndex].path;
-        }
-      }
-
-      // Prepare update data
+      // Step 7: Prepare update data
       const updateData: any = {
         updatedAt: serverTimestamp(),
-        updatedBy: userId
+        updatedBy: formData.authorId || currentData.authorId,
+        images: galleryImages, // Critical: Update the images array
+        coverImageUrl: coverImageUrl || '',
+        coverImagePath: coverImagePath || ''
       };
 
-      // Only update provided fields
-      if (formData.title !== undefined) {
-        updateData.title = formData.title.trim();
-        // Update slug if title changed
-        if (formData.title.trim() !== currentData.title) {
-          updateData.slug = await this.generateUniqueSlug(formData.title.trim(), articleId);
-        }
-      }
-      
+      // Update other fields if provided
+      if (formData.title !== undefined) updateData.title = formData.title.trim();
       if (formData.shortDescription !== undefined) updateData.shortDescription = formData.shortDescription.trim();
       if (formData.content !== undefined) updateData.content = formData.content.trim();
-      if (formData.authorId !== undefined) updateData.authorId = formData.authorId;
-      if (authorName !== undefined) updateData.authorName = authorName;
-      if (formData.status !== undefined) {
-        updateData.status = formData.status;
-        // Update publishedAt when status changes to published
-        if (formData.status === 'published' && currentData.status !== 'published') {
-          updateData.publishedAt = serverTimestamp();
-        }
-      }
+      if (formData.status !== undefined) updateData.status = formData.status;
       if (formData.publishedAt !== undefined) {
-        updateData.publishedAt = formData.publishedAt ? 
-          Timestamp.fromDate(new Date(formData.publishedAt)) : null;
+        updateData.publishedAt = formData.status === 'published' ? serverTimestamp() : 
+                                 formData.publishedAt ? Timestamp.fromDate(new Date(formData.publishedAt)) : null;
       }
       if (formData.categories !== undefined) updateData.categories = formData.categories;
       if (formData.tags !== undefined) updateData.tags = formData.tags;
       if (formData.metaTitle !== undefined) updateData.metaTitle = formData.metaTitle?.trim();
       if (formData.metaDescription !== undefined) updateData.metaDescription = formData.metaDescription?.trim();
-
-      // Handle references update
-      if (formData.referencedActivities !== undefined) {
-        updateData.referencedActivities = await this.fetchActivityReferences(formData.referencedActivities);
-      }
-      if (formData.referencedFilms !== undefined) {
-        updateData.referencedFilms = await this.fetchFilmReferences(formData.referencedFilms);
-      }
-
-      // Update image fields if changed
-      if (formData.coverImage) {
-        updateData.coverImageUrl = coverImageUrl;
-        updateData.coverImagePath = coverImagePath;
-      }
-      if (formData.galleryImages || formData.existingImages !== undefined) {
-        updateData.images = galleryImages;
-      }
 
       // Update search keywords if content changed
       if (formData.title !== undefined || formData.content !== undefined || formData.tags !== undefined) {
@@ -529,32 +583,26 @@ export class NewsService {
         updateData.searchKeywords = generateSearchKeywords(title, content, tags);
       }
 
-      // Update in Firestore
-      console.log('Updating article with data:', updateData);
-      await updateDoc(docRef, updateData);
-      console.log('Article updated successfully');
+      console.log('Final update data summary:', {
+        totalImages: galleryImages.length,
+        hasCoverImage: !!coverImageUrl,
+        updatedFields: Object.keys(updateData).filter(key => !['updatedAt', 'updatedBy'].includes(key))
+      });
 
-      // Return updated article
+      // Step 8: Update Firestore document
+      await updateDoc(docRef, updateData);
+      console.log('Article updated successfully in Firestore');
+
+      // Step 9: Return updated article
       const updatedDoc = await getDoc(docRef);
       return this.convertFirestoreDocToArticle({
         id: updatedDoc.id,
         ...updatedDoc.data()
       } as NewsFirestoreDoc);
+      
     } catch (error) {
       console.error('Error updating article:', error);
-      
-      // Provide more specific error messages
-      if (error instanceof Error) {
-        if (error.message.includes('permission-denied')) {
-          throw new Error('Permission denied. Please check your admin privileges.');
-        } else if (error.message.includes('network')) {
-          throw new Error('Network error. Please check your internet connection.');
-        } else {
-          throw new Error(`Failed to update article: ${error.message}`);
-        }
-      }
-      
-      throw new Error('Failed to update article due to an unknown error');
+      throw new Error(`Failed to update article: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 

@@ -328,7 +328,7 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
           // Fallback to traditional file handling if no auto-upload capability
           const newFiles = [...value, ...validFiles];
           console.log(`📤 Adding ${validFiles.length} valid dropped files to gallery. Total files: ${newFiles.length}`);
-          onChange(newFiles, coverIndex);
+          onChange(newFiles, coverIndex, logoIndex);
         }
       } else if (imageFiles.length > 0) {
         console.warn('⚠️ No valid image files were dropped');
@@ -347,13 +347,15 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
       newCoverIndex = Math.max(0, coverIndex - 1);
     }
     
-    onChange(newFiles, newFiles.length > 0 ? newCoverIndex : undefined, logoIndex);
+      onChange(newFiles, newFiles.length > 0 ? newCoverIndex : undefined, logoIndex);
   };
 
   const handleRemoveUrl = (index: number) => {
+    const urlToRemove = urls[index];
     const newUrls = urls.filter((_, i) => i !== index);
     const urlIndexInGallery = value.length + index;
     let newCoverIndex = coverIndex;
+    let newLogoIndex = logoIndex;
     
     // Adjust cover index if the removed URL was the cover or if cover index needs adjustment
     if (coverIndex !== undefined) {
@@ -366,11 +368,24 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
       }
     }
     
-    console.log('Removing URL at index:', index, 'New URLs:', newUrls.length, 'New cover index:', newCoverIndex);
+    // Adjust logo index if the removed URL was the logo or if logo index needs adjustment
+    if (logoIndex !== undefined) {
+      if (logoIndex === urlIndexInGallery) {
+        // If we're removing the logo image, reset to undefined
+        newLogoIndex = undefined;
+      } else if (logoIndex > urlIndexInGallery) {
+        // If logo is after the removed item, shift it down
+        newLogoIndex = logoIndex - 1;
+      }
+    }
+    
+    console.log('Removing URL at index:', index, 'URL:', urlToRemove, 'New URLs:', newUrls.length, 'New cover index:', newCoverIndex, 'New logo index:', newLogoIndex);
+    
+    // Update URLs first
     onUrlsChange(newUrls);
     
-    // Update cover index through onChange
-    onChange(value, newCoverIndex, logoIndex);
+    // Update cover and logo index through onChange
+    onChange(value, newCoverIndex, newLogoIndex);
   };
 
   const handleSetCover = (globalIndex: number) => {
@@ -636,13 +651,28 @@ const GalleryUpload: React.FC<GalleryUploadProps> = ({
                   {/* Remove */}
                   <button
                     type="button"
-                    onClick={() => {
-                      if (item.file) {
-                        const fileIndex = value.findIndex(f => f === item.file);
-                        if (fileIndex !== -1) handleRemoveFile(fileIndex);
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      console.log('Remove button clicked for item:', {
+                        index,
+                        hasFile: !!item.file,
+                        hasUrl: !!item.url,
+                        url: item.url,
+                        fileName: item.file?.name
+                      });
+                      
+                      // Determine if this is a file or URL item
+                      if (index < value.length) {
+                        // This is a file item
+                        console.log('Removing file at index:', index);
+                        handleRemoveFile(index);
                       } else {
-                        const urlIndex = urls.findIndex(u => u === item.url);
-                        if (urlIndex !== -1) handleRemoveUrl(urlIndex);
+                        // This is a URL item
+                        const urlIndex = index - value.length;
+                        console.log('Removing URL at index:', urlIndex, 'URL:', urls[urlIndex]);
+                        handleRemoveUrl(urlIndex);
                       }
                     }}
                     className="p-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors"
