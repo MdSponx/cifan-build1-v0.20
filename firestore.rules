@@ -43,6 +43,51 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == userId;
     }
     
+    // Registration validation functions
+    function validateRegistrationData() {
+      return request.resource.data.keys().hasAll(['participantName', 'email', 'phone', 'trackingCode', 'registeredAt', 'status', 'registrationSource']) &&
+             request.resource.data.participantName is string &&
+             request.resource.data.participantName.size() >= 2 &&
+             request.resource.data.participantName.size() <= 100 &&
+             request.resource.data.email is string &&
+             request.resource.data.email.matches('.*@.*\\..*') &&
+             request.resource.data.phone is string &&
+             request.resource.data.phone.size() >= 10 &&
+             request.resource.data.trackingCode is string &&
+             request.resource.data.trackingCode.size() == 8 &&
+             request.resource.data.status in ['registered', 'attended', 'absent'] &&
+             request.resource.data.registrationSource in ['web', 'admin'] &&
+             // Optional fields validation
+             (!request.resource.data.keys().hasAny(['participantNameEn']) ||
+              request.resource.data.participantNameEn is string) &&
+             (!request.resource.data.keys().hasAny(['category']) ||
+              request.resource.data.category is string) &&
+             (!request.resource.data.keys().hasAny(['occupation']) ||
+              request.resource.data.occupation is string) &&
+             (!request.resource.data.keys().hasAny(['organization']) ||
+              request.resource.data.organization is string) &&
+             (!request.resource.data.keys().hasAny(['additionalNotes']) ||
+              request.resource.data.additionalNotes is string) &&
+             (!request.resource.data.keys().hasAny(['ipAddress']) ||
+              request.resource.data.ipAddress is string) &&
+             (!request.resource.data.keys().hasAny(['userAgent']) ||
+              request.resource.data.userAgent is string);
+    }
+    
+    function checkActivityAvailability(activityId) {
+      let activity = get(/databases/$(database)/documents/activities/$(activityId)).data;
+      return activity.status == 'published' && 
+             activity.isPublic == true &&
+             (activity.maxParticipants == 0 || 
+              (activity.registeredParticipants == null ? 0 : activity.registeredParticipants) < activity.maxParticipants);
+    }
+    
+    function isDuplicateRegistration(email, activityId) {
+      // This is a simplified check - in practice, you might want to use a more sophisticated approach
+      // For now, we'll rely on the application logic to prevent duplicates
+      return false;
+    }
+    
     // Profiles collection - users can read/write their own profile, admin-level users can read all, super-admins can update roles
     match /profiles/{userId} {
       allow read: if isOwner(userId) || hasAdminLevelAccess();
@@ -170,12 +215,25 @@ service cloud.firestore {
       
       // Update: Only authenticated admin-level users can update activities
       // Users can only update activities they created or if they have admin-level access
-      allow update: if request.auth != null && hasAdminLevelAccess() &&
+      // EXCEPTION: Allow anonymous updates for registration-related fields only
+      allow update: if (request.auth != null && hasAdminLevelAccess() &&
         (resource.data.createdBy == request.auth.uid || hasAdminLevelAccess()) &&
         // Ensure immutable fields are not changed
         request.resource.data.createdBy == resource.data.createdBy &&
         request.resource.data.createdAt == resource.data.createdAt &&
-        request.resource.data.updatedBy == request.auth.uid &&
+        request.resource.data.updatedBy == request.auth.uid) ||
+        // Allow anonymous updates for registration-related fields only
+        (request.auth == null &&
+         resource.data.status == 'published' &&
+         resource.data.isPublic == true &&
+         // Only allow updates to registration-related fields
+         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['registeredParticipants', 'analytics', 'updatedAt']) &&
+         // Ensure other fields are not changed
+         request.resource.data.createdBy == resource.data.createdBy &&
+         request.resource.data.createdAt == resource.data.createdAt &&
+         request.resource.data.name == resource.data.name &&
+         request.resource.data.status == resource.data.status &&
+         request.resource.data.isPublic == resource.data.isPublic) &&
         // Validate updated fields if they exist
         (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['name']) ||
          (request.resource.data.name is string &&
@@ -278,6 +336,27 @@ service cloud.firestore {
             request.resource.data.imagePath is string));
         
         // Delete: Only admin-level users can delete speakers
+        allow delete: if request.auth != null && hasAdminLevelAccess();
+      }
+      
+      // Registrations subcollection - public registration without authentication
+      match /registrations/{registrationId} {
+        // Read: Public can read registrations for published activities (for tracking)
+        // Admin-level users can read all registrations
+        allow read: if hasAdminLevelAccess() || 
+          (exists(/databases/$(database)/documents/activities/$(activityId)) &&
+           get(/databases/$(database)/documents/activities/$(activityId)).data.status == 'published' &&
+           get(/databases/$(database)/documents/activities/$(activityId)).data.isPublic == true);
+        
+        // Create: Public can create registrations without authentication for published activities
+        allow create: if validateRegistrationData() &&
+          checkActivityAvailability(activityId) &&
+          !isDuplicateRegistration(request.resource.data.email, activityId);
+        
+        // Update: Only admin-level users can update registrations (for status changes)
+        allow update: if request.auth != null && hasAdminLevelAccess();
+        
+        // Delete: Only admin-level users can delete registrations
         allow delete: if request.auth != null && hasAdminLevelAccess();
       }
     }

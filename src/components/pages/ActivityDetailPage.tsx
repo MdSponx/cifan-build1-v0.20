@@ -5,6 +5,8 @@ import { useAuth } from '../auth/AuthContext';
 import { Activity } from '../../types/activities';
 import { activitiesService } from '../../services/activitiesService';
 import { getTagColor } from '../../utils/tagColors';
+import RegistrationModal from '../activities/RegistrationModal';
+import { RegistrationResult } from '../../types/registration.types';
 import { 
   Calendar, 
   MapPin, 
@@ -41,7 +43,7 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
   const [activity, setActivity] = useState<Activity | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isRegistering, setIsRegistering] = useState(false);
+  const [showRegistrationModal, setShowRegistrationModal] = useState(false);
 
   // Content translations
   const content = {
@@ -190,9 +192,6 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
       return { canRegister: false, reason: 'no-registration-needed' };
     }
     
-    // Check if user is logged in (only if registration is needed)
-    if (!user) return { canRegister: false, reason: 'login' };
-    
     // Check if registration deadline has passed
     if (now > registrationDeadline) {
       return { canRegister: false, reason: 'closed' };
@@ -218,20 +217,15 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
   };
 
   // Handle registration
-  const handleRegister = async () => {
-    if (!activity || !user) return;
-    
-    try {
-      setIsRegistering(true);
-      // TODO: Implement registration logic
-      console.log('Registering for activity:', activity.id);
-      // This would typically call a registration service
-      // await registrationService.register(activity.id, user.uid);
-    } catch (err) {
-      console.error('Registration error:', err);
-    } finally {
-      setIsRegistering(false);
-    }
+  const handleRegister = () => {
+    setShowRegistrationModal(true);
+  };
+
+  // Handle registration success
+  const handleRegistrationSuccess = (result: RegistrationResult) => {
+    console.log('✅ Registration successful:', result);
+    // Reload activity to get updated participant count
+    loadActivity();
   };
 
   // Handle share
@@ -559,20 +553,11 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
                     <AnimatedButton
                       variant="primary"
                       size="large"
-                      onClick={isRegistering ? undefined : handleRegister}
-                      className={`w-full ${isRegistering ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      onClick={handleRegister}
+                      className="w-full"
                     >
-                      {isRegistering ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          {currentContent.registering}
-                        </>
-                      ) : (
-                        <>
-                          <UserPlus className="w-4 h-4 mr-2" />
-                          {currentContent.register}
-                        </>
-                      )}
+                      <UserPlus className="w-4 h-4 mr-2" />
+                      {currentContent.register}
                     </AnimatedButton>
                   ) : (
                     <div className="text-center">
@@ -712,6 +697,20 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
           </div>
         </div>
       </div>
+
+      {/* Registration Modal */}
+      {showRegistrationModal && activity && (
+        <RegistrationModal
+          isOpen={showRegistrationModal}
+          onClose={() => setShowRegistrationModal(false)}
+          activityId={activity.id}
+          activityName={activity.name}
+          maxParticipants={activity.maxParticipants}
+          currentRegistrations={activity.registeredParticipants || 0}
+          registrationDeadline={activity.registrationDeadline}
+          onSuccess={handleRegistrationSuccess}
+        />
+      )}
     </div>
   );
 };

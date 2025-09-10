@@ -476,5 +476,99 @@
     "filmNotFoundMessage": "The requested film could not be found.",
     "loadingFilmDetails": "Loading film details...",
     "filmNotAvailable": "This film is not available for public viewing"
+  },
+  "registration": {
+    "title": "Register for Activity",
+    "modal": {
+      "title": "Register for Activity",
+      "register": "Register",
+      "cancel": "Cancel",
+      "loading": "Registering...",
+      "close": "Close"
+    },
+    "form": {
+      "participantName": "Full Name",
+      "participantNamePlaceholder": "Enter your full name",
+      "participantNameEn": "Full Name (English)",
+      "participantNameEnPlaceholder": "Enter your full name in English (optional)",
+      "email": "Email",
+      "emailPlaceholder": "Enter your email address",
+      "phone": "Phone Number",
+      "phonePlaceholder": "Enter your phone number",
+      "category": "Category",
+      "occupation": "Occupation",
+      "occupationPlaceholder": "Enter your occupation (optional)",
+      "organization": "Organization/Institution",
+      "organizationPlaceholder": "Enter your organization or institution (optional)",
+      "additionalNotes": "Additional Notes",
+      "additionalNotesPlaceholder": "Additional notes or comments (optional)",
+      "required": "Required",
+      "optional": "Optional",
+      "submit": "Register",
+      "submitting": "Registering...",
+      "cancel": "Cancel"
+    },
+    "status": {
+      "open": "Registration Open",
+      "openDescription": "{{available}} of {{total}} spots available. Registration closes on {{deadline}}.",
+      "closed": "Registration Closed",
+      "closedDescription": "Registration closed on {{deadline}}.",
+      "full": "Activity Full",
+      "fullDescription": "This activity has reached maximum capacity."
+    },
+    "validation": {
+      "nameRequired": "Please enter your full name",
+      "nameMinLength": "Full name must be at least 2 characters",
+      "emailRequired": "Please enter your email",
+      "emailInvalid": "Please enter a valid email address",
+      "phoneRequired": "Please enter your phone number",
+      "phoneInvalid": "Please enter a valid phone number"
+    },
+    "errors": {
+      "nameRequired": "Full name is required",
+      "nameTooShort": "Full name must be at least 2 characters",
+      "nameInvalidFormat": "Full name contains invalid characters",
+      "nameEnTooShort": "English name must be at least 2 characters",
+      "nameEnInvalidFormat": "English name contains invalid characters",
+      "emailRequired": "Email is required",
+      "emailInvalidFormat": "Please enter a valid email address",
+      "phoneRequired": "Phone number is required",
+      "phoneTooShort": "Phone number is too short",
+      "phoneInvalidFormat": "Please enter a valid phone number",
+      "categoryRequired": "Category is required",
+      "occupationTooLong": "Occupation is too long",
+      "organizationTooLong": "Organization name is too long",
+      "notesTooLong": "Additional notes are too long",
+      "duplicateEmail": "This email is already registered for this activity",
+      "activityFull": "This activity is full",
+      "registrationClosed": "Registration is closed for this activity",
+      "unknownError": "An unknown error occurred",
+      "networkError": "Network error. Please check your connection and try again",
+      "registrationFailed": "Registration failed. Please try again.",
+      "invalidData": "Invalid data. Please check your information and try again."
+    },
+    "success": {
+      "title": "Registration Successful!",
+      "message": "You have been successfully registered for this activity.",
+      "details": "Registration Details",
+      "activity": "Activity",
+      "trackingCode": "Tracking Code",
+      "registrationId": "Registration ID",
+      "importantTitle": "Important Information",
+      "saveTrackingCode": "Please save your tracking code for future reference.",
+      "confirmationEmail": "A confirmation email will be sent to your registered email address.",
+      "copyTrackingCode": "Copy Tracking Code",
+      "copied": "Copied!",
+      "close": "Close"
+    },
+    "activity": {
+      "registrationOpen": "Registration Open",
+      "registrationClosed": "Registration Closed",
+      "activityFull": "Activity Full",
+      "spotsRemaining": "spots remaining",
+      "unlimited": "Unlimited",
+      "registerNow": "Register Now",
+      "viewDetails": "View Details"
+    }
   }
 }

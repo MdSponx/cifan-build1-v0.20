@@ -466,5 +466,77 @@
     "filmNotFoundMessage": "ไม่พบภาพยนตร์ที่ร้องขอ",
     "loadingFilmDetails": "กำลังโหลดรายละเอียดภาพยนตร์...",
     "filmNotAvailable": "ภาพยนตร์นี้ไม่สามารถดูได้สำหรับสาธารณะ"
+  },
+  "registration": {
+    "title": "ลงทะเบียนเข้าร่วมกิจกรรม",
+    "modal": {
+      "title": "ลงทะเบียนเข้าร่วมกิจกรรม",
+      "register": "ลงทะเบียน",
+      "cancel": "ยกเลิก",
+      "loading": "กำลังลงทะเบียน...",
+      "close": "ปิด"
+    },
+    "form": {
+      "participantName": "ชื่อ-นามสกุล",
+      "participantNamePlaceholder": "กรอกชื่อ-นามสกุลของคุณ",
+      "participantNameEn": "ชื่อ-นามสกุล (ภาษาอังกฤษ)",
+      "participantNameEnPlaceholder": "กรอกชื่อ-นามสกุลภาษาอังกฤษ (ไม่บังคับ)",
+      "email": "อีเมล",
+      "emailPlaceholder": "กรอกที่อยู่อีเมลของคุณ",
+      "phone": "หมายเลขโทรศัพท์",
+      "phonePlaceholder": "กรอกหมายเลขโทรศัพท์ของคุณ",
+      "category": "ประเภทผู้เข้าร่วม",
+      "occupation": "อาชีพ",
+      "occupationPlaceholder": "กรอกอาชีพของคุณ (ไม่บังคับ)",
+      "organization": "องค์กร/สถาบัน",
+      "organizationPlaceholder": "กรอกชื่อองค์กรหรือสถาบันของคุณ (ไม่บังคับ)",
+      "additionalNotes": "หมายเหตุเพิ่มเติม",
+      "additionalNotesPlaceholder": "หมายเหตุหรือข้อความเพิ่มเติม (ไม่บังคับ)",
+      "required": "จำเป็น",
+      "optional": "ไม่บังคับ",
+      "submit": "ลงทะเบียน",
+      "submitting": "กำลังลงทะเบียน...",
+      "cancel": "ยกเลิก"
+    },
+    "validation": {
+      "nameRequired": "กรุณากรอกชื่อ-นามสกุล",
+      "nameMinLength": "ชื่อ-นามสกุลต้องมีอย่างน้อย 2 ตัวอักษร",
+      "emailRequired": "กรุณากรอกอีเมล",
+      "emailInvalid": "กรุณากรอกอีเมลที่ถูกต้อง",
+      "phoneRequired": "กรุณากรอกหมายเลขโทรศัพท์",
+      "phoneInvalid": "กรุณากรอกหมายเลขโทรศัพท์ที่ถูกต้อง"
+    },
+    "errors": {
+      "duplicateEmail": "อีเมลนี้ได้ลงทะเบียนกิจกรรมนี้แล้ว",
+      "activityFull": "กิจกรรมนี้เต็มแล้ว",
+      "registrationClosed": "การลงทะเบียนกิจกรรมนี้ปิดแล้ว",
+      "unknownError": "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ",
+      "networkError": "เกิดข้อผิดพลาดเครือข่าย กรุณาตรวจสอบการเชื่อมต่อและลองใหม่อีกครั้ง",
+      "registrationFailed": "การลงทะเบียนล้มเหลว กรุณาลองใหม่อีกครั้ง",
+      "invalidData": "ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบและลองใหม่อีกครั้ง"
+    },
+    "success": {
+      "title": "ลงทะเบียนสำเร็จ!",
+      "message": "คุณได้ลงทะเบียนเข้าร่วมกิจกรรมนี้เรียบร้อยแล้ว",
+      "details": "รายละเอียดการลงทะเบียน",
+      "activity": "กิจกรรม",
+      "trackingCode": "รหัสติดตาม",
+      "registrationId": "หมายเลขการลงทะเบียน",
+      "importantTitle": "ข้อมูลสำคัญ",
+      "saveTrackingCode": "กรุณาเก็บรหัสติดตามไว้เพื่อใช้อ้างอิงในอนาคต",
+      "confirmationEmail": "อีเมลยืนยันจะถูกส่งไปยังที่อยู่อีเมลที่ลงทะเบียน",
+      "copyTrackingCode": "คัดลอกรหัสติดตาม",
+      "copied": "คัดลอกแล้ว!",
+      "close": "ปิด"
+    },
+    "activity": {
+      "registrationOpen": "เปิดรับสมัคร",
+      "registrationClosed": "ปิดรับสมัคร",
+      "activityFull": "เต็มแล้ว",
+      "spotsRemaining": "เหลือที่นั่ง",
+      "unlimited": "ไม่จำกัด",
+      "registerNow": "ลงทะเบียนเลย",
+      "viewDetails": "ดูรายละเอียด"
+    }
   }
 }
