@@ -59,7 +59,7 @@ export interface RegistrationFirestoreDoc {
 }
 
 // Attendance status types
-export type AttendanceStatus = 'registered' | 'attended' | 'absent';
+export type AttendanceStatus = 'registered' | 'approved' | 'attended' | 'absent';
 
 // Registration result interface
 export interface RegistrationResult {
@@ -260,6 +260,14 @@ export const ATTENDANCE_STATUS_OPTIONS = [
     color: 'blue',
     description: 'Participant has registered',
     descriptionTh: 'ผู้เข้าร่วมได้ลงทะเบียนแล้ว'
+  },
+  {
+    value: 'approved' as AttendanceStatus,
+    label: 'Approved',
+    labelTh: 'อนุมัติแล้ว',
+    color: 'yellow',
+    description: 'Participant registration has been approved',
+    descriptionTh: 'การลงทะเบียนของผู้เข้าร่วมได้รับการอนุมัติแล้ว'
   },
   {
     value: 'attended' as AttendanceStatus,

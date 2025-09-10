@@ -13,13 +13,7 @@ import {
   Filter,
   Loader2,
   AlertCircle,
-  Grid,
-  List,
-  ArrowLeft,
-  ExternalLink,
-  Eye,
-  Edit,
-  Copy
+  ArrowLeft
 } from 'lucide-react';
 import AnimatedButton from '../ui/AnimatedButton';
 
@@ -35,7 +29,6 @@ const PublicActivitiesPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [sortBy, setSortBy] = useState<'date' | 'name' | 'popularity'>('date');
 
   // Content translations
@@ -50,9 +43,6 @@ const PublicActivitiesPage: React.FC = () => {
       sortByDate: 'วันที่',
       sortByName: 'ชื่อ',
       sortByPopularity: 'ความนิยม',
-      viewMode: 'รูปแบบการแสดง',
-      gridView: 'ตาราง',
-      listView: 'รายการ',
       allTags: 'ทั้งหมด',
       workshop: 'เวิร์กช็อป',
       screening: 'การฉาย',
@@ -89,9 +79,6 @@ const PublicActivitiesPage: React.FC = () => {
       sortByDate: 'Date',
       sortByName: 'Name',
       sortByPopularity: 'Popularity',
-      viewMode: 'View mode',
-      gridView: 'Grid',
-      listView: 'List',
       allTags: 'All',
       workshop: 'Workshop',
       screening: 'Screening',
@@ -216,7 +203,14 @@ const PublicActivitiesPage: React.FC = () => {
           return (b.views || 0) - (a.views || 0);
         case 'date':
         default:
-          return new Date(a.eventDate).getTime() - new Date(b.eventDate).getTime();
+          // Sort by eventDate first, then by startTime for same dates
+          const dateComparison = a.eventDate.localeCompare(b.eventDate);
+          if (dateComparison !== 0) {
+            return dateComparison; // Different dates, sort by date
+          }
+          
+          // Same date, sort by start time
+          return a.startTime.localeCompare(b.startTime);
       }
     });
 
@@ -271,6 +265,38 @@ const PublicActivitiesPage: React.FC = () => {
   const clearFilters = () => {
     setSearchTerm('');
     setSelectedTags([]);
+  };
+
+  // Group activities by date for schedule view
+  const groupActivitiesByDate = (activities: Activity[]) => {
+    const grouped: { [key: string]: Activity[] } = {};
+    
+    activities.forEach(activity => {
+      // Use the original ISO date string as the key for proper sorting
+      const dateKey = activity.eventDate;
+      if (!grouped[dateKey]) {
+        grouped[dateKey] = [];
+      }
+      grouped[dateKey].push(activity);
+    });
+    
+    // Sort activities within each date by start time
+    Object.keys(grouped).forEach(dateKey => {
+      grouped[dateKey].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+    
+    return grouped;
+  };
+
+  // Format date for schedule view
+  const formatScheduleDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return {
+      day: date.getDate(),
+      month: date.toLocaleDateString(currentLanguage === 'th' ? 'th-TH' : 'en-US', { month: 'short' }),
+      weekday: date.toLocaleDateString(currentLanguage === 'th' ? 'th-TH' : 'en-US', { weekday: 'long' }),
+      year: date.getFullYear()
+    };
   };
 
   // Handle activity click
@@ -362,7 +388,7 @@ const PublicActivitiesPage: React.FC = () => {
       {/* Filters and Controls */}
       <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="glass-container rounded-xl p-6 mb-8">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             
             {/* Search */}
             <div className="lg:col-span-2">
@@ -389,32 +415,6 @@ const PublicActivitiesPage: React.FC = () => {
                 <option value="name" className="bg-[#110D16]">{currentContent.sortByName}</option>
                 <option value="popularity" className="bg-[#110D16]">{currentContent.sortByPopularity}</option>
               </select>
-            </div>
-
-            {/* View Mode */}
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-3 rounded-lg transition-colors ${
-                  viewMode === 'grid' 
-                    ? 'bg-[#FCB283] text-white' 
-                    : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
-                }`}
-                title={currentContent.gridView}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-3 rounded-lg transition-colors ${
-                  viewMode === 'list' 
-                    ? 'bg-[#FCB283] text-white' 
-                    : 'bg-white/10 text-white/60 hover:text-white hover:bg-white/20'
-                }`}
-                title={currentContent.listView}
-              >
-                <List className="w-5 h-5" />
-              </button>
             </div>
           </div>
 
@@ -485,182 +485,170 @@ const PublicActivitiesPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className={viewMode === 'grid' 
-            ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6' 
-            : 'space-y-6'
-          }>
-            {filteredActivities.map((activity, index) => {
-              const availability = getAvailabilityInfo(activity);
-              const isFree = activity.tags.includes('free');
-              
-              return (
-                <div
-                  key={activity.id}
-                  className={`group cursor-pointer ${
-                    viewMode === 'list' ? 'flex gap-6' : ''
-                  }`}
-                  onClick={() => handleActivityClick(activity.id)}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                >
-                  <div className={`glass-container rounded-xl overflow-hidden hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 border border-white/10 hover:border-[#FCB283]/30 ${
-                    viewMode === 'list' ? 'flex-1 flex' : ''
-                  }`}>
-                    
-                    {/* Activity Image */}
-                    <div className={`relative overflow-hidden ${
-                      viewMode === 'list' ? 'w-64 flex-shrink-0' : 'h-48'
-                    }`}>
-                      <img
-                        src={activity.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'}
-                        alt={activity.name}
-                        className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                        loading="lazy"
-                      />
+          /* Schedule View - Now the only view */
+          <div className="space-y-6">
+            {Object.entries(groupActivitiesByDate(filteredActivities))
+              .sort(([a], [b]) => {
+                // Sort by ISO date strings directly (already in YYYY-MM-DD format)
+                return a.localeCompare(b);
+              })
+              .map(([dateString, dayActivities], dateIndex) => {
+                const scheduleDate = formatScheduleDate(dateString);
+                
+                return (
+                  <div key={dateString} className="space-y-4">
+                    {dayActivities.map((activity, activityIndex) => {
+                      const availability = getAvailabilityInfo(activity);
+                      const isFree = activity.tags.includes('free');
                       
-                      {/* Overlay gradient */}
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-                      
-                      {/* Status badges */}
-                      <div className="absolute top-4 left-4 flex flex-wrap gap-2">
-                        {isFree && (
-                          <span className="px-2 py-1 bg-green-500/90 text-white text-xs font-medium rounded-full">
-                            {currentContent.free}
-                          </span>
-                        )}
-                        <span className="px-2 py-1 bg-[#FCB283]/90 text-white text-xs font-medium rounded-full">
-                          {currentContent.upcoming}
-                        </span>
-                      </div>
-
-                      {/* Availability indicator */}
-                      <div className="absolute top-4 right-4">
-                        <span className={`px-2 py-1 bg-black/60 backdrop-blur-sm text-xs font-medium rounded-full ${availability.color}`}>
-                          {availability.text}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Activity Content */}
-                    <div className="p-6 flex-1">
-                      <h3 className={`text-xl ${getClass('header')} text-white mb-3 line-clamp-2 group-hover:text-[#FCB283] transition-colors`}>
-                        {activity.name}
-                      </h3>
-                      
-                      <p className={`${getClass('body')} text-white/70 mb-4 ${viewMode === 'list' ? 'line-clamp-3' : 'line-clamp-2'}`}>
-                        {activity.shortDescription.length > 120 
-                          ? `${activity.shortDescription.substring(0, 120)}...`
-                          : activity.shortDescription
-                        }
-                      </p>
-
-                      {/* Activity Details */}
-                      <div className="space-y-2 mb-4">
-                        <div className="flex items-center text-sm text-white/60">
-                          <Calendar className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span>{formatDate(activity.eventDate)}</span>
-                        </div>
-                        
-                        <div className="flex items-center text-sm text-white/60">
-                          <Clock className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span>{formatTime(activity.startTime)} - {formatTime(activity.endTime)}</span>
-                        </div>
-                        
-                        <div className="flex items-center text-sm text-white/60">
-                          <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span className="line-clamp-1">{activity.venueName}</span>
-                        </div>
-                        
-                        <div className="flex items-center text-sm text-white/60">
-                          <Users className="w-4 h-4 mr-2 flex-shrink-0" />
-                          <span>
-                            {activity.maxParticipants === 0 
-                              ? currentContent.unlimited 
-                              : `${activity.registeredParticipants || 0}/${activity.maxParticipants} ${currentContent.participants}`
-                            }
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Tags */}
-                      {activity.tags.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mb-4">
-                          {activity.tags.map((tag, tagIndex) => (
-                            <span
-                              key={tagIndex}
-                              className={`px-2 py-1 text-xs rounded-full border ${getTagColor(tag)} ${getClass('body')}`}
-                            >
-                              {tag}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Action Button */}
-                      <div className="flex items-center justify-between mb-4">
-                        <AnimatedButton
-                          variant="outline"
-                          size="small"
-                          className="flex-1 mr-3"
-                          onClick={(e?: React.MouseEvent) => {
-                            e?.stopPropagation();
-                            handleActivityClick(activity.id);
-                          }}
+                      return (
+                        <div
+                          key={activity.id}
+                          className="group cursor-pointer"
+                          onClick={() => handleActivityClick(activity.id)}
+                          style={{ animationDelay: `${(dateIndex * dayActivities.length + activityIndex) * 50}ms` }}
                         >
-                          {currentContent.learnMore}
-                        </AnimatedButton>
-                        
-                        <button 
-                          className="p-2 text-white/60 hover:text-[#FCB283] transition-colors"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            handleActivityClick(activity.id);
-                          }}
-                          title={currentContent.learnMore}
-                        >
-                          <ExternalLink className="w-4 h-4" />
-                        </button>
-                      </div>
+                          <div className="glass-container rounded-xl p-6 hover:bg-white/10 transition-all duration-300 border border-white/10 hover:border-[#FCB283]/30 relative">
+                            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
+                              
+                              {/* Date and Time Column */}
+                              <div className="lg:col-span-2 flex flex-col items-center justify-center text-center">
+                                {/* Large Date Number */}
+                                <div className={`text-5xl sm:text-6xl lg:text-7xl ${getClass('header')} text-[#FCB283] font-bold leading-none mb-2`}>
+                                  {scheduleDate.day}
+                                </div>
+                                
+                                {/* Date Details */}
+                                <div className="flex flex-col items-center space-y-1 mb-4">
+                                  <div className={`text-sm sm:text-base ${getClass('body')} text-white/80 leading-tight`}>
+                                    {scheduleDate.weekday}
+                                  </div>
+                                  <div className={`text-xs sm:text-sm ${getClass('body')} text-white/60 leading-tight`}>
+                                    {scheduleDate.month} {scheduleDate.year}
+                                  </div>
+                                </div>
+                                
+                                {/* Time Range */}
+                                <div className={`text-lg sm:text-xl ${getClass('header')} text-white font-medium`}>
+                                  {formatTime(activity.startTime)} - {formatTime(activity.endTime)}
+                                </div>
+                              </div>
 
-                      {/* Bottom Action Icons */}
-                      <div className="flex items-center justify-center space-x-4 pt-3 border-t border-white/10">
-                        <button 
-                          className="p-2 text-white/60 hover:text-[#FCB283] transition-colors rounded-full hover:bg-white/10"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            handleActivityClick(activity.id);
-                          }}
-                          title="View Details"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                        
-                        <button 
-                          className="p-2 text-white/60 hover:text-[#FCB283] transition-colors rounded-full hover:bg-white/10"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            // Add edit functionality here if needed
-                          }}
-                          title="Edit"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                        
-                        <button 
-                          className="p-2 text-white/60 hover:text-[#FCB283] transition-colors rounded-full hover:bg-white/10"
-                          onClick={(e: React.MouseEvent) => {
-                            e.stopPropagation();
-                            // Add copy functionality here if needed
-                          }}
-                          title="Copy"
-                        >
-                          <Copy className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
+                              {/* Content Column */}
+                              <div className="lg:col-span-6 space-y-4">
+                                {/* Title */}
+                                <h3 className={`text-xl sm:text-2xl lg:text-3xl ${getClass('header')} text-white group-hover:text-[#FCB283] transition-colors line-clamp-2`}>
+                                  {activity.name}
+                                </h3>
+
+                                {/* Description */}
+                                <p className={`${getClass('body')} text-white/70 line-clamp-3 text-sm sm:text-base`}>
+                                  {activity.shortDescription}
+                                </p>
+
+                                {/* Venue and Details */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center text-sm text-white/60">
+                                    <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
+                                    <span className="line-clamp-1">{activity.venueName}</span>
+                                  </div>
+                                  
+                                  <div className="flex items-center text-sm text-white/60">
+                                    <Users className="w-4 h-4 mr-2 flex-shrink-0" />
+                                    <span>
+                                      {activity.maxParticipants === 0 
+                                        ? currentContent.unlimited 
+                                        : `${activity.registeredParticipants || 0}/${activity.maxParticipants} ${currentContent.participants}`
+                                      }
+                                    </span>
+                                  </div>
+                                </div>
+
+                                {/* Speakers */}
+                                {activity.speakers && activity.speakers.length > 0 && (
+                                  <div className="space-y-1">
+                                    {activity.speakers.slice(0, 2).map((speaker, speakerIndex) => (
+                                      <div key={speakerIndex} className={`text-sm ${getClass('body')} text-[#FCB283]`}>
+                                        <span className="font-medium">{speaker.role}</span>
+                                        <br />
+                                        <span className="text-white/80">{speaker.name}</span>
+                                      </div>
+                                    ))}
+                                    {activity.speakers.length > 2 && (
+                                      <div className={`text-xs ${getClass('body')} text-white/60`}>
+                                        +{activity.speakers.length - 2} more speakers
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Tags */}
+                                {activity.tags.length > 0 && (
+                                  <div className="flex flex-wrap gap-2">
+                                    {activity.tags.slice(0, 3).map((tag, tagIndex) => (
+                                      <span
+                                        key={tagIndex}
+                                        className="px-2 py-1 text-xs rounded-full bg-white/10 text-white/70 border border-white/20"
+                                      >
+                                        {tag}
+                                      </span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Image Column */}
+                              <div className="lg:col-span-4">
+                                <div className="relative w-full aspect-video rounded-lg overflow-hidden bg-black/20">
+                                  <img
+                                    src={activity.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'}
+                                    alt={activity.name}
+                                    className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                    loading="lazy"
+                                  />
+                                  
+                                  {/* Image overlay gradient */}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  
+                                  {/* Status badges on image */}
+                                  <div className="absolute top-3 left-3 flex flex-wrap gap-2">
+                                    {isFree && (
+                                      <span className="px-2 py-1 bg-green-500/90 text-white text-xs font-medium rounded-full">
+                                        {currentContent.free}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  {/* Availability indicator */}
+                                  <div className="absolute top-3 right-3">
+                                    <span className={`px-2 py-1 bg-black/60 backdrop-blur-sm text-xs font-medium rounded-full ${availability.color}`}>
+                                      {availability.text}
+                                    </span>
+                                  </div>
+
+                                  {/* Register button overlay */}
+                                  <div className="absolute bottom-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <AnimatedButton
+                                      variant="primary"
+                                      size="small"
+                                      onClick={(e) => {
+                                        e?.stopPropagation();
+                                        handleActivityClick(activity.id);
+                                      }}
+                                    >
+                                      {currentContent.register}
+                                    </AnimatedButton>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                </div>
-              );
-            })}
+                );
+              })}
           </div>
         )}
       </div>

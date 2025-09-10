@@ -7,6 +7,7 @@ interface AnimatedButtonProps {
   icon?: string;
   children: React.ReactNode;
   className?: string;
+  disabled?: boolean;
   onClick?: (e?: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
@@ -17,6 +18,7 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   icon, 
   children, 
   className = '',
+  disabled = false,
   onClick 
 }) => {
   const baseClasses = "relative overflow-hidden font-medium transition-all duration-300 transform hover:scale-105 active:scale-95";
@@ -47,7 +49,8 @@ const AnimatedButton: React.FC<AnimatedButtonProps> = ({
   return (
     <button
       type={type}
-      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      disabled={disabled}
+      className={`${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className} ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
       onClick={handleClick}
     >
       <span className="relative z-10 flex items-center justify-center space-x-2">

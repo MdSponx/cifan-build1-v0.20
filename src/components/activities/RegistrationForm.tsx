@@ -37,6 +37,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   // Calculate available spots
   const availableSpots = maxParticipants - currentRegistrations;
   const isActivityFull = availableSpots <= 0;
+  const isOverCapacity = isActivityFull; // Track over-capacity status for display
 
   // Check if registration deadline has passed
   const isRegistrationClosed = new Date() > new Date(registrationDeadline);
@@ -134,7 +135,8 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (isSubmitting || isLoading || isActivityFull || isRegistrationClosed) {
+    // Only block if registration is closed or already submitting
+    if (isSubmitting || isLoading || isRegistrationClosed) {
       return;
     }
 
@@ -188,19 +190,22 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
 
     if (isActivityFull) {
       return (
-        <div className="glass-card rounded-lg p-4 mb-6 border border-yellow-400/30 bg-gradient-to-br from-yellow-500/10 to-yellow-600/10">
+        <div className="glass-card rounded-lg p-4 mb-6 border border-orange-400/30 bg-gradient-to-br from-orange-400/10 to-yellow-400/10">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-yellow-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              <svg className="h-5 w-5 text-orange-400" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
               </svg>
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-yellow-400 header-en">
-                {t('registration.status.full')}
+              <h3 className="text-sm font-medium text-orange-400 header-en">
+                {i18n.language === 'th' ? 'เกินจำนวนที่กำหนด' : 'Over Capacity'}
               </h3>
               <p className="mt-1 text-sm text-white/80 body-en">
-                {t('registration.status.fullDescription')}
+                {i18n.language === 'th' 
+                  ? 'กิจกรรมนี้มีผู้สมัครเกินจำนวนที่กำหนด คุณยังสามารถลงทะเบียนได้ เจ้าหน้าที่จะทำการคัดเลือกผู้เข้าร่วมและแจ้งผลภายหลัง'
+                  : 'This activity is over capacity. You can still register and staff will review applications to select final participants.'
+                }
               </p>
             </div>
           </div>
@@ -266,7 +271,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 allErrors.participantName ? 'border-red-400 bg-red-500/10' : 'border-white/20 hover:border-white/30'
               }`}
               placeholder={t('registration.form.participantNamePlaceholder')}
-              disabled={isLoading || isSubmitting || isActivityFull || isRegistrationClosed}
+              disabled={isLoading || isSubmitting || isRegistrationClosed}
               maxLength={REGISTRATION_VALIDATION_RULES.participantName.maxLength}
             />
             {allErrors.participantName && (
@@ -288,7 +293,7 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 allErrors.participantNameEn ? 'border-red-400 bg-red-500/10' : 'border-white/20 hover:border-white/30'
               }`}
               placeholder={t('registration.form.participantNameEnPlaceholder')}
-              disabled={isLoading || isSubmitting || isActivityFull || isRegistrationClosed}
+              disabled={isLoading || isSubmitting || isRegistrationClosed}
               maxLength={REGISTRATION_VALIDATION_RULES.participantNameEn.maxLength}
             />
             {allErrors.participantNameEn && (
@@ -456,9 +461,9 @@ const RegistrationForm: React.FC<RegistrationFormProps> = ({
         <div className="flex flex-col sm:flex-row gap-3 pt-6">
           <button
             type="submit"
-            disabled={isLoading || isSubmitting || isActivityFull || isRegistrationClosed}
+            disabled={isLoading || isSubmitting || isRegistrationClosed}
             className={`flex-1 px-6 py-3 rounded-lg font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 body-en ${
-              isLoading || isSubmitting || isActivityFull || isRegistrationClosed
+              isLoading || isSubmitting || isRegistrationClosed
                 ? 'glass-button bg-white/5 text-white/40 cursor-not-allowed border-white/10'
                 : 'glass-button-primary hover:transform hover:translateY(-1px)'
             }`}

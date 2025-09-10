@@ -34,6 +34,7 @@ import AnimatedButton from '../ui/AnimatedButton';
 import ErrorMessage from '../forms/ErrorMessage';
 import RichTextEditor from '../ui/RichTextEditor';
 import SpeakerManagement from '../forms/SpeakerManagement';
+import ParticipantsList from './ParticipantsList';
 
 interface ActivitiesFormProps {
   activity?: Activity | null;
@@ -685,7 +686,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                     const statusKey = `status${option.value.charAt(0).toUpperCase() + option.value.slice(1)}` as keyof typeof currentContent;
                     return (
                       <option key={option.value} value={option.value} className="bg-[#110D16]">
-                        {currentContent[statusKey] as string}
+                        {String(currentContent[statusKey])}
                       </option>
                     );
                   })}
@@ -1110,10 +1111,10 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                     }`}
                   >
                     <div className={`font-medium text-sm ${getClass('body')}`}>
-                      {tag[currentLanguage] as string}
+                      {tag[currentLanguage]}
                     </div>
                     <div className={`text-xs ${getClass('menu')} opacity-70`}>
-                      {tag[currentLanguage === 'th' ? 'en' : 'th'] as string}
+                      {tag[currentLanguage === 'th' ? 'en' : 'th']}
                     </div>
                   </button>
                 ))}
@@ -1229,6 +1230,28 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Section 8: Participants (only show in edit mode for activities that need submission) */}
+        {mode === 'edit' && activity && formData.needSubmission && (
+          <div className="glass-container rounded-xl p-6 sm:p-8">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="w-8 h-8 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-lg flex items-center justify-center">
+                <Users className="w-4 h-4 text-white" />
+              </div>
+              <h2 className={`text-xl ${getClass('header')} text-white`}>
+                {currentLanguage === 'th' ? 'ผู้เข้าร่วม' : 'Participants'}
+              </h2>
+            </div>
+
+            <div className="bg-white/5 rounded-lg p-1">
+              <ParticipantsList
+                activityId={activity.id}
+                activityName={activity.name}
+                className="bg-transparent shadow-none"
+              />
+            </div>
+          </div>
+        )}
 
         {/* Action Buttons */}
         <div className="flex flex-col sm:flex-row gap-4 justify-end">

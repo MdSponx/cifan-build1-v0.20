@@ -207,13 +207,15 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
       return { canRegister: false, reason: 'unpublished' };
     }
     
-    // Check if activity is full
+    // Allow registration even when over capacity for staff review
     const registered = activity.registeredParticipants || 0;
-    if (activity.maxParticipants > 0 && registered >= activity.maxParticipants) {
-      return { canRegister: false, reason: 'full' };
-    }
+    const isOverCapacity = activity.maxParticipants > 0 && registered >= activity.maxParticipants;
     
-    return { canRegister: true, reason: 'available' };
+    return { 
+      canRegister: true, 
+      reason: isOverCapacity ? 'over-capacity' : 'available',
+      isOverCapacity 
+    };
   };
 
   // Handle registration
@@ -550,15 +552,36 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
               {activity.needSubmission && (
                 <div className="space-y-3">
                   {registrationStatus.canRegister ? (
-                    <AnimatedButton
-                      variant="primary"
-                      size="large"
-                      onClick={handleRegister}
-                      className="w-full"
-                    >
-                      <UserPlus className="w-4 h-4 mr-2" />
-                      {currentContent.register}
-                    </AnimatedButton>
+                    <>
+                      <AnimatedButton
+                        variant="primary"
+                        size="large"
+                        onClick={handleRegister}
+                        className="w-full"
+                      >
+                        <UserPlus className="w-4 h-4 mr-2" />
+                        {currentContent.register}
+                      </AnimatedButton>
+                      
+                      {/* Over-capacity warning */}
+                      {registrationStatus.isOverCapacity && (
+                        <div className="glass-card rounded-lg p-3 border border-orange-400/30 bg-gradient-to-br from-orange-400/10 to-yellow-400/10">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0">
+                              <Info className="h-4 w-4 text-orange-400 mt-0.5" />
+                            </div>
+                            <div className="ml-2 text-left">
+                              <p className={`text-xs ${getClass('body')} text-orange-200`}>
+                                {currentLanguage === 'th' 
+                                  ? 'กิจกรรมนี้มีผู้สมัครเกินจำนวนที่กำหนด เจ้าหน้าที่จะทำการคัดเลือกผู้เข้าร่วมและแจ้งผลภายหลัง'
+                                  : 'This activity is over capacity. Staff will review applications and notify selected participants.'
+                                }
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   ) : (
                     <div className="text-center">
                       <div className="flex items-center justify-center space-x-2 text-red-400 mb-2">
@@ -566,7 +589,6 @@ const ActivityDetailPage: React.FC<ActivityDetailPageProps> = ({ activityId }) =
                         <span className={`text-sm ${getClass('body')}`}>
                           {registrationStatus.reason === 'login' && currentContent.loginRequired}
                           {registrationStatus.reason === 'closed' && currentContent.closed}
-                          {registrationStatus.reason === 'full' && currentContent.full}
                           {registrationStatus.reason === 'past' && currentContent.closed}
                           {registrationStatus.reason === 'unpublished' && currentContent.closed}
                         </span>

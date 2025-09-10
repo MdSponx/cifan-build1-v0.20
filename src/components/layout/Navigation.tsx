@@ -109,6 +109,7 @@ const Navigation = () => {
               <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
               <NavLink href="#competition">{t('navigation.competition')}</NavLink>
               <NavLink href="#activities">{t('navigation.events')}</NavLink>
+              <NavLink href="#city-rally">{t('navigation.cityRally')}</NavLink>
               <NavLink href="#news">{t('navigation.news')}</NavLink>
             </div>
             
@@ -286,6 +287,7 @@ const Navigation = () => {
             <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
             <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
             <MobileNavLink href="#activities">{t('navigation.events')}</MobileNavLink>
+            <MobileNavLink href="#city-rally">{t('navigation.cityRally')}</MobileNavLink>
             <MobileNavLink href="#news">{t('navigation.news')}</MobileNavLink>
             
             <div className="border-t border-white/20 pt-4 mt-4 space-y-3">

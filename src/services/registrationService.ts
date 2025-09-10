@@ -102,11 +102,12 @@ export class RegistrationService {
           throw new Error('DUPLICATE_EMAIL');
         }
 
-        // Check capacity
+        // Check capacity - Allow over-capacity registrations for staff review
         const currentCount = existingRegistrations.size;
-        if (currentCount >= activity.maxParticipants) {
-          throw new Error('ACTIVITY_FULL');
-        }
+        const isOverCapacity = activity.maxParticipants > 0 && currentCount >= activity.maxParticipants;
+        
+        // Note: We no longer block registrations when over capacity
+        // Staff can review and select final participants from the backend
 
         // Generate tracking code
         const trackingCode = this.generateTrackingCode();
@@ -132,9 +133,14 @@ export class RegistrationService {
           userAgent: clientInfo.userAgent
         };
 
+        // Remove any undefined values from the object before saving
+        const cleanRegistrationData = Object.fromEntries(
+          Object.entries(registrationData).filter(([_, value]) => value !== undefined)
+        );
+
         // Add registration document
         const newRegistrationRef = doc(registrationsRef);
-        transaction.set(newRegistrationRef, registrationData);
+        transaction.set(newRegistrationRef, cleanRegistrationData);
 
         // Update activity analytics
         const newCount = currentCount + 1;
@@ -235,28 +241,23 @@ export class RegistrationService {
     pageSize = 20
   ): Promise<RegistrationListResult> {
     try {
-      console.log('🔍 Fetching registrations for activity:', activityId);
+      console.log('🔍 Fetching registrations for activity:', activityId, 'with filters:', filters);
 
       const activityRef = doc(db, ACTIVITIES_COLLECTION, activityId);
       const registrationsRef = collection(activityRef, REGISTRATIONS_SUBCOLLECTION);
 
+      // First, get all registrations without status filter to avoid Firestore query limitations
       let queryConstraints: any[] = [];
 
-      // Apply filters
-      if (filters) {
-        if (filters.status) {
-          queryConstraints.push(where('status', '==', filters.status));
+      // Apply date range filters (these work well with Firestore)
+      if (filters?.dateRange) {
+        if (filters.dateRange.start) {
+          const startDate = Timestamp.fromDate(new Date(filters.dateRange.start));
+          queryConstraints.push(where('registeredAt', '>=', startDate));
         }
-
-        if (filters.dateRange) {
-          if (filters.dateRange.start) {
-            const startDate = Timestamp.fromDate(new Date(filters.dateRange.start));
-            queryConstraints.push(where('registeredAt', '>=', startDate));
-          }
-          if (filters.dateRange.end) {
-            const endDate = Timestamp.fromDate(new Date(filters.dateRange.end));
-            queryConstraints.push(where('registeredAt', '<=', endDate));
-          }
+        if (filters.dateRange.end) {
+          const endDate = Timestamp.fromDate(new Date(filters.dateRange.end));
+          queryConstraints.push(where('registeredAt', '<=', endDate));
         }
       }
 
@@ -265,55 +266,62 @@ export class RegistrationService {
       const sortOrder = filters?.sortOrder || 'desc';
       queryConstraints.push(orderBy(sortBy, sortOrder));
 
-      // Get total count
-      const totalQuery = query(registrationsRef, ...queryConstraints);
-      const totalSnapshot = await getDocs(totalQuery);
-      const total = totalSnapshot.size;
-
-      // Apply pagination
-      const offset = (page - 1) * pageSize;
-      let paginatedQuery = query(registrationsRef, ...queryConstraints, limit(pageSize));
-
-      if (offset > 0) {
-        const offsetQuery = query(registrationsRef, ...queryConstraints, limit(offset));
-        const offsetSnapshot = await getDocs(offsetQuery);
-        if (!offsetSnapshot.empty) {
-          const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
-          paginatedQuery = query(
-            registrationsRef,
-            ...queryConstraints,
-            startAfter(lastDoc),
-            limit(pageSize)
-          );
-        }
-      }
-
-      const snapshot = await getDocs(paginatedQuery);
-      let registrations = snapshot.docs.map(doc =>
+      // Get all registrations first
+      const allQuery = query(registrationsRef, ...queryConstraints);
+      const allSnapshot = await getDocs(allQuery);
+      
+      let allRegistrations = allSnapshot.docs.map(doc =>
         this.convertFirestoreDocToRegistration({
           id: doc.id,
           ...doc.data()
         } as RegistrationFirestoreDoc)
       );
 
-      // Apply client-side search filter
+      console.log('📊 Total registrations before filtering:', allRegistrations.length);
+
+      // Apply client-side filters
+      let filteredRegistrations = allRegistrations;
+
+      // Apply status filter client-side
+      if (filters?.status) {
+        filteredRegistrations = filteredRegistrations.filter(reg => reg.status === filters.status);
+        console.log('📊 After status filter:', filteredRegistrations.length, 'status:', filters.status);
+      }
+
+      // Apply search filter client-side
       if (filters?.search) {
         const searchTerm = filters.search.toLowerCase();
-        registrations = registrations.filter(registration =>
+        filteredRegistrations = filteredRegistrations.filter(registration =>
           registration.participantName.toLowerCase().includes(searchTerm) ||
           registration.email.toLowerCase().includes(searchTerm) ||
           registration.phone.includes(searchTerm) ||
           registration.organization?.toLowerCase().includes(searchTerm) ||
           registration.trackingCode.toLowerCase().includes(searchTerm)
         );
+        console.log('📊 After search filter:', filteredRegistrations.length, 'search term:', searchTerm);
       }
 
+      // Apply pagination to filtered results
+      const total = filteredRegistrations.length;
+      const totalPages = Math.ceil(total / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedRegistrations = filteredRegistrations.slice(startIndex, endIndex);
+
+      console.log('📊 Final results:', {
+        total,
+        totalPages,
+        currentPage: page,
+        pageSize,
+        resultCount: paginatedRegistrations.length
+      });
+
       return {
-        registrations,
-        total: filters?.search ? registrations.length : total,
+        registrations: paginatedRegistrations,
+        total,
         page,
         limit: pageSize,
-        totalPages: Math.ceil((filters?.search ? registrations.length : total) / pageSize),
+        totalPages,
         hasMore: page * pageSize < total
       };
 
@@ -400,45 +408,121 @@ export class RegistrationService {
     try {
       console.log('🔄 Updating registration status:', { activityId, registrationId, status });
 
+      // First, update the registration status
+      const activityRef = doc(db, ACTIVITIES_COLLECTION, activityId);
+      const registrationRef = doc(activityRef, REGISTRATIONS_SUBCOLLECTION, registrationId);
+
+      await updateDoc(registrationRef, {
+        status,
+        updatedAt: serverTimestamp()
+      });
+
+      // Then update activity analytics separately to avoid transaction conflicts
+      await this.updateActivityAnalytics(activityId);
+
+      console.log('✅ Registration status updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating registration status:', error);
+      throw new Error('Failed to update registration status');
+    }
+  }
+
+  /**
+   * Delete a registration (admin only)
+   */
+  async deleteRegistration(
+    activityId: string,
+    registrationId: string
+  ): Promise<void> {
+    try {
+      console.log('🗑️ Deleting registration:', { activityId, registrationId });
+
       await runTransaction(db, async (transaction) => {
         const activityRef = doc(db, ACTIVITIES_COLLECTION, activityId);
         const registrationRef = doc(activityRef, REGISTRATIONS_SUBCOLLECTION, registrationId);
 
-        // Update registration status
-        transaction.update(registrationRef, {
-          status,
-          updatedAt: serverTimestamp()
-        });
+        // Delete registration document
+        transaction.delete(registrationRef);
 
         // Update activity analytics
         const registrationsSnapshot = await getDocs(
           collection(activityRef, REGISTRATIONS_SUBCOLLECTION)
         );
 
-        const statusCounts = { registered: 0, attended: 0, absent: 0 };
-        registrationsSnapshot.docs.forEach(doc => {
-          const data = doc.data();
-          const docStatus = doc.id === registrationId ? status : data.status;
-          statusCounts[docStatus as AttendanceStatus]++;
-        });
+        const newCount = registrationsSnapshot.size - 1; // Subtract 1 for the deleted registration
+        const statusBreakdown = this.calculateStatusBreakdown(
+          registrationsSnapshot.docs
+            .filter(doc => doc.id !== registrationId)
+            .map(doc => this.convertFirestoreDocToRegistration({
+              id: doc.id,
+              ...doc.data()
+            } as RegistrationFirestoreDoc))
+        );
 
         const analytics = {
-          totalRegistrations: registrationsSnapshot.size,
-          attendanceCount: statusCounts.attended,
-          registrationsByStatus: statusCounts,
+          totalRegistrations: newCount,
+          attendanceCount: statusBreakdown.attended,
+          registrationsByStatus: statusBreakdown,
           lastRegistration: serverTimestamp()
         };
 
         transaction.update(activityRef, {
+          registeredParticipants: newCount,
           analytics,
           updatedAt: serverTimestamp()
         });
       });
 
-      console.log('✅ Registration status updated successfully');
+      console.log('✅ Registration deleted successfully');
     } catch (error) {
-      console.error('❌ Error updating registration status:', error);
-      throw new Error('Failed to update registration status');
+      console.error('❌ Error deleting registration:', error);
+      throw new Error('Failed to delete registration');
+    }
+  }
+
+  /**
+   * Bulk delete registrations
+   */
+  async bulkDeleteRegistrations(
+    activityId: string,
+    registrationIds: string[]
+  ): Promise<BulkUpdateResult> {
+    try {
+      console.log('🗑️ Bulk deleting registrations:', { activityId, count: registrationIds.length });
+
+      const batch = writeBatch(db);
+      const activityRef = doc(db, ACTIVITIES_COLLECTION, activityId);
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      // Delete each registration
+      for (const registrationId of registrationIds) {
+        try {
+          const registrationRef = doc(activityRef, REGISTRATIONS_SUBCOLLECTION, registrationId);
+          batch.delete(registrationRef);
+          deletedCount++;
+        } catch (error) {
+          errors.push(`Failed to delete registration ${registrationId}: ${error}`);
+        }
+      }
+
+      // Commit batch delete
+      await batch.commit();
+
+      // Update activity analytics
+      await this.updateActivityAnalytics(activityId);
+
+      console.log('✅ Bulk delete completed:', { deletedCount, failedCount: errors.length });
+
+      return {
+        success: true,
+        updatedCount: deletedCount,
+        failedCount: errors.length,
+        errors: errors.length > 0 ? errors : undefined
+      };
+    } catch (error) {
+      console.error('❌ Error in bulk delete:', error);
+      throw new Error('Failed to bulk delete registrations');
     }
   }
 
@@ -700,11 +784,17 @@ export class RegistrationService {
   }
 
   private getClientInfo(): { ipAddress?: string; userAgent?: string } {
-    return {
-      userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-      // IP address would need to be obtained from a service or server-side
-      ipAddress: undefined
-    };
+    const result: { ipAddress?: string; userAgent?: string } = {};
+    
+    // Only add userAgent if it exists
+    if (typeof navigator !== 'undefined' && navigator.userAgent) {
+      result.userAgent = navigator.userAgent;
+    }
+    
+    // Don't add ipAddress field at all - avoid undefined values
+    // IP address detection can be added later using external APIs
+    
+    return result;
   }
 
   private getErrorMessage(errorCode: RegistrationErrorCode): string {
@@ -741,7 +831,7 @@ export class RegistrationService {
   }
 
   private calculateStatusBreakdown(registrations: ActivityRegistration[]): Record<AttendanceStatus, number> {
-    const breakdown = { registered: 0, attended: 0, absent: 0 };
+    const breakdown = { registered: 0, approved: 0, attended: 0, absent: 0 };
     registrations.forEach(reg => {
       breakdown[reg.status]++;
     });

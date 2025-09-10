@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useTypography } from '../../utils/typography';
 import { registrationService } from '../../services/registrationService';
 import {
   ParticipantsListProps,
@@ -9,6 +10,19 @@ import {
   ATTENDANCE_STATUS_OPTIONS,
   DEFAULT_REGISTRATION_FILTERS
 } from '../../types/registration.types';
+import { 
+  Search, 
+  Download, 
+  Users, 
+  CheckCircle, 
+  XCircle, 
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  Trash2
+} from 'lucide-react';
+import AnimatedButton from '../ui/AnimatedButton';
 
 const ParticipantsList: React.FC<ParticipantsListProps> = ({
   activityId,
@@ -16,7 +30,10 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   onRegistrationUpdate,
   className = ''
 }) => {
-  const { t, i18n } = useTranslation();
+  const { i18n } = useTranslation();
+  const { getClass } = useTypography();
+  const currentLanguage = i18n.language as 'en' | 'th';
+  
   const [registrations, setRegistrations] = useState<ActivityRegistration[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -28,6 +45,86 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   const [totalCount, setTotalCount] = useState(0);
 
   const pageSize = 20;
+
+  // Content translations
+  const content = {
+    th: {
+      title: 'ผู้เข้าร่วม',
+      totalCount: 'ทั้งหมด {{count}} คน',
+      searchPlaceholder: 'ค้นหาชื่อ, อีเมล, หรือเบอร์โทร...',
+      allStatuses: 'สถานะทั้งหมด',
+      exportCsv: 'ส่งออก CSV',
+      exportExcel: 'ส่งออก Excel',
+      selectedCount: 'เลือกแล้ว {{count}} รายการ',
+      markAs: 'เปลี่ยนเป็น',
+      delete: 'ลบ',
+      deleteSelected: 'ลบที่เลือก',
+      confirmDelete: 'คุณแน่ใจหรือไม่ที่จะลบการลงทะเบียนนี้?',
+      confirmBulkDelete: 'คุณแน่ใจหรือไม่ที่จะลบการลงทะเบียน {{count}} รายการที่เลือก?',
+      loading: 'กำลังโหลด...',
+      noRegistrations: 'ยังไม่มีผู้ลงทะเบียน',
+      columns: {
+        name: 'ชื่อ',
+        email: 'อีเมล',
+        phone: 'เบอร์โทร',
+        organization: 'องค์กร',
+        status: 'สถานะ',
+        registeredAt: 'วันที่ลงทะเบียน',
+        actions: 'การจัดการ'
+      },
+      pagination: {
+        showing: 'แสดง {{start}}-{{end}} จาก {{total}} รายการ',
+        previous: 'ก่อนหน้า',
+        next: 'ถัดไป',
+        pageOf: 'หน้า {{current}} จาก {{total}}'
+      },
+      errors: {
+        loadFailed: 'ไม่สามารถโหลดข้อมูลผู้เข้าร่วมได้',
+        updateFailed: 'ไม่สามารถอัปเดตสถานะได้',
+        bulkUpdateFailed: 'ไม่สามารถอัปเดตสถานะหลายรายการได้',
+        exportFailed: 'ไม่สามารถส่งออกข้อมูลได้'
+      }
+    },
+    en: {
+      title: 'Participants',
+      totalCount: 'Total {{count}} participants',
+      searchPlaceholder: 'Search name, email, or phone...',
+      allStatuses: 'All Statuses',
+      exportCsv: 'Export CSV',
+      exportExcel: 'Export Excel',
+      selectedCount: '{{count}} selected',
+      markAs: 'Mark as',
+      delete: 'Delete',
+      deleteSelected: 'Delete Selected',
+      confirmDelete: 'Are you sure you want to delete this registration?',
+      confirmBulkDelete: 'Are you sure you want to delete {{count}} selected registrations?',
+      loading: 'Loading...',
+      noRegistrations: 'No registrations yet',
+      columns: {
+        name: 'Name',
+        email: 'Email',
+        phone: 'Phone',
+        organization: 'Organization',
+        status: 'Status',
+        registeredAt: 'Registered At',
+        actions: 'Actions'
+      },
+      pagination: {
+        showing: 'Showing {{start}}-{{end}} of {{total}} entries',
+        previous: 'Previous',
+        next: 'Next',
+        pageOf: 'Page {{current}} of {{total}}'
+      },
+      errors: {
+        loadFailed: 'Failed to load participants',
+        updateFailed: 'Failed to update status',
+        bulkUpdateFailed: 'Failed to bulk update status',
+        exportFailed: 'Failed to export data'
+      }
+    }
+  };
+
+  const currentContent = content[currentLanguage];
 
   // Load registrations
   const loadRegistrations = async () => {
@@ -49,7 +146,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
     } catch (error) {
       console.error('❌ Error loading registrations:', error);
-      setError(t('admin.participants.errors.loadFailed'));
+      setError(currentContent.errors.loadFailed);
     } finally {
       setIsLoading(false);
     }
@@ -123,7 +220,69 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
     } catch (error) {
       console.error('❌ Error updating registration status:', error);
-      setError(t('admin.participants.errors.updateFailed'));
+      setError(currentContent.errors.updateFailed);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle individual delete
+  const handleDelete = async (registrationId: string) => {
+    if (!confirm(currentContent.confirmDelete)) {
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      await registrationService.deleteRegistration(activityId, registrationId);
+      
+      // Update local state
+      setRegistrations(prev => prev.filter(reg => reg.id !== registrationId));
+      setTotalCount(prev => prev - 1);
+
+      // Call callback
+      if (onRegistrationUpdate) {
+        onRegistrationUpdate();
+      }
+
+    } catch (error) {
+      console.error('❌ Error deleting registration:', error);
+      setError('Failed to delete registration');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  // Handle bulk delete
+  const handleBulkDelete = async () => {
+    if (selectedRegistrations.size === 0) {
+      return;
+    }
+
+    const confirmMessage = currentContent.confirmBulkDelete.replace('{{count}}', selectedRegistrations.size.toString());
+    if (!confirm(confirmMessage)) {
+      return;
+    }
+
+    try {
+      setIsUpdating(true);
+      const registrationIds = Array.from(selectedRegistrations);
+      
+      await registrationService.bulkDeleteRegistrations(activityId, registrationIds);
+      
+      // Update local state
+      setRegistrations(prev => prev.filter(reg => !selectedRegistrations.has(reg.id)));
+      setTotalCount(prev => prev - selectedRegistrations.size);
+      setSelectedRegistrations(new Set());
+
+      // Call callback
+      if (onRegistrationUpdate) {
+        onRegistrationUpdate();
+      }
+
+    } catch (error) {
+      console.error('❌ Error bulk deleting registrations:', error);
+      setError('Failed to delete registrations');
     } finally {
       setIsUpdating(false);
     }
@@ -159,7 +318,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
     } catch (error) {
       console.error('❌ Error bulk updating registration status:', error);
-      setError(t('admin.participants.errors.bulkUpdateFailed'));
+      setError(currentContent.errors.bulkUpdateFailed);
     } finally {
       setIsUpdating(false);
     }
@@ -183,7 +342,7 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
     } catch (error) {
       console.error('❌ Error exporting registrations:', error);
-      setError(t('admin.participants.errors.exportFailed'));
+      setError(currentContent.errors.exportFailed);
     } finally {
       setIsUpdating(false);
     }
@@ -208,15 +367,15 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
   };
 
   return (
-    <div className={`bg-white rounded-lg shadow-md ${className}`}>
+    <div className={`bg-transparent ${className}`}>
       {/* Header */}
-      <div className="p-6 border-b border-gray-200">
+      <div className="p-6 border-b border-white/20">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">
-            {t('admin.participants.title')}
+          <h3 className={`${getClass('heading')} text-white`}>
+            {currentContent.title}
           </h3>
-          <div className="text-sm text-gray-600">
-            {t('admin.participants.totalCount', { count: totalCount })}
+          <div className={`${getClass('body')} text-white/80`}>
+            {currentContent.totalCount.replace('{{count}}', totalCount.toString())}
           </div>
         </div>
 
@@ -226,10 +385,10 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
           <div className="flex-1">
             <input
               type="text"
-              placeholder={t('admin.participants.searchPlaceholder')}
+              placeholder={currentContent.searchPlaceholder}
               value={filters.search || ''}
               onChange={(e) => handleSearch(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:bg-white/20"
             />
           </div>
 
@@ -238,11 +397,11 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
             <select
               value={filters.status || ''}
               onChange={(e) => handleStatusFilter(e.target.value as AttendanceStatus || undefined)}
-              className="px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="px-3 py-2 bg-white/10 border border-white/20 rounded-md text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:bg-white/20"
             >
-              <option value="">{t('admin.participants.allStatuses')}</option>
+              <option value="" className="bg-gray-800 text-white">{currentContent.allStatuses}</option>
               {ATTENDANCE_STATUS_OPTIONS.map(option => (
-                <option key={option.value} value={option.value}>
+                <option key={option.value} value={option.value} className="bg-gray-800 text-white">
                   {i18n.language === 'th' ? option.labelTh : option.label}
                 </option>
               ))}
@@ -251,47 +410,67 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
           {/* Export */}
           <div className="flex gap-2">
-            <button
+            <AnimatedButton
               onClick={() => handleExport('csv')}
               disabled={isUpdating}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="small"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
-              {t('admin.participants.exportCsv')}
-            </button>
-            <button
+              <Download className="w-4 h-4 mr-2" />
+              {currentContent.exportCsv}
+            </AnimatedButton>
+            <AnimatedButton
               onClick={() => handleExport('xlsx')}
               disabled={isUpdating}
-              className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="small"
+              className="bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
-              {t('admin.participants.exportExcel')}
-            </button>
+              <Download className="w-4 h-4 mr-2" />
+              {currentContent.exportExcel}
+            </AnimatedButton>
           </div>
         </div>
 
         {/* Bulk Actions */}
         {selectedRegistrations.size > 0 && (
-          <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <div className="mt-4 p-4 bg-white/10 border border-white/20 rounded-lg backdrop-blur-sm">
             <div className="flex items-center justify-between">
-              <span className="text-sm text-blue-700">
-                {t('admin.participants.selectedCount', { count: selectedRegistrations.size })}
+              <span className={`${getClass('body')} text-white`}>
+                {currentContent.selectedCount.replace('{{count}}', selectedRegistrations.size.toString())}
               </span>
               <div className="flex gap-2">
                 {ATTENDANCE_STATUS_OPTIONS.map(option => (
-                  <button
+                  <AnimatedButton
                     key={option.value}
                     onClick={() => handleBulkStatusUpdate(option.value)}
                     disabled={isUpdating}
-                    className={`px-3 py-1 rounded text-xs font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed ${
+                    variant="primary"
+                    size="small"
+                    className={`${
                       option.color === 'green'
-                        ? 'bg-green-600 text-white hover:bg-green-700 focus:ring-green-500'
+                        ? 'bg-green-600 hover:bg-green-700 text-white'
                         : option.color === 'blue'
-                        ? 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'
-                        : 'bg-red-600 text-white hover:bg-red-700 focus:ring-red-500'
+                        ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                        : option.color === 'yellow'
+                        ? 'bg-yellow-600 hover:bg-yellow-700 text-white'
+                        : 'bg-red-600 hover:bg-red-700 text-white'
                     }`}
                   >
-                    {t('admin.participants.markAs')} {i18n.language === 'th' ? option.labelTh : option.label}
-                  </button>
+                    {currentContent.markAs} {i18n.language === 'th' ? option.labelTh : option.label}
+                  </AnimatedButton>
                 ))}
+                <AnimatedButton
+                  onClick={handleBulkDelete}
+                  disabled={isUpdating}
+                  variant="primary"
+                  size="small"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  {currentContent.deleteSelected}
+                </AnimatedButton>
               </div>
             </div>
           </div>
@@ -300,15 +479,13 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 bg-red-50 border-b border-red-200">
+        <div className="p-4 bg-red-500/20 border-b border-red-400/30 backdrop-blur-sm">
           <div className="flex items-center">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-              </svg>
+              <XCircle className="h-5 w-5 text-red-300" />
             </div>
             <div className="ml-3">
-              <p className="text-sm text-red-600">{error}</p>
+              <p className={`${getClass('body')} text-red-200`}>{error}</p>
             </div>
           </div>
         </div>
@@ -318,119 +495,129 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
       {isLoading ? (
         <div className="p-8 text-center">
           <div className="inline-flex items-center">
-            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-blue-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
-            {t('admin.participants.loading')}
+            <span className={`${getClass('body')} text-white`}>{currentContent.loading}</span>
           </div>
         </div>
       ) : registrations.length === 0 ? (
-        <div className="p-8 text-center text-gray-500">
-          <svg className="mx-auto h-12 w-12 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-          <p>{t('admin.participants.noRegistrations')}</p>
+        <div className="p-8 text-center">
+          <Users className="mx-auto h-12 w-12 text-white/60 mb-4" />
+          <p className={`${getClass('body')} text-white/80`}>{currentContent.noRegistrations}</p>
         </div>
       ) : (
         <>
           {/* Participants Table */}
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto rounded-lg bg-white/10 backdrop-blur-sm border border-white/20">
+            <table className="min-w-full divide-y divide-white/20">
+              <thead className="bg-white/10 backdrop-blur-sm">
                 <tr>
                   <th className="px-6 py-3 text-left">
                     <input
                       type="checkbox"
                       checked={selectedRegistrations.size === registrations.length && registrations.length > 0}
                       onChange={(e) => handleSelectAll(e.target.checked)}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-blue-400 focus:ring-blue-400 border-white/30 rounded bg-white/10"
                     />
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.name')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.name}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.email')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.email}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.phone')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.phone}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.organization')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.organization}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.status')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.status}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.registeredAt')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.registeredAt}
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    {t('admin.participants.columns.actions')}
+                  <th className={`px-6 py-3 text-left ${getClass('caption')} text-white/80 uppercase tracking-wider`}>
+                    {currentContent.columns.actions}
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white/5 divide-y divide-white/10 backdrop-blur-sm">
                 {registrations.map((registration) => {
                   const statusInfo = getStatusInfo(registration.status);
                   return (
-                    <tr key={registration.id} className="hover:bg-gray-50">
+                    <tr key={registration.id} className="hover:bg-white/10 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <input
                           type="checkbox"
                           checked={selectedRegistrations.has(registration.id)}
                           onChange={(e) => handleRegistrationSelect(registration.id, e.target.checked)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                          className="h-4 w-4 text-blue-400 focus:ring-blue-400 border-white/30 rounded bg-white/10"
                         />
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div>
-                          <div className="text-sm font-medium text-gray-900">
+                          <div className={`${getClass('body')} font-medium text-white`}>
                             {registration.participantName}
                           </div>
                           {registration.participantNameEn && (
-                            <div className="text-sm text-gray-500">
+                            <div className={`${getClass('caption')} text-white/60`}>
                               {registration.participantNameEn}
                             </div>
                           )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className={`px-6 py-4 whitespace-nowrap ${getClass('body')} text-white/80`}>
                         {registration.email}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className={`px-6 py-4 whitespace-nowrap ${getClass('body')} text-white/80`}>
                         {registration.phone}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className={`px-6 py-4 whitespace-nowrap ${getClass('body')} text-white/80`}>
                         {registration.organization || '-'}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full ${getClass('caption')} font-medium ${
                           statusInfo.color === 'green'
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-green-500/20 text-green-300 border border-green-400/30'
                             : statusInfo.color === 'blue'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-blue-500/20 text-blue-300 border border-blue-400/30'
+                            : statusInfo.color === 'yellow'
+                            ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-400/30'
+                            : 'bg-red-500/20 text-red-300 border border-red-400/30'
                         }`}>
                           {i18n.language === 'th' ? statusInfo.labelTh : statusInfo.label}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className={`px-6 py-4 whitespace-nowrap ${getClass('caption')} text-white/60`}>
                         {formatDate(registration.registeredAt)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                        <select
-                          value={registration.status}
-                          onChange={(e) => handleStatusUpdate(registration.id, e.target.value as AttendanceStatus)}
-                          disabled={isUpdating}
-                          className="text-sm border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {ATTENDANCE_STATUS_OPTIONS.map(option => (
-                            <option key={option.value} value={option.value}>
-                              {i18n.language === 'th' ? option.labelTh : option.label}
-                            </option>
-                          ))}
-                        </select>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <select
+                            value={registration.status}
+                            onChange={(e) => handleStatusUpdate(registration.id, e.target.value as AttendanceStatus)}
+                            disabled={isUpdating}
+                            className={`${getClass('caption')} bg-white/10 border border-white/20 rounded px-2 py-1 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-blue-400 focus:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {ATTENDANCE_STATUS_OPTIONS.map(option => (
+                              <option key={option.value} value={option.value} className="bg-gray-800 text-white">
+                                {i18n.language === 'th' ? option.labelTh : option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => handleDelete(registration.id)}
+                            disabled={isUpdating}
+                            className="p-1 text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            title={currentContent.delete}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -441,33 +628,40 @@ const ParticipantsList: React.FC<ParticipantsListProps> = ({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="px-6 py-4 border-t border-gray-200">
+            <div className="px-6 py-4 border-t border-white/20">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  {t('admin.participants.pagination.showing', {
-                    start: (currentPage - 1) * pageSize + 1,
-                    end: Math.min(currentPage * pageSize, totalCount),
-                    total: totalCount
-                  })}
+                <div className={`${getClass('body')} text-white/80`}>
+                  {currentContent.pagination.showing
+                    .replace('{{start}}', ((currentPage - 1) * pageSize + 1).toString())
+                    .replace('{{end}}', Math.min(currentPage * pageSize, totalCount).toString())
+                    .replace('{{total}}', totalCount.toString())}
                 </div>
                 <div className="flex gap-2">
-                  <button
+                  <AnimatedButton
                     onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="secondary"
+                    size="small"
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {t('admin.participants.pagination.previous')}
-                  </button>
-                  <span className="px-3 py-2 text-sm text-gray-700">
-                    {t('admin.participants.pagination.pageOf', { current: currentPage, total: totalPages })}
+                    <ChevronLeft className="w-4 h-4 mr-1" />
+                    {currentContent.pagination.previous}
+                  </AnimatedButton>
+                  <span className={`px-3 py-2 ${getClass('body')} text-white/80 flex items-center`}>
+                    {currentContent.pagination.pageOf
+                      .replace('{{current}}', currentPage.toString())
+                      .replace('{{total}}', totalPages.toString())}
                   </span>
-                  <button
+                  <AnimatedButton
                     onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    variant="secondary"
+                    size="small"
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {t('admin.participants.pagination.next')}
-                  </button>
+                    {currentContent.pagination.next}
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </AnimatedButton>
                 </div>
               </div>
             </div>

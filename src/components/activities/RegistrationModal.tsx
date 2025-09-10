@@ -60,6 +60,7 @@ const RegistrationModal: React.FC<RegistrationModalProps> = ({
         if (result.errorCode === 'DUPLICATE_EMAIL') {
           setErrors({ email: result.error || t('registration.errors.duplicateEmail') });
         } else if (result.errorCode === 'ACTIVITY_FULL') {
+          // This should no longer occur since we allow over-capacity registrations
           setErrors({ general: result.error || t('registration.errors.activityFull') });
         } else if (result.errorCode === 'REGISTRATION_CLOSED') {
           setErrors({ general: result.error || t('registration.errors.registrationClosed') });

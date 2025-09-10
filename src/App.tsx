@@ -19,6 +19,7 @@ import WorkshopsSection from './components/sections/WorkshopsSection';
 import CityRallySection from './components/sections/CityRallySection';
 import NewsSection from './components/sections/NewsSection';
 import PartnersSection from './components/sections/PartnersSection';
+import CityRallyPage from './components/pages/CityRallyPage';
 import SignUpPage from './components/auth/SignUpPage';
 import SignInPage from './components/auth/SignInPage';
 import VerifyEmailPage from './components/auth/VerifyEmailPage';
@@ -306,6 +307,8 @@ function App() {
         return <ComingSoonPage />;
       case 'activities':
         return <PublicActivitiesPage />;
+      case 'city-rally':
+        return <CityRallyPage />;
       case 'news':
         return <PublicNewsPage />;
       case 'quill-dropdown-test':
