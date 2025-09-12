@@ -213,6 +213,13 @@ const ActivitiesRouter: React.FC<ActivitiesRouterProps> = ({
     onNavigate(route);
   };
 
+  // Handle activity duplication
+  const handleActivityDuplicated = (duplicatedActivity: Activity) => {
+    console.log('Activity duplicated:', duplicatedActivity);
+    // Add the duplicated activity to the local state
+    setActivities(prev => [duplicatedActivity, ...prev]);
+  };
+
   // Filter activities based on current filter
   const getFilteredActivities = () => {
     if (!filter) return activities;
@@ -314,6 +321,7 @@ const ActivitiesRouter: React.FC<ActivitiesRouterProps> = ({
           filter={filter}
           onNavigate={handleGalleryNavigate}
           onRefresh={loadActivities}
+          onActivityDuplicated={handleActivityDuplicated}
           isLoading={isLoading}
         />
       );

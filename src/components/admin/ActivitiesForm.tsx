@@ -286,16 +286,16 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
         eventEndDate: activity.eventEndDate || '',
         startTime: activity.startTime,
         endTime: activity.endTime,
-        registrationDeadline: activity.registrationDeadline,
+        registrationDeadline: activity.registrationDeadline || '',
         venueName: activity.venueName,
         venueLocation: activity.venueLocation || '',
-        description: activity.description,
+        description: activity.description || '',
         organizers: [...activity.organizers],
         speakers: [...(activity.speakers || [])],
         tags: [...activity.tags],
         contactEmail: activity.contactEmail,
-        contactName: activity.contactName,
-        contactPhone: activity.contactPhone
+        contactName: activity.contactName || '',
+        contactPhone: activity.contactPhone || ''
       });
       
       // Set image preview if activity has an image
@@ -323,10 +323,8 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
       newErrors.shortDescription = `Minimum ${ACTIVITY_VALIDATION_RULES.shortDescription.minLength} characters required`;
     }
 
-    // Description validation
-    if (!formData.description.trim()) {
-      newErrors.description = currentContent.required;
-    } else if (formData.description.length < ACTIVITY_VALIDATION_RULES.description.minLength) {
+    // Description validation - now optional
+    if (formData.description.trim() && formData.description.length < ACTIVITY_VALIDATION_RULES.description.minLength) {
       newErrors.description = `Minimum ${ACTIVITY_VALIDATION_RULES.description.minLength} characters required`;
     }
 
@@ -344,9 +342,8 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
       }
     }
 
-    if (!formData.registrationDeadline) {
-      newErrors.registrationDeadline = currentContent.required;
-    }
+    // Registration deadline validation - now optional
+    // No validation needed since it's optional
 
     // Time validation
     if (!formData.startTime) {
@@ -369,12 +366,14 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
       newErrors.contactEmail = currentContent.invalidEmail;
     }
 
-    if (!formData.contactName.trim()) {
-      newErrors.contactName = currentContent.required;
+    // Contact name validation - now optional
+    if (formData.contactName.trim() && formData.contactName.length < ACTIVITY_VALIDATION_RULES.contactName.minLength) {
+      newErrors.contactName = `Minimum ${ACTIVITY_VALIDATION_RULES.contactName.minLength} characters required`;
     }
 
-    if (!formData.contactPhone.trim()) {
-      newErrors.contactPhone = currentContent.required;
+    // Contact phone validation - now optional
+    if (formData.contactPhone.trim() && formData.contactPhone.length < ACTIVITY_VALIDATION_RULES.contactPhone.minLength) {
+      newErrors.contactPhone = `Minimum ${ACTIVITY_VALIDATION_RULES.contactPhone.minLength} characters required`;
     }
 
     // Organizers validation
@@ -927,7 +926,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             {/* Registration Deadline - On its own separate line */}
             <div>
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
-                {currentContent.registrationDeadline} <span className="text-red-400">*</span>
+                {currentContent.registrationDeadline}
               </label>
               <input
                 type="date"
@@ -989,7 +988,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             {/* Description */}
             <div className="w-full max-w-full min-w-0 overflow-visible">
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
-                {currentContent.description} <span className="text-red-400">*</span>
+                {currentContent.description}
               </label>
               <div className="w-full max-w-full min-w-0">
                 <RichTextEditor
@@ -1201,7 +1200,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             <div>
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
                 <User className="w-4 h-4 inline mr-2" />
-                {currentContent.contactName} <span className="text-red-400">*</span>
+                {currentContent.contactName}
               </label>
               <input
                 type="text"
@@ -1217,7 +1216,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
             <div>
               <label className={`block text-white/90 ${getClass('body')} mb-2`}>
                 <Phone className="w-4 h-4 inline mr-2" />
-                {currentContent.contactPhone} <span className="text-red-400">*</span>
+                {currentContent.contactPhone}
               </label>
               <input
                 type="tel"

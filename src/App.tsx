@@ -56,6 +56,7 @@ import PublicNewsDetailPage from './components/pages/PublicNewsDetailPage';
 import AdminNewsGallery from './components/admin/AdminNewsGallery';
 import AdminNewsForm from './components/admin/AdminNewsForm';
 import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
+import FestivalSchedulePage from './components/pages/FestivalSchedulePage';
 import { newsService } from './services/newsService';
 import { NewsArticle } from './types/news.types';
 import { useAuth } from './components/auth/AuthContext';
@@ -313,6 +314,8 @@ function App() {
         return <PublicNewsPage />;
       case 'quill-dropdown-test':
         return <QuillDropdownTestPage />;
+      case 'festival-schedule':
+        return <FestivalSchedulePage />;
       case 'public/feature-films':
         return (
           <PublicFeatureFilmsPage 

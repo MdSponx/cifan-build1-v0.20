@@ -130,8 +130,8 @@ const CompetitionPage = () => {
       timelineTitle: "กำหนดการส่งหนังสั้น",
       timeline: [
         { date: "15 กรกฎาคม 2568", event: "เปิดรับสมัคร" },
-        { date: "5 กันยายน 2568", event: "ปิดรับสมัคร" },
-        { date: "12 กันยายน 2568", event: "ประกาศผลรอบคัดเลือก" },
+        { date: "12 กันยายน 2568", event: "ปิดรับสมัคร" },
+        { date: "17 กันยายน 2568", event: "ประกาศผลรอบคัดเลือก" },
         { date: "20-27 กันยายน 2568", event: "เทศกาลภาพยนตร์" },
         { date: "27 กันยายน 2568", event: "ประกาศผลรางวัล" }
       ],
@@ -273,8 +273,8 @@ const CompetitionPage = () => {
       timelineTitle: "Submission Timeline",
       timeline: [
         { date: "July 15, 2025", event: "Submission Opens" },
-        { date: "September 5, 2025", event: "Submission Deadline" },
-        { date: "September 12, 2025", event: "Shortlist Announcement" },
+        { date: "September 12, 2025", event: "Submission Deadline" },
+        { date: "September 17, 2025", event: "Shortlist Announcement" },
         { date: "September 20-27, 2025", event: "Film Festival Dates" },
         { date: "September 27, 2025", event: "Award Announcement" }
       ],

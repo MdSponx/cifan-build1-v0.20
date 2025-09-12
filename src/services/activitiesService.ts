@@ -182,9 +182,7 @@ export class ActivitiesService {
       let baseQuery = collection(db, ACTIVITIES_COLLECTION);
       let queryConstraints: any[] = [];
 
-      console.log('🔍 ActivitiesService: Created base query for collection:', ACTIVITIES_COLLECTION);
-
-      // Apply filters
+      // Apply filters first
       if (filters) {
         console.log('🔍 ActivitiesService: Applying filters:', filters);
         
@@ -208,67 +206,44 @@ export class ActivitiesService {
           queryConstraints.push(where('organizers', 'array-contains', filters.organizer));
         }
 
+        // ⚠️ Date range filtering moved to client-side to avoid composite index issues
         if (filters.dateRange) {
-          console.log('🔍 ActivitiesService: Adding date range filter:', filters.dateRange);
-          if (filters.dateRange.start) {
-            queryConstraints.push(where('eventDate', '>=', filters.dateRange.start));
-          }
-          if (filters.dateRange.end) {
-            queryConstraints.push(where('eventDate', '<=', filters.dateRange.end));
-          }
+          console.log('🔍 ActivitiesService: Date range filtering will be applied client-side:', filters.dateRange);
         }
       }
 
-      // Apply sorting - only if explicitly requested to avoid index requirements
+      // ✅ FIX: Apply sorting with better composite index handling
       if (sortOptions) {
-        console.log('🔍 ActivitiesService: Adding sort options:', sortOptions);
-        const direction = sortOptions.direction === 'desc' ? 'desc' : 'asc';
-        queryConstraints.push(orderBy(sortOptions.field, direction));
-      } else {
-        console.log('🔍 ActivitiesService: Skipping default sort to avoid composite index requirement');
-        // Skip default sorting to avoid composite index requirement
-        // Sorting will be done client-side after fetching
+        console.log('🔍 ActivitiesService: Attempting to add server-side sort:', sortOptions);
+        
+        try {
+          // Try to add sorting to Firestore query
+          const direction = sortOptions.direction === 'desc' ? 'desc' : 'asc';
+          
+          // ✅ FIX: Only add orderBy if we have a simple query (no complex filters)
+          // This avoids most composite index requirements
+          if (queryConstraints.length <= 1) {
+            console.log('✅ ActivitiesService: Adding server-side sort (simple query)');
+            queryConstraints.push(orderBy(sortOptions.field, direction));
+          } else {
+            console.log('⚠️ ActivitiesService: Skipping server-side sort (complex query), will sort client-side');
+          }
+        } catch (error) {
+          console.warn('⚠️ ActivitiesService: Server-side sorting failed, will use client-side sorting:', error);
+        }
       }
 
-      console.log('🔍 ActivitiesService: Final query constraints:', queryConstraints.length);
-
-      // Create query with all constraints
-      console.log('🔍 ActivitiesService: Creating query with constraints...');
+      // Create and execute query
+      console.log('🔍 ActivitiesService: Creating query with', queryConstraints.length, 'constraints');
       const q = query(baseQuery, ...queryConstraints);
 
-      console.log('🔍 ActivitiesService: Executing query to get total count...');
-      // Get total count for pagination
-      const totalSnapshot = await getDocs(q);
-      const total = totalSnapshot.size;
+      console.log('📡 ActivitiesService: Executing Firestore query...');
+      const snapshot = await getDocs(q);
       
-      console.log('✅ ActivitiesService: Total documents found:', total);
+      console.log('✅ ActivitiesService: Query returned', snapshot.size, 'documents');
 
-      // Apply pagination
-      const offset = (page - 1) * pageSize;
-      let paginatedQuery = q;
-      
-      console.log('🔍 ActivitiesService: Applying pagination - offset:', offset, 'pageSize:', pageSize);
-      
-      if (offset > 0) {
-        const offsetQuery = query(baseQuery, ...queryConstraints, limit(offset));
-        const offsetSnapshot = await getDocs(offsetQuery);
-        if (!offsetSnapshot.empty) {
-          const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
-          paginatedQuery = query(baseQuery, ...queryConstraints, startAfter(lastDoc), limit(pageSize));
-        } else {
-          paginatedQuery = query(baseQuery, ...queryConstraints, limit(pageSize));
-        }
-      } else {
-        paginatedQuery = query(baseQuery, ...queryConstraints, limit(pageSize));
-      }
-
-      console.log('🔍 ActivitiesService: Executing paginated query...');
-      const snapshot = await getDocs(paginatedQuery);
-      
-      console.log('✅ ActivitiesService: Paginated query returned:', snapshot.size, 'documents');
-
+      // Convert all documents first
       let activities: Activity[] = snapshot.docs.map(doc => {
-        console.log('🔍 ActivitiesService: Converting document:', doc.id);
         return this.convertFirestoreDocToActivity({
           id: doc.id,
           ...doc.data()
@@ -277,54 +252,138 @@ export class ActivitiesService {
 
       console.log('✅ ActivitiesService: Converted', activities.length, 'activities');
 
+      // ✅ FIX: Apply client-side date range filtering if needed
+      if (filters?.dateRange) {
+        const originalLength = activities.length;
+        activities = activities.filter(activity => {
+          const activityDate = activity.eventDate;
+          const isAfterStart = !filters.dateRange?.start || activityDate >= filters.dateRange.start;
+          const isBeforeEnd = !filters.dateRange?.end || activityDate <= filters.dateRange.end;
+          return isAfterStart && isBeforeEnd;
+        });
+        console.log(`📊 ActivitiesService: Date filtering: ${originalLength} → ${activities.length} activities`);
+      }
+
+      // ✅ FIX: Apply client-side sorting if not already sorted by server
+      const needsClientSideSorting = !sortOptions || queryConstraints.length > 1 || 
+                                     queryConstraints.some(constraint => constraint.type !== 'where');
+      
+      if (sortOptions && needsClientSideSorting) {
+        console.log('🔄 ActivitiesService: Applying client-side sorting:', sortOptions);
+        
+        activities.sort((a, b) => {
+          let comparison = 0;
+          
+          switch (sortOptions.field) {
+            case 'eventDate':
+              // Primary sort: eventDate
+              comparison = a.eventDate.localeCompare(b.eventDate);
+              // Secondary sort: startTime for same dates
+              if (comparison === 0) {
+                comparison = a.startTime.localeCompare(b.startTime);
+              }
+              // Tertiary sort: name for completely identical dates/times
+              if (comparison === 0) {
+                comparison = a.name.localeCompare(b.name);
+              }
+              break;
+            case 'name':
+              comparison = a.name.localeCompare(b.name);
+              break;
+            case 'createdAt':
+              comparison = new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+              break;
+            case 'views':
+              comparison = (a.views || 0) - (b.views || 0);
+              break;
+            default:
+              // Default to eventDate sorting
+              comparison = a.eventDate.localeCompare(b.eventDate);
+              if (comparison === 0) {
+                comparison = a.startTime.localeCompare(b.startTime);
+              }
+          }
+          
+          return sortOptions.direction === 'desc' ? -comparison : comparison;
+        });
+
+        console.log('✅ ActivitiesService: Client-side sorting complete:', {
+          sortBy: sortOptions.field,
+          direction: sortOptions.direction,
+          firstActivity: activities[0]?.name,
+          firstDate: activities[0]?.eventDate,
+          firstTime: activities[0]?.startTime
+        });
+      }
+
       // Apply client-side search filter for full-text search
       if (filters?.search) {
-        console.log('🔍 ActivitiesService: Applying client-side search filter:', filters.search);
-        const searchTerm = filters.search.toLowerCase();
+        console.log('🔍 ActivitiesService: Applying search filter:', filters.search);
+        const searchLower = filters.search.toLowerCase();
+        const originalLength = activities.length;
+        
         activities = activities.filter(activity =>
-          activity.name.toLowerCase().includes(searchTerm) ||
-          activity.shortDescription.toLowerCase().includes(searchTerm) ||
-          activity.description.toLowerCase().includes(searchTerm) ||
-          activity.venueName.toLowerCase().includes(searchTerm) ||
-          activity.organizers.some(org => org.toLowerCase().includes(searchTerm)) ||
-          activity.tags.some(tag => tag.toLowerCase().includes(searchTerm))
+          activity.name.toLowerCase().includes(searchLower) ||
+          activity.shortDescription.toLowerCase().includes(searchLower) ||
+          activity.description.toLowerCase().includes(searchLower) ||
+          activity.venueName.toLowerCase().includes(searchLower) ||
+          activity.organizers.some(org => org.toLowerCase().includes(searchLower)) ||
+          activity.tags.some(tag => tag.toLowerCase().includes(searchLower))
         );
-        console.log('✅ ActivitiesService: After search filter:', activities.length, 'activities');
+        
+        console.log(`📊 ActivitiesService: Search filtering: ${originalLength} → ${activities.length} activities`);
       }
 
-      // Apply available spots filter
-      if (filters?.hasAvailableSpots) {
-        console.log('🔍 ActivitiesService: Applying available spots filter');
-        activities = activities.filter(activity => 
-          (activity.registeredParticipants || 0) < activity.maxParticipants
-        );
-        console.log('✅ ActivitiesService: After spots filter:', activities.length, 'activities');
-      }
+      // Apply pagination on sorted and filtered results
+      const totalCount = activities.length;
+      const totalPages = Math.ceil(totalCount / pageSize);
+      const startIndex = (page - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedActivities = activities.slice(startIndex, endIndex);
 
-      const result = {
-        activities,
-        total: filters?.search || filters?.hasAvailableSpots ? activities.length : total,
-        page,
-        limit: pageSize,
-        totalPages: Math.ceil((filters?.search || filters?.hasAvailableSpots ? activities.length : total) / pageSize),
-        hasMore: page * pageSize < total
-      };
-
-      console.log('✅ ActivitiesService: Returning result:', {
-        activitiesCount: result.activities.length,
-        total: result.total,
-        page: result.page,
-        totalPages: result.totalPages
+      console.log('📄 ActivitiesService: Pagination applied:', {
+        totalCount,
+        totalPages,
+        currentPage: page,
+        pageSize,
+        startIndex,
+        endIndex,
+        returnedCount: paginatedActivities.length
       });
 
-      return result;
+      return {
+        activities: paginatedActivities,
+        total: totalCount,
+        page: page,
+        limit: pageSize,
+        totalPages,
+        hasMore: page < totalPages
+      };
+
     } catch (error) {
-      console.error('❌ ActivitiesService: Error fetching activities:', error);
-      console.error('❌ ActivitiesService: Error details:', {
+      console.error('❌ ActivitiesService: Error in getActivities:', error);
+      
+      // ✅ FIX: Provide more specific error handling for Firestore issues
+      if (error instanceof Error) {
+        if (error.message.includes('requires an index')) {
+          console.error('❌ Firestore Index Error - Creating composite index required');
+          console.error('💡 Suggestion: Either create the required index or modify query to avoid composite index');
+          throw new Error('Database indexing required. Please contact support.');
+        } else if (error.message.includes('FAILED_PRECONDITION')) {
+          console.error('❌ Firestore Query Precondition Failed');
+          throw new Error('Database query configuration error. Please try again.');
+        } else if (error.message.includes('permission-denied')) {
+          console.error('❌ Firestore Permission Denied');
+          throw new Error('Access denied. Please check your permissions.');
+        }
+      }
+      
+      console.error('❌ Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         code: (error as any)?.code,
         stack: error instanceof Error ? error.stack : undefined
       });
+      
       throw new Error('Failed to fetch activities');
     }
   }
@@ -334,6 +393,7 @@ export class ActivitiesService {
    */
   async getPublicActivities(limitCount = 6): Promise<Activity[]> {
     try {
+      // First try the optimized query with composite index
       const q = query(
         collection(db, ACTIVITIES_COLLECTION),
         where('status', '==', 'published'),
@@ -349,8 +409,38 @@ export class ActivitiesService {
         } as ActivityFirestoreDoc)
       );
     } catch (error) {
-      console.error('Error fetching public activities:', error);
-      return []; // Return empty array instead of throwing for public display
+      console.error('Error fetching public activities with index, falling back to client-side sorting:', error);
+      
+      // Fallback: Query without orderBy and sort client-side
+      try {
+        const fallbackQuery = query(
+          collection(db, ACTIVITIES_COLLECTION),
+          where('status', '==', 'published'),
+          limit(limitCount * 3) // Get more docs to ensure we have enough after sorting
+        );
+
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const activities = fallbackSnapshot.docs
+          .map(doc => this.convertFirestoreDocToActivity({
+            id: doc.id,
+            ...doc.data()
+          } as ActivityFirestoreDoc))
+          .sort((a, b) => {
+            // Sort by eventDate first (ascending)
+            const dateComparison = a.eventDate.localeCompare(b.eventDate);
+            if (dateComparison !== 0) return dateComparison;
+            
+            // If same date, sort by startTime (ascending)
+            return a.startTime.localeCompare(b.startTime);
+          })
+          .slice(0, limitCount); // Apply limit after sorting
+
+        console.log('✅ Successfully fetched public activities with client-side sorting');
+        return activities;
+      } catch (fallbackError) {
+        console.error('Error in fallback query for public activities:', fallbackError);
+        return []; // Return empty array instead of throwing for public display
+      }
     }
   }
 
@@ -360,6 +450,8 @@ export class ActivitiesService {
   async getUpcomingActivities(limitCount = 10): Promise<Activity[]> {
     try {
       const today = new Date().toISOString().split('T')[0];
+      
+      // First try the optimized query with composite index
       const q = query(
         collection(db, ACTIVITIES_COLLECTION),
         where('status', '==', 'published'),
@@ -376,8 +468,40 @@ export class ActivitiesService {
         } as ActivityFirestoreDoc)
       );
     } catch (error) {
-      console.error('Error fetching upcoming activities:', error);
-      return [];
+      console.error('Error fetching upcoming activities with index, falling back to client-side sorting:', error);
+      
+      // Fallback: Query without orderBy and sort client-side
+      try {
+        const today = new Date().toISOString().split('T')[0];
+        const fallbackQuery = query(
+          collection(db, ACTIVITIES_COLLECTION),
+          where('status', '==', 'published'),
+          where('eventDate', '>=', today),
+          limit(limitCount * 2) // Get more docs to ensure we have enough after sorting
+        );
+
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        const activities = fallbackSnapshot.docs
+          .map(doc => this.convertFirestoreDocToActivity({
+            id: doc.id,
+            ...doc.data()
+          } as ActivityFirestoreDoc))
+          .sort((a, b) => {
+            // Sort by eventDate first (ascending)
+            const dateComparison = a.eventDate.localeCompare(b.eventDate);
+            if (dateComparison !== 0) return dateComparison;
+            
+            // If same date, sort by startTime (ascending)
+            return a.startTime.localeCompare(b.startTime);
+          })
+          .slice(0, limitCount); // Apply limit after sorting
+
+        console.log('✅ Successfully fetched upcoming activities with client-side sorting');
+        return activities;
+      } catch (fallbackError) {
+        console.error('Error in fallback query for upcoming activities:', fallbackError);
+        return []; // Return empty array instead of throwing
+      }
     }
   }
 

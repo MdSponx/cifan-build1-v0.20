@@ -18,6 +18,9 @@ import {
 import { Activity } from '../../types/activities';
 import { useTypography } from '../../utils/typography';
 import { getTagColor } from '../../utils/tagColors';
+import { activitiesService } from '../../services/activitiesService';
+import { useAuth } from '../auth/AuthContext';
+import { useNotificationHelpers } from '../ui/NotificationContext';
 
 // Mock data for demonstration
 const mockActivities: Activity[] = [
@@ -39,6 +42,7 @@ const mockActivities: Activity[] = [
     venueLocation: 'https://maps.google.com/creative-hub',
     description: 'เวิร์กช็อปการสร้างภาพยนตร์อิสระสำหรับผู้เริ่มต้น เรียนรู้เทคนิคการถ่ายทำและการตัดต่อ รวมถึงการเล่าเรื่องผ่านภาพยนตร์',
     organizers: ['CIFAN Team', 'Creative Hub Bangkok'],
+    speakers: [],
     tags: ['workshop', 'education'],
     contactEmail: 'workshop@cifanfest.com',
     contactName: 'Workshop Team',
@@ -69,6 +73,7 @@ const mockActivities: Activity[] = [
     venueLocation: 'https://maps.google.com/royal-paragon',
     description: 'พิธีเปิดงานเทศกาลภาพยนตร์นานาชาติ CIFAN 2025 พร้อมการแสดงพิเศษและการประกาศรางวัล งานแสดงสุดพิเศษจากศิลปินชั้นนำ',
     organizers: ['CIFAN Organization', 'Royal Paragon Hall'],
+    speakers: [],
     tags: ['ceremony', 'official'],
     contactEmail: 'ceremony@cifanfest.com',
     contactName: 'Ceremony Team',
@@ -99,6 +104,7 @@ const mockActivities: Activity[] = [
     venueLocation: 'https://maps.google.com/conference-room-a',
     description: 'การอภิปรายกับผู้กำกับภาพยนตร์สั้นที่มีชื่อเสียง และการแบ่งปันประสบการณ์ในวงการภาพยนตร์ เรียนรู้เทคนิคการสร้างหนังสั้น',
     organizers: ['Film Panel Team'],
+    speakers: [],
     tags: ['panel', 'short-film'],
     contactEmail: 'panel@cifanfest.com',
     contactName: 'Panel Team',
@@ -129,6 +135,7 @@ const mockActivities: Activity[] = [
     venueLocation: 'https://maps.google.com/cinema-complex',
     description: 'คืนฉายภาพยนตร์สารคดีพิเศษ พร้อมการสนทนากับผู้กำกับหลังการฉาย ชมภาพยนตร์สารคดีคุณภาพสูงจากทั่วโลก',
     organizers: ['Cinema Complex', 'Documentary Team'],
+    speakers: [],
     tags: ['screening', 'documentary'],
     contactEmail: 'screening@cifanfest.com',
     contactName: 'Screening Team',
@@ -162,6 +169,7 @@ interface ActivitiesGalleryProps {
   filter?: string | null;
   onNavigate?: (route: string) => void;
   onRefresh?: () => void;
+  onActivityDuplicated?: (activity: Activity) => void;
   isLoading?: boolean;
 }
 
@@ -170,9 +178,12 @@ export default function ActivitiesGallery({
   filter,
   onNavigate,
   onRefresh,
+  onActivityDuplicated,
   isLoading = false
 }: ActivitiesGalleryProps = {}) {
   const { getClass } = useTypography();
+  const { user } = useAuth();
+  const { showLoading, updateToSuccess, updateToError } = useNotificationHelpers();
   const [activities, setActivities] = useState<Activity[]>(propActivities || mockActivities);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -260,18 +271,49 @@ export default function ActivitiesGallery({
     }
   };
 
-  const handleDuplicateActivity = (activityId: string) => {
-    const originalActivity = activities.find(a => a.id === activityId);
-    if (originalActivity) {
-      const duplicatedActivity = {
-        ...originalActivity,
-        id: Date.now().toString(),
-        name: `${originalActivity.name} (Copy)`,
-        status: 'draft' as const,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      setActivities(prev => [duplicatedActivity, ...prev]);
+  const handleDuplicateActivity = async (activityId: string) => {
+    if (!user?.uid) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    // Show loading notification
+    const notificationId = showLoading(
+      'Duplicating activity...',
+      'Creating a copy of the activity'
+    );
+
+    try {
+      console.log('Duplicating activity:', activityId);
+      
+      // Call the service to duplicate the activity
+      const duplicatedActivity = await activitiesService.duplicateActivity(activityId, user.uid);
+      
+      console.log('Activity duplicated successfully:', duplicatedActivity);
+      
+      // Update notification to success
+      updateToSuccess(
+        notificationId,
+        'Activity duplicated successfully',
+        `"${duplicatedActivity.name}" has been created as a draft`
+      );
+
+      // Notify parent component about the new activity
+      onActivityDuplicated?.(duplicatedActivity);
+      
+      // Refresh the activities list
+      onRefresh?.();
+      
+    } catch (error) {
+      console.error('Error duplicating activity:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to duplicate activity';
+      
+      // Update notification to error
+      updateToError(
+        notificationId,
+        'Failed to duplicate activity',
+        errorMessage
+      );
     }
   };
 

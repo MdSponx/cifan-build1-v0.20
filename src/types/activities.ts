@@ -16,12 +16,12 @@ export interface Activity {
   eventEndDate?: string; // ISO date string (end date for multi-day events)
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
-  registrationDeadline: string; // ISO date string
+  registrationDeadline?: string; // ISO date string - now optional
   venueName: string;
   venueLocation?: string; // URL to location or address
   
   // Detail
-  description: string;
+  description?: string; // now optional
   organizers: string[];
   speakers: Speaker[]; // New field for speakers
   
@@ -30,8 +30,8 @@ export interface Activity {
   
   // Contact
   contactEmail: string;
-  contactName: string;
-  contactPhone: string;
+  contactName?: string; // now optional
+  contactPhone?: string; // now optional
   
   // System fields
   createdAt: string; // ISO date string
@@ -114,12 +114,12 @@ export interface ActivityFormData {
   eventEndDate: string; // ISO date string (end date for multi-day events)
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
-  registrationDeadline: string; // ISO date string
+  registrationDeadline: string; // ISO date string - keeping as string for form but will be optional in validation
   venueName: string;
   venueLocation: string;
   
   // Detail
-  description: string;
+  description: string; // keeping as string for form but will be optional in validation
   organizers: string[];
   speakers: Speaker[]; // New field for speakers
   
@@ -128,8 +128,8 @@ export interface ActivityFormData {
   
   // Contact
   contactEmail: string;
-  contactName: string;
-  contactPhone: string;
+  contactName: string; // keeping as string for form but will be optional in validation
+  contactPhone: string; // keeping as string for form but will be optional in validation
 }
 
 export interface ActivityFilters {
@@ -146,7 +146,7 @@ export interface ActivityFilters {
 }
 
 export interface ActivitySortOptions {
-  field: 'name' | 'eventDate' | 'createdAt' | 'updatedAt' | 'status' | 'registeredParticipants' | 'maxParticipants';
+  field: 'name' | 'eventDate' | 'createdAt' | 'updatedAt' | 'status' | 'registeredParticipants' | 'maxParticipants' | 'views';
   direction: 'asc' | 'desc';
 }
 
@@ -378,16 +378,16 @@ export interface ActivityFirestoreDoc {
   eventEndDate?: string; // ISO date string (end date for multi-day events)
   startTime: string; // HH:mm format
   endTime: string; // HH:mm format
-  registrationDeadline: string; // ISO date string
+  registrationDeadline?: string; // ISO date string - now optional
   venueName: string;
   venueLocation?: string;
-  description: string;
+  description?: string; // now optional
   organizers: string[];
   speakers: Speaker[]; // New field for speakers
   tags: string[];
   contactEmail: string;
-  contactName: string;
-  contactPhone: string;
+  contactName?: string; // now optional
+  contactPhone?: string; // now optional
   imageUrl?: string;
   imagePath?: string; // Firebase Storage path for cleanup
   createdAt: any; // Firestore Timestamp
@@ -427,9 +427,12 @@ export const ACTIVITY_VALIDATION_RULES = {
     maxLength: 200
   },
   description: {
-    required: true,
+    required: false, // now optional
     minLength: 50,
     maxLength: 2000
+  },
+  registrationDeadline: {
+    required: false // now optional
   },
   maxParticipants: {
     required: true,
@@ -440,8 +443,13 @@ export const ACTIVITY_VALIDATION_RULES = {
     required: true,
     pattern: /^[^\s@]+@[^\s@]+\.[^\s@]+$/
   },
+  contactName: {
+    required: false, // now optional
+    minLength: 2,
+    maxLength: 100
+  },
   contactPhone: {
-    required: true,
+    required: false, // now optional
     minLength: 8,
     maxLength: 15
   },

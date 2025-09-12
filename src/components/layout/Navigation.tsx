@@ -105,9 +105,9 @@ const Navigation = () => {
             <div className="flex items-center space-x-6 xl:space-x-8 mr-8">
               <NavLink href="#home" active>{t('navigation.home')}</NavLink>
               <NavLink href="#about">{t('navigation.about')}</NavLink>
-              <NavLink href="#coming-soon">{t('navigation.programs')}</NavLink>
               <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
               <NavLink href="#competition">{t('navigation.competition')}</NavLink>
+              <NavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</NavLink>
               <NavLink href="#activities">{t('navigation.events')}</NavLink>
               <NavLink href="#city-rally">{t('navigation.cityRally')}</NavLink>
               <NavLink href="#news">{t('navigation.news')}</NavLink>
@@ -283,9 +283,9 @@ const Navigation = () => {
             <div className="glass-container rounded-2xl p-6 max-h-[calc(100vh-120px)] overflow-y-auto">
             <MobileNavLink href="#home">{t('navigation.home')}</MobileNavLink>
             <MobileNavLink href="#about">{t('navigation.about')}</MobileNavLink>
-            <MobileNavLink href="#coming-soon">{t('navigation.programs')}</MobileNavLink>
             <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
             <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
+            <MobileNavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</MobileNavLink>
             <MobileNavLink href="#activities">{t('navigation.events')}</MobileNavLink>
             <MobileNavLink href="#city-rally">{t('navigation.cityRally')}</MobileNavLink>
             <MobileNavLink href="#news">{t('navigation.news')}</MobileNavLink>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTypography } from '../../utils/typography';
-import { Activity, ActivityFilters } from '../../types/activities';
+import { Activity, ActivityFilters, ActivitySortOptions } from '../../types/activities';
 import { activitiesService } from '../../services/activitiesService';
 import { getTagColor } from '../../utils/tagColors';
 import { 
@@ -136,21 +136,30 @@ const PublicActivitiesPage: React.FC = () => {
       
       console.log('🔍 PublicActivitiesPage: Starting to load activities...');
       
-      // Get published activities (no need for isPublic = true)
+      // ✅ FIX: Add proper filters AND sortOptions for published activities
       const filters: ActivityFilters = {
         status: 'published'
       };
+
+      // ✅ FIX: Add default sorting by eventDate ascending
+      const sortOptions: ActivitySortOptions = {
+        field: 'eventDate',
+        direction: 'asc'
+      };
       
       console.log('🔍 PublicActivitiesPage: Using filters:', filters);
-      console.log('🔍 PublicActivitiesPage: Calling activitiesService.getActivities...');
+      console.log('🔍 PublicActivitiesPage: Using sortOptions:', sortOptions);
       
-      const response = await activitiesService.getActivities(filters, undefined, 1, 100);
+      // ✅ FIX: Pass both filters AND sortOptions to getActivities
+      const response = await activitiesService.getActivities(filters, sortOptions, 1, 100);
       
       console.log('✅ PublicActivitiesPage: Service response:', {
         activitiesCount: response.activities.length,
-        total: response.total,
-        page: response.page,
-        totalPages: response.totalPages
+        totalCount: response.total,
+        currentPage: response.page,
+        totalPages: response.totalPages,
+        firstActivity: response.activities[0]?.name,
+        firstDate: response.activities[0]?.eventDate
       });
       
       setActivities(response.activities);
@@ -173,11 +182,20 @@ const PublicActivitiesPage: React.FC = () => {
   };
 
   const filterAndSortActivities = () => {
+    console.log('🔄 PublicActivitiesPage: Filtering and sorting activities...', {
+      totalActivities: activities.length,
+      searchTerm,
+      selectedTags: selectedTags.length,
+      sortBy
+    });
+
     let filtered = [...activities];
 
     // Apply search filter
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
+      const originalLength = filtered.length;
+      
       filtered = filtered.filter(activity =>
         activity.name.toLowerCase().includes(searchLower) ||
         activity.shortDescription.toLowerCase().includes(searchLower) ||
@@ -185,33 +203,69 @@ const PublicActivitiesPage: React.FC = () => {
         activity.venueName.toLowerCase().includes(searchLower) ||
         activity.organizers.some(org => org.toLowerCase().includes(searchLower))
       );
+      
+      console.log(`📊 PublicActivitiesPage: Search filtering: ${originalLength} → ${filtered.length} activities`);
     }
 
     // Apply tag filters
     if (selectedTags.length > 0) {
+      const originalLength = filtered.length;
+      
       filtered = filtered.filter(activity =>
         selectedTags.some(tag => activity.tags.includes(tag))
       );
+      
+      console.log(`📊 PublicActivitiesPage: Tag filtering: ${originalLength} → ${filtered.length} activities`);
     }
 
-    // Apply sorting
+    // ✅ FIX: Robust sorting that handles all edge cases
     filtered.sort((a, b) => {
+      let comparison = 0;
+      
       switch (sortBy) {
         case 'name':
-          return a.name.localeCompare(b.name);
+          comparison = a.name.localeCompare(b.name);
+          break;
         case 'popularity':
-          return (b.views || 0) - (a.views || 0);
+          comparison = (b.views || 0) - (a.views || 0);
+          break;
         case 'date':
         default:
-          // Sort by eventDate first, then by startTime for same dates
-          const dateComparison = a.eventDate.localeCompare(b.eventDate);
-          if (dateComparison !== 0) {
-            return dateComparison; // Different dates, sort by date
+          // Ensure we have valid dates before comparing
+          const dateA = a.eventDate || '9999-12-31'; // Put invalid dates at end
+          const dateB = b.eventDate || '9999-12-31';
+          
+          // Primary sort: eventDate (ISO string comparison)
+          comparison = dateA.localeCompare(dateB);
+          
+          // Secondary sort: startTime for same dates
+          if (comparison === 0) {
+            const timeA = a.startTime || '23:59'; // Put invalid times at end
+            const timeB = b.startTime || '23:59';
+            comparison = timeA.localeCompare(timeB);
           }
           
-          // Same date, sort by start time
-          return a.startTime.localeCompare(b.startTime);
+          // Tertiary sort: name for completely identical dates/times
+          if (comparison === 0) {
+            comparison = a.name.localeCompare(b.name);
+          }
+          break;
       }
+      
+      return comparison;
+    });
+
+    console.log('✅ PublicActivitiesPage: Sorting complete:', {
+      sortBy,
+      totalFiltered: filtered.length,
+      firstActivity: filtered[0]?.name,
+      firstDate: filtered[0]?.eventDate,
+      firstTime: filtered[0]?.startTime,
+      sample: filtered.slice(0, 3).map(a => ({
+        name: a.name,
+        eventDate: a.eventDate,
+        startTime: a.startTime
+      }))
     });
 
     setFilteredActivities(filtered);

@@ -30,7 +30,7 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
       title: 'บันทึกร่างสำเร็จ!',
       subtitle: 'การสมัครของคุณเกือบสำเร็จแล้ว',
       message: 'ร่างใบสมัครได้รับการบันทึกการบันทึกเรียบร้อยแล้ว กรุณาตรวจทานข้อมูลอีกครั้งก่อนส่งในสมัครจริง',
-      deadline: 'เวลาสิ้นสุดการรับสมัคร: 5 กันยายน 2568',
+      deadline: 'เวลาสิ้นสุดการรับสมัคร: 12 กันยายน 2568',
       timeRemaining: 'เหลือเวลาอีก:',
       submitNow: 'ส่งใบสมัครเลย',
       submitNowDesc: 'ตรวจสอบข้อมูลและส่งใบสมัครทันที',
@@ -44,7 +44,7 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
       title: 'Draft Saved Successfully!',
       subtitle: 'Your application is almost complete',
       message: 'Your application draft has been saved successfully. Please review your information once more before submitting your final application.',
-      deadline: 'Submission Deadline: September 5, 2025',
+      deadline: 'Submission Deadline: September 12, 2025',
       timeRemaining: 'Time Remaining:',
       submitNow: 'Submit Now',
       submitNowDesc: 'Review and submit your application immediately',
@@ -58,9 +58,9 @@ const DraftSuccessDialog: React.FC<DraftSuccessDialogProps> = ({
 
   const currentContent = content[currentLanguage];
 
-  // Calculate time remaining until September 5, 2025
+  // Calculate time remaining until September 12, 2025
   const getTimeRemaining = () => {
-    const deadline = new Date('2025-09-05T23:59:59+07:00');
+    const deadline = new Date('2025-09-12T23:59:59+07:00');
     const now = new Date();
     const diff = deadline.getTime() - now.getTime();
 

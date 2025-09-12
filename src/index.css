@@ -2478,3 +2478,197 @@ html[lang="th"] .partner-card-text {
     width: 10.75rem; /* 172px */
   }
 }
+
+/* Festival Schedule Grid Layout Fixes */
+.festival-schedule-grid {
+  position: relative;
+  z-index: 1;
+  overflow: visible;
+  contain: none;
+}
+
+/* Timeline container stacking and overflow fixes */
+.festival-schedule-timeline {
+  position: relative;
+  z-index: 10;
+  overflow: visible;
+  contain: none;
+  isolation: isolate;
+}
+
+/* Ensure schedule items don't overflow their container */
+.festival-schedule-timeline .glass-container {
+  overflow: visible !important;
+  contain: none !important;
+  position: relative;
+  z-index: 1;
+}
+
+/* Schedule item positioning fixes */
+.schedule-item-container {
+  position: absolute;
+  z-index: 20;
+  isolation: isolate;
+  contain: layout style;
+}
+
+/* Prevent timeline from being clipped */
+.timeline-wrapper {
+  position: relative;
+  overflow: visible;
+  contain: none;
+  min-height: fit-content;
+  height: auto;
+}
+
+/* Ensure proper stacking context for schedule sections */
+.schedule-section {
+  position: relative;
+  z-index: 1;
+  isolation: isolate;
+  margin-bottom: 2rem;
+}
+
+/* Footer information panel positioning */
+.schedule-footer-info {
+  position: relative;
+  z-index: 5;
+  margin-top: 2rem;
+  clear: both;
+}
+
+/* Mobile responsive adjustments for schedule */
+@media (max-width: 768px) {
+  .festival-schedule-grid {
+    padding: 0.5rem;
+  }
+  
+  .schedule-item-container {
+    min-width: 140px;
+    font-size: 0.75rem;
+  }
+  
+  .timeline-wrapper {
+    overflow-x: auto;
+    overflow-y: visible;
+    padding-bottom: 1rem;
+  }
+}
+
+/* Ensure schedule doesn't interfere with navigation */
+.festival-schedule-page {
+  padding-top: 5rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Container stacking for proper layout flow */
+.schedule-container-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: relative;
+  z-index: 1;
+}
+
+/* Timeline height calculation helper */
+.timeline-height-spacer {
+  width: 100%;
+  height: auto;
+  min-height: 60px;
+  position: relative;
+  z-index: 1;
+}
+
+/* Prevent absolute positioned items from causing overflow */
+.schedule-timeline-container {
+  position: relative;
+  overflow: visible;
+  contain: none;
+  width: 100%;
+  height: auto;
+  min-height: fit-content;
+}
+
+/* Glass container overrides for schedule */
+.schedule-glass-container {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 48, 90, 0.3);
+  isolation: isolate;
+  position: relative;
+  contain: none !important;
+  overflow: visible !important;
+  min-height: fit-content;
+  height: auto;
+}
+
+/* Venue header grid fixes */
+.venue-header-grid {
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+  position: relative;
+  z-index: 10;
+}
+
+/* Time slot positioning */
+.time-slot-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 120px;
+  pointer-events: none;
+  z-index: 5;
+}
+
+/* Schedule event card positioning */
+.schedule-event-card {
+  position: absolute;
+  z-index: 20;
+  isolation: isolate;
+  contain: layout style;
+  will-change: transform;
+}
+
+/* Current time indicator */
+.current-time-indicator {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 4px;
+  z-index: 30;
+  pointer-events: none;
+  isolation: isolate;
+}
+
+/* Responsive timeline adjustments */
+@media (max-width: 1024px) {
+  .venue-header-grid {
+    grid-template-columns: 100px repeat(auto-fit, minmax(120px, 1fr));
+    gap: 0.5rem;
+  }
+  
+  .schedule-event-card {
+    min-width: 120px;
+    font-size: 0.75rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .venue-header-grid {
+    grid-template-columns: 80px repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.25rem;
+  }
+  
+  .schedule-event-card {
+    min-width: 100px;
+    font-size: 0.7rem;
+    padding: 0.5rem;
+  }
+  
+  .time-slot-line {
+    height: 100px;
+  }
+}
