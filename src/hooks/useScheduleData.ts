@@ -124,7 +124,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           const screeningDate = new Date(legacyFilm.screeningDate1).toISOString().split('T')[0];
           const startTime = legacyFilm.timeEstimate ? mapTimeEstimate(legacyFilm.timeEstimate) : '19:00';
           const endTime = calculateEndTime(startTime, film.duration);
-          const venue = mapVenueName(legacyFilm.theatre || 'Major Theatre 4');
+          const venue = mapVenueName(legacyFilm.theatre || 'Major Theatre 7');
 
           scheduleItems.push({
             id: `${film.id}-screening-0`,
@@ -199,8 +199,8 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     const venueMap: Record<string, string> = {
       'Stage Zone': 'stage-zone',
       'EXPO Zone': 'expo-zone',
-      'Major Theatre 4': 'major-theatre-4',
-      'Major Chiang Mai': 'major-theatre-4',
+      'Major Theatre 7': 'major-theatre-7',
+      'Major Chiang Mai': 'major-theatre-7',
       'Major IMAX': 'major-imax',
       'IMAX Major Chiang Mai': 'major-imax',
       'IMAX': 'major-imax',

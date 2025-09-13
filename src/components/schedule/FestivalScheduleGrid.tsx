@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   FestivalScheduleGridProps, 
@@ -14,6 +14,7 @@ import {
 } from '../../types/schedule.types';
 import { useScheduleData } from '../../hooks/useScheduleData';
 import { useFontUtils } from '../../utils/fontUtils';
+import { FestivalScheduleManager, createFestivalScheduleManager } from '../../utils/FestivalScheduleManager';
 import { RefreshCcwIcon } from 'lucide-react';
 
 /**
@@ -56,6 +57,10 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     autoRefresh: false
   });
 
+  // Refs for schedule manager
+  const scheduleManagerRef = useRef<FestivalScheduleManager | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Calculate festival dates (8 days)
   const festivalDates = useMemo(() => {
     const dates: Date[] = [];
@@ -69,26 +74,25 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     return dates;
   }, [festivalStartDate, festivalEndDate]);
 
-  // Generate simplified time slots (hour intervals only)
+  // Generate simplified time slots (hour intervals only) - Always show 10:00 to 24:00 (24-hour format)
   const timeSlots = useMemo((): TimeSlot[] => {
     const slots: TimeSlot[] = [];
+    const fixedStartHour = 10; // Always start at 10:00
+    const fixedEndHour = 24;   // Always end at 24:00 (midnight)
     
-    for (let hour = startHour; hour <= endHour; hour++) {
+    for (let hour = fixedStartHour; hour < fixedEndHour; hour++) {
       const time = `${hour.toString().padStart(2, '0')}:00`;
-      const displayTime = hour === 0 ? '12 AM' : 
-                         hour < 12 ? `${hour} AM` : 
-                         hour === 12 ? '12 PM' : 
-                         `${hour - 12} PM`;
+      const displayTime = `${hour.toString().padStart(2, '0')}:00`; // 24-hour format
       
       slots.push({
         time,
         displayTime,
-        gridRow: hour - startHour + 2 // +2 to account for header row
+        gridRow: hour - fixedStartHour + 2 // +2 to account for header row
       });
     }
     
     return slots;
-  }, [startHour, endHour]);
+  }, []); // No dependencies - always show full 10:00-24:00 range regardless of data
 
   // Get venue columns with colors - Always show all 6 venues
   const venueColumns = useMemo((): VenueColumn[] => {
@@ -104,7 +108,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     return FESTIVAL_VENUES.map((venue, index) => ({
       ...venue,
       color: colors[index % colors.length],
-      gridColumn: index + 2 // +2 to account for time column
+      gridColumn: index + 1 // +1 since we removed the time column header
     }));
   }, []); // Remove dependency on filters.venues to always show all venues
 
@@ -176,23 +180,26 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     
     const now = new Date();
     const currentHour = now.getHours();
+    const fixedStartHour = 10; // Always use 10 AM as start
+    const fixedEndHour = 24;   // Always use 12 AM as end
     
-    if (currentHour < startHour || currentHour >= endHour) return null;
+    if (currentHour < fixedStartHour || currentHour >= fixedEndHour) return null;
     
-    const position = (currentHour - startHour) * 60 + 120; // 60px per hour + 120px header
+    const position = (currentHour - fixedStartHour) * 60 + 120; // 60px per hour + 120px header
     return position;
-  }, [selectedDate, startHour, endHour, isToday]);
+  }, [selectedDate, isToday]);
 
   const getTimeSlotPosition = useCallback((time: string): number => {
     try {
       const [hour] = time.split(':').map(Number);
-      const slotPosition = hour - startHour;
+      const fixedStartHour = 10; // Always use 10 AM as start
+      const slotPosition = hour - fixedStartHour;
       return Math.max(0, slotPosition + 2); // +2 for header row
     } catch (error) {
       console.warn('Error calculating time slot position:', { time }, error);
       return 2;
     }
-  }, [startHour]);
+  }, []);
 
   const getVenueColumn = useCallback((venueName: string): number => {
     const venue = venueColumns.find(v => v.name === venueName);
@@ -203,6 +210,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
   const getItemGridPosition = useCallback((startTime: string, endTime: string) => {
     const [eventStartHour, startMin] = startTime.split(':').map(Number);
     const [endHour, endMin] = endTime.split(':').map(Number);
+    const fixedStartHour = 10; // Always use 10 AM as start
     
     const startMinutes = eventStartHour * 60 + startMin;
     let endMinutes = endHour * 60 + endMin;
@@ -214,7 +222,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     
     // Calculate which grid row to start from (each hour = 1 row, starting from row 2)
     // Grid row is based on the event's start hour relative to the grid's start hour
-    const startGridRow = eventStartHour - startHour + 2;
+    const startGridRow = eventStartHour - fixedStartHour + 2;
     
     // Calculate how many rows to span
     const durationMinutes = endMinutes - startMinutes;
@@ -234,18 +242,65 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
       topOffset,
       height: Math.max(40, height) // Minimum 40px height
     };
-  }, [startHour]);
+  }, []);
 
   const currentTimePosition = getCurrentTimePosition();
   const selectedDateInfo = formatDate(selectedDate);
 
+  // Initialize and cleanup schedule manager
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    // Create schedule manager instance
+    scheduleManagerRef.current = createFestivalScheduleManager({
+      containerSelector: '.festival-schedule-grid',
+      timelineSelector: '.festival-timeline-grid',
+      headerSelector: '.venue-header-grid',
+      eventCardSelector: '.schedule-event-card',
+      currentTimeIndicatorSelector: '.current-time-indicator',
+      enableAutoRefresh: viewOptions.autoRefresh,
+      refreshInterval: 60000,
+      enablePerformanceOptimizations: true
+    });
+
+    // Initialize the manager
+    scheduleManagerRef.current.initialize();
+
+    // Cleanup on unmount
+    return () => {
+      if (scheduleManagerRef.current) {
+        scheduleManagerRef.current.destroy();
+        scheduleManagerRef.current = null;
+      }
+    };
+  }, [viewOptions.autoRefresh]);
+
+  // Update manager when view options change
+  useEffect(() => {
+    if (scheduleManagerRef.current) {
+      scheduleManagerRef.current.updateOptions({
+        enableAutoRefresh: viewOptions.autoRefresh
+      });
+    }
+  }, [viewOptions.autoRefresh]);
+
+  // Force refresh when data changes
+  useEffect(() => {
+    if (scheduleManagerRef.current && !isLoading) {
+      // Small delay to ensure DOM is updated
+      setTimeout(() => {
+        scheduleManagerRef.current?.forceRefresh();
+      }, 100);
+    }
+  }, [filteredItems, isLoading]);
+
   return (
     <div className={`festival-schedule-grid bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen ${className}`}>
-      {/* Header Container with Glassmorphism */}
+      {/* Header Container with Glassmorphism - Compact Layout */}
       <div className="p-6">
         <div className="backdrop-blur-xl bg-white/30 border border-white/20 rounded-3xl shadow-2xl">
-          {/* Main Header */}
-          <div className="px-8 py-6">
+          {/* Main Header - Compact 2-row layout */}
+          <div className="px-8 py-4">
             <div className="flex items-start justify-between">
               {/* Left Side - Date Information */}
               <div className="flex flex-col">
@@ -275,57 +330,58 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                 </div>
               </div>
 
-              {/* Right Side - Refresh Button */}
-              <button
-                onClick={refreshData}
-                disabled={isLoading}
-                className={`flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 transition-all duration-200 shadow-lg backdrop-blur-sm ${getFontClass('body')}`}
-                style={{
-                  background: 'linear-gradient(135deg, #FCB283, #AA4626)',
-                  ...getFontStyle('body')
-                }}
-              >
-                <RefreshCcwIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                <span className="font-medium text-lg">{t('schedule.refresh')}</span>
-              </button>
-            </div>
-          </div>
+              {/* Right Side - Refresh Button and Day Banners */}
+              <div className="flex flex-col items-end space-y-3">
+                {/* Refresh Button */}
+                <button
+                  onClick={refreshData}
+                  disabled={isLoading}
+                  className={`flex items-center space-x-3 px-6 py-3 bg-gradient-to-r from-orange-500 to-orange-600 text-white rounded-2xl hover:from-orange-600 hover:to-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 disabled:opacity-50 transition-all duration-200 shadow-lg backdrop-blur-sm ${getFontClass('body')}`}
+                  style={{
+                    background: 'linear-gradient(135deg, #FCB283, #AA4626)',
+                    ...getFontStyle('body')
+                  }}
+                >
+                  <RefreshCcwIcon className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <span className="font-medium text-lg">{t('schedule.refresh')}</span>
+                </button>
 
-          {/* Festival Days Banner - Full Width */}
-          <div className="px-8 pb-6">
-            <div className="grid grid-cols-8 gap-3 w-full">
-              {festivalDates.map((date, index) => {
-                const dateInfo = formatDateForBanner(date);
-                const isSelected = date.toDateString() === selectedDate.toDateString();
-                const isCurrentDay = isToday(date);
-                
-                return (
-                  <button
-                    key={date.toISOString()}
-                    onClick={() => onDateChange(date)}
-                    className={`w-full px-4 py-4 rounded-2xl transition-all duration-300 transform hover:scale-105 ${getFontClass('body')} ${
-                      isSelected
-                        ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-xl scale-105'
-                        : isCurrentDay
-                        ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-lg'
-                        : 'bg-white/50 text-gray-700 hover:bg-white/70 backdrop-blur-sm border border-white/30'
-                    }`}
-                    style={getFontStyle('body')}
-                  >
-                    <div className="text-center">
-                      <div className="font-bold text-sm mb-1">
-                        {t('schedule.day')} {index + 1}
-                      </div>
-                      <div className="text-xs opacity-90 font-medium mb-1">
-                        {dateInfo.dayName}
-                      </div>
-                      <div className="text-xs opacity-90 font-medium">
-                        {dateInfo.day}.{dateInfo.month}.{dateInfo.year}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
+                {/* Festival Days Banner - Single row layout */}
+                <div className="grid grid-cols-8 gap-1.5 max-w-2xl">
+                  {festivalDates.map((date, index) => {
+                    const dateInfo = formatDateForBanner(date);
+                    const isSelected = date.toDateString() === selectedDate.toDateString();
+                    const isCurrentDay = isToday(date);
+                    
+                    return (
+                      <button
+                        key={date.toISOString()}
+                        onClick={() => onDateChange(date)}
+                        className={`px-1.5 py-1.5 rounded-md transition-all duration-300 transform hover:scale-105 ${getFontClass('body')} ${
+                          isSelected
+                            ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white shadow-lg scale-105'
+                            : isCurrentDay
+                            ? 'bg-gradient-to-br from-green-400 to-emerald-500 text-white shadow-md'
+                            : 'bg-white/50 text-gray-700 hover:bg-white/70 backdrop-blur-sm border border-white/30'
+                        }`}
+                        style={getFontStyle('body')}
+                      >
+                        <div className="text-center">
+                          <div className="font-bold text-xs mb-0.5">
+                            {t('schedule.day')} {index + 1}
+                          </div>
+                          <div className="text-xs opacity-90 font-medium">
+                            {dateInfo.dayName}
+                          </div>
+                          <div className="text-xs opacity-90 font-medium">
+                            {dateInfo.day}.{dateInfo.month}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -365,55 +421,71 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
       {/* Timeline Schedule */}
       {!isLoading && !error && (
         <div className="p-6">
-          {/* Glass Container for Timeline Schedule */}
-          <div className="glass-container rounded-3xl p-6 shadow-2xl">
-            {/* Venue Column Headers - Restored from Previous Version */}
+          {/* Glass Container for Timeline Schedule - Full height without scroll */}
+          <div className="glass-container rounded-3xl p-6 shadow-2xl overflow-visible" style={{ 
+            height: 'auto',
+            minHeight: 'fit-content',
+            maxHeight: 'none'
+          }}>
+            {/* Venue Column Headers - Custom Layout with Proper Alignment */}
             <div className="mb-8">
-              <div className="grid gap-3" style={{ gridTemplateColumns: `120px repeat(${Math.min(venueColumns.length, 6)}, 1fr)` }}>
-                {/* Time Column Header */}
-                <div className={`glass-card rounded-2xl p-4 flex items-center justify-center font-bold text-white shadow-lg ${getFontClass('body')}`} style={getFontStyle('body')}>
+              <div className="flex w-full">
+                {/* Time Column Header - Compact size to match time labels */}
+                <div 
+                  className={`glass-card rounded-lg px-3 py-1 flex items-center justify-center font-bold text-white shadow-md ${getFontClass('body')}`} 
+                  style={{
+                    width: '80px', // Smaller width to match time text size
+                    marginRight: '16px', // Gap before venue headers
+                    background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.2), rgba(255, 255, 255, 0.1))',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.3)',
+                    ...getFontStyle('body')
+                  }}>
                   <div className="text-center">
-                    <div className="text-lg font-semibold">{t('schedule.time')}</div>
+                    <div className="text-xs font-semibold">{t('schedule.time')}</div>
                   </div>
                 </div>
                 
-                {/* Venue Column Headers - Rounded Rectangle Design */}
-                {venueColumns.slice(0, 6).map((venue, index) => (
-                  <div
-                    key={venue.name}
-                    className={`glass-card rounded-2xl p-4 flex items-center justify-center font-bold text-white text-sm shadow-lg transition-all duration-300 hover:scale-105 ${getFontClass('body')}`}
-                    style={{ 
-                      background: `linear-gradient(135deg, ${venue.color}CC, ${venue.color}99)`,
-                      backdropFilter: 'blur(20px)',
-                      border: `1px solid ${venue.color}40`,
-                      ...getFontStyle('body')
-                    }}
-                  >
-                    <div className="text-center">
-                      <div className="font-semibold text-base leading-tight">
-                        {t(`schedule.venues.${venue.name}`) || venue.displayName}
+                {/* Venue Column Headers - Equal width to match columns */}
+                <div className="flex-1 grid grid-cols-6 gap-4">
+                  {venueColumns.slice(0, 6).map((venue, index) => (
+                    <div
+                      key={venue.name}
+                      className={`glass-card rounded-2xl p-4 flex items-center justify-center font-bold text-white text-sm shadow-lg transition-all duration-300 hover:scale-105 ${getFontClass('body')}`}
+                      style={{ 
+                        background: `linear-gradient(135deg, ${venue.color}CC, ${venue.color}99)`,
+                        backdropFilter: 'blur(20px)',
+                        border: `1px solid ${venue.color}40`,
+                        ...getFontStyle('body')
+                      }}
+                    >
+                      <div className="text-center">
+                        <div className="font-semibold text-base leading-tight">
+                          {t(`schedule.venues.${venue.name}`, venue.displayName)}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
             </div>
 
-            {/* Timeline Container with proper height constraints */}
-            <div className="relative" style={{ minHeight: `${timeSlots.length * 120 + 60}px` }}>
-              {/* Time Lines */}
+            {/* Timeline Container - Fixed height to show full schedule without scroll */}
+            <div className="timeline-wrapper relative overflow-visible" style={{ 
+              height: `${timeSlots.length * 120 + 60}px`,
+              minHeight: `${timeSlots.length * 120 + 60}px`,
+              maxHeight: 'none'
+            }}>
+              {/* Time Lines Background */}
               {timeSlots.map((slot, slotIndex) => {
                 const topPosition = slotIndex * 120; // 120px spacing between hours
                 
                 return (
                   <div
                     key={slot.time}
-                    className="relative"
+                    className="absolute left-0 right-0 time-slot-line"
                     style={{ 
-                      position: 'absolute',
                       top: `${topPosition}px`,
-                      left: 0,
-                      right: 0,
                       height: '120px'
                     }}
                   >
@@ -428,6 +500,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                         backdropFilter: 'blur(15px)',
                         border: '1px solid rgba(255, 255, 255, 0.2)',
                         transform: 'translateY(-50%)',
+                        zIndex: 10,
                         ...getFontStyle('body') 
                       }}
                     >
@@ -437,6 +510,109 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                 );
               })}
 
+              {/* Grid Container for Events */}
+              <div className="grid grid-cols-6 gap-4 absolute inset-0" style={{ paddingLeft: '96px' }}>
+                {/* Venue Columns with Events */}
+                {venueColumns.slice(0, 6).map((venue, venueIndex) => (
+                  <div key={venue.name} className="schedule-venue-column relative h-full">
+                    {/* Events for this venue */}
+                    {filteredItems
+                      .filter(item => item.venue === venue.name)
+                      .map((item) => {
+                        const [itemStartHour, startMinute] = item.startTime.split(':').map(Number);
+                        const [itemEndHour, endMinute] = item.endTime.split(':').map(Number);
+                        
+                        // Calculate position relative to the timeline start hour
+                        const fixedStartHour = 10; // Always use 10 AM as start
+                        const hoursSinceStart = itemStartHour - fixedStartHour;
+                        const startMinuteOffset = (startMinute / 60) * 120;
+                        const topPosition = hoursSinceStart * 120 + startMinuteOffset;
+                        
+                        // Calculate duration and height
+                        const startTotalMinutes = itemStartHour * 60 + startMinute;
+                        let endTotalMinutes = itemEndHour * 60 + endMinute;
+                        if (endTotalMinutes < startTotalMinutes) {
+                          endTotalMinutes += 24 * 60; // Handle overnight events
+                        }
+                        const durationMinutes = endTotalMinutes - startTotalMinutes;
+                        const height = Math.max(60, (durationMinutes / 60) * 120); // Minimum 60px height
+                        
+                        return (
+                          <div
+                            key={item.id}
+                            className="schedule-event-card absolute rounded-xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 overflow-hidden group"
+                            style={{
+                              top: `${topPosition}px`,
+                              left: '4px',
+                              right: '4px',
+                              height: `${height}px`,
+                              backgroundImage: item.image ? `url(${item.image})` : 'none',
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              backgroundRepeat: 'no-repeat',
+                              boxShadow: `0 8px 32px ${venue?.color || '#6B7280'}40`,
+                              border: `2px solid ${venue?.color || '#6B7280'}60`,
+                              zIndex: 20
+                            }}
+                            onClick={() => onEventClick(item)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                onEventClick(item);
+                              }
+                            }}
+                            tabIndex={0}
+                            role="button"
+                          >
+                            {/* Dark Overlay for Text Readability */}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/30 group-hover:from-black/80 group-hover:via-black/50 group-hover:to-black/20 transition-all duration-300 rounded-xl"></div>
+                            
+                            {/* Venue Color Indicator */}
+                            <div 
+                              className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
+                              style={{ backgroundColor: venue?.color || '#6B7280' }}
+                            ></div>
+                            
+                            {/* Shine Effect */}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl">
+                              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+                            </div>
+                            
+                            {/* Content - Simplified to show only Title and Emoji */}
+                            <div className={`relative z-10 h-full flex flex-col p-3 text-white ${getFontClass('body')}`} style={getFontStyle('body')}>
+                              {/* Emoji - Top Right */}
+                              <div className="absolute top-2 right-2">
+                                <span className="text-lg">
+                                  {item.type === 'film' ? '🎬' : '🎭'}
+                                </span>
+                              </div>
+                              
+                              {/* Title - Center Focus */}
+                              <div className="flex-1 flex items-center justify-center px-2 py-2">
+                                <div className="text-center">
+                                  <h3 className="font-bold text-sm leading-tight text-white drop-shadow-lg line-clamp-4 group-hover:text-orange-200 transition-colors duration-300">
+                                    {item.title}
+                                  </h3>
+                                </div>
+                              </div>
+                            </div>
+                            
+                            {/* Hover Glow Effect */}
+                            <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-xl">
+                              <div 
+                                className="absolute inset-0 rounded-xl"
+                                style={{
+                                  boxShadow: `inset 0 0 20px ${venue?.color || '#6B7280'}40, 0 0 20px ${venue?.color || '#6B7280'}30`
+                                }}
+                              ></div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ))}
+              </div>
+
               {/* Current Time Indicator */}
               {viewOptions.showCurrentTime && isToday(selectedDate) && (
                 (() => {
@@ -444,8 +620,11 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                   const currentHour = now.getHours();
                   const currentMinute = now.getMinutes();
                   
-                  if (currentHour >= startHour && currentHour < endHour) {
-                    const hoursSinceStart = currentHour - startHour;
+                  const fixedStartHour = 10; // Always use 10 AM as start
+                  const fixedEndHour = 24;   // Always use 12 AM as end
+                  
+                  if (currentHour >= fixedStartHour && currentHour < fixedEndHour) {
+                    const hoursSinceStart = currentHour - fixedStartHour;
                     const minuteOffset = (currentMinute / 60) * 120;
                     const topPosition = hoursSinceStart * 120 + minuteOffset;
                     
@@ -463,143 +642,6 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                   return null;
                 })()
               )}
-
-              {/* Floating Schedule Items */}
-              {filteredItems.map((item) => {
-                const [itemStartHour, startMinute] = item.startTime.split(':').map(Number);
-                const [itemEndHour, endMinute] = item.endTime.split(':').map(Number);
-                
-                // Calculate position relative to the timeline start hour
-                const hoursSinceStart = itemStartHour - startHour;
-                const startMinuteOffset = (startMinute / 60) * 120;
-                const topPosition = hoursSinceStart * 120 + startMinuteOffset;
-                
-                // Calculate duration and height
-                const startTotalMinutes = itemStartHour * 60 + startMinute;
-                let endTotalMinutes = itemEndHour * 60 + endMinute;
-                if (endTotalMinutes < startTotalMinutes) {
-                  endTotalMinutes += 24 * 60; // Handle overnight events
-                }
-                const durationMinutes = endTotalMinutes - startTotalMinutes;
-                const height = Math.max(60, (durationMinutes / 60) * 120); // Minimum 60px height
-                
-                // Get venue info
-                const venue = venueColumns.find(v => v.name === item.venue);
-                const venueIndex = venueColumns.findIndex(v => v.name === item.venue);
-                
-                if (venueIndex >= 6 || venueIndex < 0) return null; // Don't render items for venues beyond the 6th or not found
-                
-                // Calculate horizontal position based on venue
-                const leftOffset = 140 + (venueIndex * 180); // Start after time label, spread venues
-                const cardWidth = 160;
-                
-                return (
-                  <div
-                    key={item.id}
-                    className="absolute z-20 rounded-xl cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-1 overflow-hidden group"
-                    style={{
-                      top: `${topPosition}px`,
-                      left: `${leftOffset}px`,
-                      width: `${cardWidth}px`,
-                      height: `${height}px`,
-                      backgroundImage: item.image ? `url(${item.image})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      backgroundRepeat: 'no-repeat',
-                      boxShadow: `0 8px 32px ${venue?.color || '#6B7280'}40`,
-                      border: `2px solid ${venue?.color || '#6B7280'}60`
-                    }}
-                    onClick={() => onEventClick(item)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onEventClick(item);
-                      }
-                    }}
-                    tabIndex={0}
-                    role="button"
-                  >
-                    {/* Dark Overlay for Text Readability */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/60 to-black/30 group-hover:from-black/80 group-hover:via-black/50 group-hover:to-black/20 transition-all duration-300 rounded-xl"></div>
-                    
-                    {/* Venue Color Indicator */}
-                    <div 
-                      className="absolute top-0 left-0 right-0 h-1 rounded-t-xl"
-                      style={{ backgroundColor: venue?.color || '#6B7280' }}
-                    ></div>
-                    
-                    {/* Shine Effect */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-xl">
-                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                    </div>
-                    
-                    {/* Content */}
-                    <div className={`relative z-10 h-full flex flex-col p-3 text-white ${getFontClass('body')}`} style={getFontStyle('body')}>
-                      {/* Time Badge - Top Right */}
-                      <div className="absolute top-2 right-2">
-                        <span className="text-xs font-medium bg-black/70 backdrop-blur-sm px-2 py-1 rounded-md border border-white/20">
-                          {item.startTime}
-                        </span>
-                      </div>
-                      
-                      {/* Type Icon - Top Left */}
-                      <div className="absolute top-2 left-2">
-                        <span 
-                          className="text-sm font-medium w-6 h-6 flex items-center justify-center rounded-full border border-white/30"
-                          style={{
-                            background: `linear-gradient(135deg, ${venue?.color || '#6B7280'}DD, ${venue?.color || '#6B7280'}AA)`,
-                            backdropFilter: 'blur(10px)'
-                          }}
-                        >
-                          {item.type === 'film' ? '🎬' : '🎭'}
-                        </span>
-                      </div>
-                      
-                      {/* Title - Center Focus */}
-                      <div className="flex-1 flex items-center justify-center px-2 pt-8 pb-2">
-                        <div className="text-center">
-                          <h3 className="font-bold text-sm leading-tight text-white drop-shadow-lg line-clamp-3 group-hover:text-orange-200 transition-colors duration-300">
-                            {item.title}
-                          </h3>
-                          
-                          {/* Director for Films - Only if space allows */}
-                          {item.type === 'film' && item.director && height > 80 && (
-                            <p className="text-xs opacity-90 text-gray-200 truncate mt-1">
-                              {item.director}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      
-                      {/* Duration and Venue - Bottom */}
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="bg-black/50 px-2 py-1 rounded-full">
-                          {Math.floor(item.duration / 60)}h {item.duration % 60}m
-                        </span>
-                        <span 
-                          className="px-2 py-1 rounded-full font-medium"
-                          style={{ 
-                            backgroundColor: `${venue?.color || '#6B7280'}40`,
-                            border: `1px solid ${venue?.color || '#6B7280'}60`
-                          }}
-                        >
-                          {venue?.displayName || item.venue}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Hover Glow Effect */}
-                    <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none rounded-xl">
-                      <div 
-                        className="absolute inset-0 rounded-xl"
-                        style={{
-                          boxShadow: `inset 0 0 20px ${venue?.color || '#6B7280'}40, 0 0 20px ${venue?.color || '#6B7280'}30`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-                );
-              })}
             </div>
           </div>
         </div>

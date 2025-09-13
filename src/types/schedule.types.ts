@@ -93,7 +93,7 @@ export const FESTIVAL_VENUES: VenueColumn[] = [
   { name: 'stageZone', displayName: 'Stage Zone', gridColumn: 1, color: '#FF6B6B' },
   { name: 'expoZone', displayName: 'EXPO Zone', gridColumn: 2, color: '#4ECDC4' },
   { name: 'market', displayName: 'Market', gridColumn: 3, color: '#FFEAA7' },
-  { name: 'majorTheatre4', displayName: 'Major Theatre 4', gridColumn: 4, color: '#45B7D1' },
+  { name: 'majorTheatre7', displayName: 'Major Theatre 7', gridColumn: 4, color: '#45B7D1' },
   { name: 'majorImax', displayName: 'Major IMAX', gridColumn: 5, color: '#96CEB4' },
   { name: 'anusarn', displayName: 'Anusarn', gridColumn: 6, color: '#DDA0DD' }
 ];

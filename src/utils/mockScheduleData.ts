@@ -41,6 +41,28 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
   const dateString = date.toISOString().split('T')[0];
   
   const mockItems: ScheduleItem[] = [
+    // Early morning event 10:00 - 11:30 (1h 30min) - START OF TIMELINE
+    {
+      id: 'early-1',
+      title: 'Festival Opening Breakfast',
+      type: 'activity',
+      category: 'ceremony',
+      startTime: '10:00',
+      endTime: '11:30',
+      date: dateString,
+      venue: 'anusarn',
+      duration: calculateDuration('10:00', '11:30'),
+      description: 'Welcome breakfast for all festival participants',
+      image: SAMPLE_IMAGES[0],
+      maxParticipants: 200,
+      registrationRequired: false,
+      organizers: ['CIFAN Festival'],
+      tags: ['opening', 'breakfast'],
+      status: 'published',
+      isPublic: true,
+      featured: true
+    },
+
     // Film screening with specified duration 11:25 - 13:35 (2h 10min)
     {
       id: 'film-1',
@@ -53,7 +75,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'stageZone',
       duration: calculateDuration('11:25', '13:35'),
       description: 'A masterpiece exploring the boundaries of visual storytelling',
-      image: SAMPLE_IMAGES[0],
+      image: SAMPLE_IMAGES[1],
       director: 'Sofia Martinez',
       cast: ['Emma Stone', 'Ryan Gosling', 'John Cho'],
       genres: ['Drama', 'Art'],
@@ -75,7 +97,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'expoZone',
       duration: calculateDuration('16:00', '17:15'),
       description: 'Learn the fundamentals of independent filmmaking',
-      image: SAMPLE_IMAGES[1],
+      image: SAMPLE_IMAGES[2],
       maxParticipants: 30,
       registrationRequired: true,
       speakers: [
@@ -99,7 +121,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'majorTheatre4',
       duration: calculateDuration('10:30', '13:45'),
       description: 'An extended version of the acclaimed epic adventure',
-      image: SAMPLE_IMAGES[2],
+      image: SAMPLE_IMAGES[3],
       director: 'Christopher Nolan',
       cast: ['Leonardo DiCaprio', 'Marion Cotillard', 'Tom Hardy'],
       genres: ['Action', 'Adventure', 'Sci-Fi'],
@@ -121,7 +143,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'majorImax',
       duration: calculateDuration('14:20', '16:10'),
       description: 'Industry leaders discuss emerging trends and opportunities',
-      image: SAMPLE_IMAGES[3],
+      image: SAMPLE_IMAGES[4],
       maxParticipants: 200,
       registrationRequired: false,
       speakers: [
@@ -146,7 +168,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'market',
       duration: calculateDuration('17:45', '18:30'),
       description: 'A collection of short films exploring urban life',
-      image: SAMPLE_IMAGES[4],
+      image: SAMPLE_IMAGES[5],
       director: 'Various Directors',
       genres: ['Short Film', 'Drama'],
       rating: 'R',
@@ -166,7 +188,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'anusarn',
       duration: calculateDuration('19:00', '21:30'),
       description: 'Connect with industry professionals and celebrate excellence',
-      image: SAMPLE_IMAGES[5],
+      image: SAMPLE_IMAGES[6],
       maxParticipants: 150,
       registrationRequired: true,
       organizers: ['CIFAN Festival', 'Thai Film Association'],
@@ -188,7 +210,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'stageZone',
       duration: calculateDuration('22:00', '23:45'),
       description: 'A cyberpunk thriller set in near-future Tokyo',
-      image: SAMPLE_IMAGES[6],
+      image: SAMPLE_IMAGES[7],
       director: 'Ridley Scott',
       cast: ['Ryan Reynolds', 'Scarlett Johansson'],
       genres: ['Thriller', 'Sci-Fi'],
@@ -197,19 +219,41 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       isPublic: true
     },
 
-    // Morning masterclass 09:15 - 11:00 (1h 45min)
+    // Very late night event 23:30 - 24:00 (30min) - END OF TIMELINE
+    {
+      id: 'late-night-1',
+      title: 'Midnight Closing Ceremony',
+      type: 'activity',
+      category: 'ceremony',
+      startTime: '23:30',
+      endTime: '24:00',
+      date: dateString,
+      venue: 'majorImax',
+      duration: calculateDuration('23:30', '24:00'),
+      description: 'Final ceremony to close the festival day',
+      image: SAMPLE_IMAGES[8],
+      maxParticipants: 100,
+      registrationRequired: false,
+      organizers: ['CIFAN Festival'],
+      tags: ['closing', 'ceremony'],
+      status: 'published',
+      isPublic: true,
+      featured: true
+    },
+
+    // Morning masterclass 10:15 - 12:00 (1h 45min) - MOVED TO WITHIN TIMELINE
     {
       id: 'activity-4',
       title: 'Cinematography Masterclass',
       type: 'activity',
       category: 'workshop',
-      startTime: '09:15',
-      endTime: '11:00',
+      startTime: '10:15',
+      endTime: '12:00',
       date: dateString,
       venue: 'expoZone',
-      duration: calculateDuration('09:15', '11:00'),
+      duration: calculateDuration('10:15', '12:00'),
       description: 'Advanced techniques in visual storytelling',
-      image: SAMPLE_IMAGES[7],
+      image: SAMPLE_IMAGES[9],
       maxParticipants: 25,
       registrationRequired: true,
       speakers: [
@@ -233,7 +277,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'majorImax',
       duration: calculateDuration('12:10', '14:25'),
       description: 'A documentary exploring traditional cultures in Northern Thailand',
-      image: SAMPLE_IMAGES[8],
+      image: SAMPLE_IMAGES[0],
       director: 'Apichatpong Weerasethakul',
       genres: ['Documentary'],
       rating: 'PG',
@@ -253,7 +297,7 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       venue: 'anusarn',
       duration: calculateDuration('18:45', '20:15'),
       description: 'Grand opening celebration with special performances',
-      image: SAMPLE_IMAGES[9],
+      image: SAMPLE_IMAGES[1],
       maxParticipants: 500,
       registrationRequired: false,
       organizers: ['CIFAN Festival'],
@@ -261,6 +305,74 @@ export const generateMockScheduleData = (date: Date): ScheduleItem[] => {
       status: 'published',
       isPublic: true,
       featured: true
+    },
+
+    // Additional events to fill the timeline gaps
+    // Mid-morning event 11:00 - 12:30
+    {
+      id: 'morning-2',
+      title: 'Producer\'s Roundtable',
+      type: 'activity',
+      category: 'panel',
+      startTime: '11:00',
+      endTime: '12:30',
+      date: dateString,
+      venue: 'market',
+      duration: calculateDuration('11:00', '12:30'),
+      description: 'Discussion on film financing and production',
+      image: SAMPLE_IMAGES[2],
+      maxParticipants: 80,
+      registrationRequired: true,
+      speakers: [
+        { name: 'Jane Smith', role: 'Producer', bio: 'Independent film producer' }
+      ],
+      tags: ['panel', 'production'],
+      status: 'published',
+      isPublic: true
+    },
+
+    // Afternoon screening 15:00 - 16:45
+    {
+      id: 'film-6',
+      title: 'Urban Stories',
+      type: 'film',
+      category: 'screening',
+      startTime: '15:00',
+      endTime: '16:45',
+      date: dateString,
+      venue: 'stageZone',
+      duration: calculateDuration('15:00', '16:45'),
+      description: 'Contemporary urban drama',
+      image: SAMPLE_IMAGES[3],
+      director: 'Maria Rodriguez',
+      cast: ['Ana de Armas', 'Oscar Isaac'],
+      genres: ['Drama', 'Urban'],
+      rating: 'R',
+      status: 'published',
+      isPublic: true
+    },
+
+    // Evening workshop 20:30 - 22:00
+    {
+      id: 'evening-workshop',
+      title: 'Night Photography Workshop',
+      type: 'activity',
+      category: 'workshop',
+      startTime: '20:30',
+      endTime: '22:00',
+      date: dateString,
+      venue: 'expoZone',
+      duration: calculateDuration('20:30', '22:00'),
+      description: 'Learn night photography techniques',
+      image: SAMPLE_IMAGES[4],
+      maxParticipants: 20,
+      registrationRequired: true,
+      speakers: [
+        { name: 'Alex Chen', role: 'Photographer', bio: 'Award-winning cinematographer' }
+      ],
+      tags: ['workshop', 'photography'],
+      status: 'published',
+      isPublic: true
     }
   ];
 

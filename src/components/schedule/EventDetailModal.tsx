@@ -75,7 +75,7 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
     const venueMap: Record<string, string> = {
       'stage-zone': 'Stage Zone',
       'expo-zone': 'EXPO Zone',
-      'major-theatre-4': 'Major Theatre 4',
+      'major-theatre-4': 'Major Theatre 7',
       'major-imax': 'Major IMAX',
       'market': 'Market',
       'asiatrip': 'Asiatrip'
@@ -97,11 +97,11 @@ const EventDetailModal: React.FC<EventDetailModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 schedule-modal overflow-y-auto">
       <div className="flex items-center justify-center min-h-screen px-4 pt-4 pb-20 text-center sm:block sm:p-0">
         {/* Background overlay */}
         <div 
-          className="fixed inset-0 transition-opacity bg-gray-500 bg-opacity-75"
+          className="fixed inset-0 schedule-modal-backdrop transition-opacity bg-gray-500 bg-opacity-75"
           onClick={onClose}
         />
 

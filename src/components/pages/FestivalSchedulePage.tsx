@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import FestivalScheduleGrid from '../schedule/FestivalScheduleGrid';
 import EventDetailModal from '../schedule/EventDetailModal';
 import { ScheduleItem, FESTIVAL_CONFIG } from '../../types/schedule.types';
+import { useFontUtils } from '../../utils/fontUtils';
 
 /**
  * Festival Schedule Page Component
  * Main page that integrates the Festival Schedule Grid with event detail modal
  */
 const FestivalSchedulePage: React.FC = () => {
+  const { t } = useTranslation();
+  const { getFontClass, getFontStyle } = useFontUtils();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [selectedEvent, setSelectedEvent] = useState<ScheduleItem | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -31,32 +35,30 @@ const FestivalSchedulePage: React.FC = () => {
       
       {/* Page Header - centered like home page */}
       <div className="relative z-10 w-full max-w-7xl mx-auto text-center pt-8 pb-8">
-        <h1 className="text-4xl md:text-6xl font-bold text-white mb-6">
-          CIFAN Festival Schedule
+        <h1 className={`text-4xl md:text-6xl font-bold text-white mb-6 ${getFontClass('header')}`} style={getFontStyle('header')}>
+          {t('schedule.title')}
         </h1>
-        <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-          Explore our comprehensive 8-day festival schedule featuring film screenings, 
-          workshops, panels, networking events, and special ceremonies. Click on any event 
-          to view detailed information and register if required.
+        <p className={`text-xl text-gray-300 max-w-3xl mx-auto ${getFontClass('body')}`} style={getFontStyle('body')}>
+          {t('schedule.subtitle')}
         </p>
       </div>
 
-      {/* Festival Schedule Grid - centered with glass container */}
+      {/* Festival Schedule Grid - centered with custom container */}
       <div className="relative z-10 w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-8">
         <FestivalScheduleGrid
           selectedDate={selectedDate}
           onDateChange={handleDateChange}
           venues={[
-            'stage-zone',
-            'expo-zone', 
-            'major-theatre-4',
-            'major-imax',
+            'stageZone',
+            'expoZone', 
+            'majorTheatre7',
+            'majorImax',
             'market',
-            'asiatrip'
+            'anusarn'
           ]}
           onEventClick={handleEventClick}
           festivalStartDate={FESTIVAL_CONFIG.DEFAULT_START_DATE}
-          className="glass-container rounded-xl"
+          className="festival-schedule-container"
         />
       </div>
 
@@ -116,7 +118,7 @@ const FestivalSchedulePage: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-blue-400 rounded"></div>
-                  <span className="text-sm text-gray-300">Major Theatre 4</span>
+                  <span className="text-sm text-gray-300">Major Theatre 7</span>
                 </div>
                 <div className="flex items-center space-x-2">
                   <div className="w-4 h-4 bg-green-400 rounded"></div>

@@ -57,30 +57,26 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
       try {
         setLoading(true);
         setError(null);
-        
-        // Use a more robust query approach - first get all user submissions, then filter
-        const q = query(
-          collection(db, 'submissions'),
-          where('userId', '==', user.uid),
-          orderBy('lastModified', 'desc')
-        );
 
         console.log('Fetching applications for user:', user.uid);
-        const querySnapshot = await getDocs(q);
+
+        // Use compound queries to leverage existing indexes and ensure reliability
         const applicationsData: ApplicationData[] = [];
 
-        querySnapshot.forEach((doc) => {
-          const data = doc.data();
-          
-          // Filter for draft and submitted applications only
-          if (data.status === 'draft' || data.status === 'submitted') {
-            console.log('Found application:', {
-              id: doc.id,
-              filmTitle: data.filmTitle,
-              status: data.status,
-              hasFiles: !!data.files
-            });
-            
+        // Query for draft applications
+        try {
+          const draftQuery = query(
+            collection(db, 'submissions'),
+            where('userId', '==', user.uid),
+            where('status', '==', 'draft'),
+            orderBy('lastModified', 'desc')
+          );
+
+          const draftSnapshot = await getDocs(draftQuery);
+          console.log(`Found ${draftSnapshot.size} draft applications`);
+
+          draftSnapshot.forEach((doc) => {
+            const data = doc.data();
             applicationsData.push({
               id: doc.id,
               userId: data.userId,
@@ -89,7 +85,7 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
               status: data.status,
               filmTitle: data.filmTitle,
               filmTitleTh: data.filmTitleTh,
-              filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : []), // Backward compatibility
+              filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : []),
               files: {
                 posterFile: {
                   downloadURL: data.files?.posterFile?.downloadURL || data.files?.posterFile?.url || '',
@@ -100,44 +96,92 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
               createdAt: data.createdAt,
               lastModified: data.lastModified
             });
-          }
-        });
+          });
+        } catch (draftError) {
+          console.warn('Error fetching draft applications:', draftError);
+          // Continue with submitted applications even if draft query fails
+        }
 
-        console.log(`Found ${applicationsData.length} applications for user`);
-        setApplications(applicationsData);
-        
-        // If no applications found, provide helpful debug info
-        if (applicationsData.length === 0) {
-          console.log('No applications found. Total documents in query:', querySnapshot.size);
-          querySnapshot.forEach((doc) => {
+        // Query for submitted applications
+        try {
+          const submittedQuery = query(
+            collection(db, 'submissions'),
+            where('userId', '==', user.uid),
+            where('status', '==', 'submitted'),
+            orderBy('lastModified', 'desc')
+          );
+
+          const submittedSnapshot = await getDocs(submittedQuery);
+          console.log(`Found ${submittedSnapshot.size} submitted applications`);
+
+          submittedSnapshot.forEach((doc) => {
             const data = doc.data();
-            console.log('Document found but filtered out:', {
+            applicationsData.push({
               id: doc.id,
-              status: data.status,
               userId: data.userId,
-              filmTitle: data.filmTitle
+              applicationId: data.applicationId || doc.id,
+              competitionCategory: data.competitionCategory || data.category,
+              status: data.status,
+              filmTitle: data.filmTitle,
+              filmTitleTh: data.filmTitleTh,
+              filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : []),
+              files: {
+                posterFile: {
+                  downloadURL: data.files?.posterFile?.downloadURL || data.files?.posterFile?.url || '',
+                  fileName: data.files?.posterFile?.fileName || data.files?.posterFile?.name || ''
+                }
+              },
+              submittedAt: data.submittedAt,
+              createdAt: data.createdAt,
+              lastModified: data.lastModified
             });
           });
+        } catch (submittedError) {
+          console.warn('Error fetching submitted applications:', submittedError);
+          // Continue even if submitted query fails
         }
-        
+
+        // Sort all applications by lastModified desc
+        applicationsData.sort((a, b) => {
+          const aTime = a.lastModified?.toMillis ? a.lastModified.toMillis() : new Date(a.lastModified).getTime();
+          const bTime = b.lastModified?.toMillis ? b.lastModified.toMillis() : new Date(b.lastModified).getTime();
+          return bTime - aTime;
+        });
+
+        console.log(`Total applications found: ${applicationsData.length}`);
+        setApplications(applicationsData);
+
+        // Debug logging for empty results
+        if (applicationsData.length === 0) {
+          console.log('No applications found for user. This could be normal for new users.');
+        }
+
       } catch (error) {
         console.error('Error fetching applications:', error);
-        
+
         // Provide more specific error messages
-        let errorMessage = currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการโหลดข้อมูล' : 'Error loading applications';
-        
+        let errorMessage = currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการโหลดข้อมูลใบสมัคร' : 'Error loading applications';
+
         if (error instanceof Error) {
-          if (error.message.includes('permission-denied')) {
-            errorMessage = currentLanguage === 'th' 
-              ? 'ไม่มีสิทธิ์เข้าถึงข้อมูล กรุณาเข้าสู่ระบบใหม่' 
+          if (error.message.includes('permission-denied') || error.message.includes('Missing or insufficient permissions')) {
+            errorMessage = currentLanguage === 'th'
+              ? 'ไม่มีสิทธิ์เข้าถึงข้อมูลใบสมัคร กรุณาเข้าสู่ระบบใหม่'
               : 'Permission denied. Please sign in again.';
-          } else if (error.message.includes('Failed to get document')) {
-            errorMessage = currentLanguage === 'th' 
-              ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาลองใหม่อีกครั้ง' 
+          } else if (error.message.includes('index') || error.message.includes('requires an index')) {
+            errorMessage = currentLanguage === 'th'
+              ? 'กำลังอัปเดตฐานข้อมูล กรุณาลองใหม่อีกครั้ง'
+              : 'Database index being updated. Please try again.';
+          } else if (error.message.includes('unavailable') || error.message.includes('Failed to get document')) {
+            errorMessage = currentLanguage === 'th'
+              ? 'ไม่สามารถเชื่อมต่อฐานข้อมูลได้ กรุณาลองใหม่อีกครั้ง'
               : 'Unable to connect to database. Please try again.';
+          } else if (error.message.includes('cancelled')) {
+            errorMessage = currentLanguage === 'th'
+              ? 'คำขอถูกยกเลิก กรุณาลองใหม่อีกครั้ง'
+              : 'Request was cancelled. Please try again.';
           }
         }
-        
+
         setError(errorMessage);
       } finally {
         setLoading(false);
