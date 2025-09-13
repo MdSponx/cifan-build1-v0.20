@@ -96,22 +96,21 @@ service cloud.firestore {
       allow update: if isOwner(userId) || isSuperAdmin();
     }
     
-    // Submissions collection
+    // Submissions collection - simplified rules for better reliability
     match /submissions/{submissionId} {
       // Users can create submissions
       allow create: if request.auth != null;
-      
-      // Users can read/update their own submissions, admin-level users can read/update all
-      allow read: if request.auth != null && 
+
+      // Simplified read permissions: users can read their own submissions, admin-level users can read all
+      allow read: if request.auth != null &&
         (hasAdminLevelAccess() || 
-         (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
-          request.auth.uid == resource.data.userId));
-      
-      allow update: if request.auth != null && 
+         request.auth.uid == resource.data.userId);
+
+      // Simplified update permissions: users can update their own submissions, admin-level users can update all
+      allow update: if request.auth != null &&
         (hasAdminLevelAccess() || 
-         (exists(/databases/$(database)/documents/submissions/$(submissionId)) && 
-          request.auth.uid == resource.data.userId));
-      
+         request.auth.uid == resource.data.userId);
+
       // Admin-level users can delete submissions
       allow delete: if hasAdminLevelAccess();
       

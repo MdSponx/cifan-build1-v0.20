@@ -27,6 +27,7 @@ import { useNotificationHelpers } from '../ui/NotificationContext';
 import { useFeatureFilms } from '../../hooks/useFeatureFilms';
 import { FeatureFilm, FilmFilters } from '../../types/featureFilm.types';
 import { formatFileSize } from '../../utils/fileUpload';
+import { getTagColor } from '../../utils/tagColors';
 
 interface FeatureFilmGalleryPageProps {
   onNavigateToForm?: (mode: 'create' | 'edit', filmId?: string) => void;
@@ -225,6 +226,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
     return hours > 0 ? `${hours}h ${mins}m` : `${mins}m`;
   };
 
+
   /**
    * Render film card (grid view)
    */
@@ -331,12 +333,12 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
           <span>{film.country}</span>
         </div>
 
-        {/* Genres */}
+        {/* Genres with Colors */}
         <div className="flex flex-wrap gap-1 mb-3">
           {film.genres.slice(0, 3).map((genre, index) => (
             <span
               key={index}
-              className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs"
+              className={`px-2 py-1 rounded-full text-xs font-medium border ${getTagColor(genre)}`}
             >
               {genre}
             </span>
@@ -348,20 +350,11 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
           )}
         </div>
 
-        {/* Synopsis Preview */}
+        {/* Logline Preview */}
         <p className="text-white/60 text-sm line-clamp-2 mb-3">
-          {film.synopsis}
+          {film.logline || film.synopsis}
         </p>
 
-        {/* Footer */}
-        <div className="flex items-center justify-between text-xs text-white/50">
-          <span>
-            {film.createdAt.toLocaleDateString()}
-          </span>
-          <div className="flex items-center space-x-1">
-            <MoreVertical className="w-4 h-4" />
-          </div>
-        </div>
       </div>
     </div>
   );
@@ -428,14 +421,14 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
               </div>
 
               <p className="text-white/60 text-sm line-clamp-2 mb-2">
-                {film.synopsis}
+                {film.logline || film.synopsis}
               </p>
 
               <div className="flex flex-wrap gap-1">
                 {film.genres.slice(0, 4).map((genre, index) => (
                   <span
                     key={index}
-                    className="px-2 py-1 bg-white/5 text-white/70 rounded-full text-xs"
+                    className={`px-2 py-1 rounded-full text-xs font-medium border ${getTagColor(genre)}`}
                   >
                     {genre}
                   </span>

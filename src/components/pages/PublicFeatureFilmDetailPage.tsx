@@ -137,12 +137,12 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
 
   // Custom header component for public view (without status badge)
   const PublicHeader: React.FC = () => (
-    <div className="bg-white/5 backdrop-blur-sm border-b border-white/10 sticky top-0 z-40">
+    <div className="border-b border-white/10 sticky top-0 z-40">
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex items-center justify-between">
           <button
             onClick={onNavigateBack}
-            className="flex items-center space-x-2 px-4 py-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
+            className="flex items-center space-x-2 px-4 py-2 text-white rounded-xl hover:bg-white/20 transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />
             <span>Back to Gallery</span>
@@ -151,7 +151,7 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
           <div className="flex items-center space-x-3">
             <button
               onClick={handleShare}
-              className="p-2 bg-white/10 text-white rounded-xl hover:bg-white/20 transition-colors"
+              className="p-2 text-white rounded-xl hover:bg-white/20 transition-colors"
               title="Share Film"
             >
               <Share2 className="w-5 h-5" />
@@ -164,7 +164,7 @@ const PublicFeatureFilmDetailPage: React.FC<PublicFeatureFilmDetailPageProps> = 
 
   // Use the existing FeatureFilmDetailPage component but with public mode
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A]">
+    <div className="min-h-screen bg-gradient-to-br from-[#0F0B14] via-[#1A1525] to-[#2A1B3A] pt-16 sm:pt-20">
       {/* Custom Public Header (replaces the admin header) */}
       <PublicHeader />
       

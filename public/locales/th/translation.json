@@ -223,11 +223,8 @@
     },
 
     "theatres": {
-      "majorChiangMai": "Major Chiang Mai",
-      "sfMaya": "SF Maya",
-      "imaxMajorChiangMai": "IMAX Major Chiang Mai",
-      "railwayPark": "Railway Park",
-      "imax": "IMAX"
+      "majorTheatre7": "เมเจอร์ โรง 7",
+      "majorImax": "เมเจอร์ IMAX"
     },
 
     "statuses": {
@@ -517,6 +514,16 @@
       "majorImax": "เมเจอร์ IMAX",
       "market": "ตลาด",
       "anusarn": "อนุสาร"
+    },
+    "activities": {
+      "venues": {
+        "stageZone": "สวนสาธารณะรถไฟ ศาลาซีแฟน : โซนเวที",
+        "expoZone": "สวนสาธารณะรถไฟ ศาลาซีแฟน : โซนเอ็กซ์โป",
+        "majorTheatre7": "เมเจอร์ โรง 7",
+        "majorImax": "เมเจอร์ IMAX",
+        "market": "สวนสาธารณะรถไฟ ตลาดซีแฟน",
+        "anusarn": "อาคารอนุสารสันป่าข่อย"
+      }
     }
   },
   "registration": {

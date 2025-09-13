@@ -62,6 +62,7 @@ import { NewsArticle } from './types/news.types';
 import { useAuth } from './components/auth/AuthContext';
 import { useNotificationHelpers } from './components/ui/NotificationContext';
 import ErrorBoundary from './components/ui/ErrorBoundary';
+import { useScrollToTop } from './hooks/useScrollToTop';
 
 // Component to handle HTML lang attribute
 function LanguageHandler() {
@@ -221,6 +222,9 @@ function NewsFormWrapper({ mode, article, onCancel }: { mode: 'create' | 'edit';
 
 function App() {
   const [currentPage, setCurrentPage] = useState('home');
+
+  // Enable scroll to top on route changes
+  useScrollToTop();
 
   // Listen for navigation clicks
   React.useEffect(() => {

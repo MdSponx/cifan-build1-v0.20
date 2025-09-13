@@ -44,7 +44,9 @@ const roleDefinitions: Record<string, RoleDefinition> = {
       canViewDashboard: true,
       canManageContent: true,
       canAccessLibrary: true,
-      canRateFilms: true
+      canRateFilms: true,
+      canViewOwnApplications: true,
+      canDownloadOwnFiles: true
     }
   },
   admin: {
@@ -58,7 +60,9 @@ const roleDefinitions: Record<string, RoleDefinition> = {
       canViewDashboard: true,
       canManageContent: true,
       canAccessLibrary: true,
-      canRateFilms: false
+      canRateFilms: false,
+      canViewOwnApplications: true,
+      canDownloadOwnFiles: true
     }
   },
   editor: {
@@ -72,7 +76,9 @@ const roleDefinitions: Record<string, RoleDefinition> = {
       canViewDashboard: false,
       canManageContent: true,
       canAccessLibrary: true,
-      canRateFilms: false
+      canRateFilms: false,
+      canViewOwnApplications: true,
+      canDownloadOwnFiles: true
     }
   },
   jury: {
@@ -86,21 +92,25 @@ const roleDefinitions: Record<string, RoleDefinition> = {
       canViewDashboard: false,
       canManageContent: false,
       canAccessLibrary: true,
-      canRateFilms: true
+      canRateFilms: true,
+      canViewOwnApplications: true,
+      canDownloadOwnFiles: true
     }
   },
   user: {
     name: 'General User',
     icon: Users,
     color: '#9CA3AF',
-    description: 'Basic user with submission access only',
+    description: 'Basic user with submission access and own application management',
     permissions: {
       canAssignRoles: false,
       canManageUsers: false,
       canViewDashboard: false,
       canManageContent: false,
       canAccessLibrary: false,
-      canRateFilms: false
+      canRateFilms: false,
+      canViewOwnApplications: true,
+      canDownloadOwnFiles: true
     }
   }
 };

@@ -50,6 +50,8 @@ export interface RolePermissions {
   canManageContent: boolean;
   canAccessLibrary: boolean;
   canRateFilms: boolean;
+  canViewOwnApplications: boolean;
+  canDownloadOwnFiles: boolean;
 }
 
 export interface RoleDefinition {

@@ -132,9 +132,11 @@ const ApplicationEditPage: React.FC<ApplicationEditPageProps> = ({
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          
-          // Verify ownership
-          if (data.userId !== user.uid) {
+
+          // Add owner-based permission checks
+          const canEditApplication = data.userId === user.uid && data.status === 'draft';
+
+          if (!canEditApplication) {
             setError(currentLanguage === 'th' ? 'คุณไม่มีสิทธิ์แก้ไขใบสมัครนี้' : 'You do not have permission to edit this application');
             return;
           }

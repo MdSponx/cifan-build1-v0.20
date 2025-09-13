@@ -46,7 +46,7 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Fetch user's applications
+  // Fetch user's applications using separate queries for better reliability
   useEffect(() => {
     const fetchApplications = async () => {
       if (!user) {
@@ -60,11 +60,13 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
 
         console.log('Fetching applications for user:', user.uid);
 
-        // Use compound queries to leverage existing indexes and ensure reliability
-        const applicationsData: ApplicationData[] = [];
+        const allApplications: ApplicationData[] = [];
+        let hasErrors = false;
+        const errors: string[] = [];
 
-        // Query for draft applications
+        // Query 1: Draft applications
         try {
+          console.log('Querying draft applications...');
           const draftQuery = query(
             collection(db, 'submissions'),
             where('userId', '==', user.uid),
@@ -75,9 +77,9 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
           const draftSnapshot = await getDocs(draftQuery);
           console.log(`Found ${draftSnapshot.size} draft applications`);
 
-          draftSnapshot.forEach((doc) => {
+          draftSnapshot.docs.forEach(doc => {
             const data = doc.data();
-            applicationsData.push({
+            allApplications.push({
               id: doc.id,
               userId: data.userId,
               applicationId: data.applicationId || doc.id,
@@ -99,11 +101,13 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
           });
         } catch (draftError) {
           console.warn('Error fetching draft applications:', draftError);
-          // Continue with submitted applications even if draft query fails
+          hasErrors = true;
+          errors.push('draft applications');
         }
 
-        // Query for submitted applications
+        // Query 2: Submitted applications
         try {
+          console.log('Querying submitted applications...');
           const submittedQuery = query(
             collection(db, 'submissions'),
             where('userId', '==', user.uid),
@@ -114,9 +118,9 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
           const submittedSnapshot = await getDocs(submittedQuery);
           console.log(`Found ${submittedSnapshot.size} submitted applications`);
 
-          submittedSnapshot.forEach((doc) => {
+          submittedSnapshot.docs.forEach(doc => {
             const data = doc.data();
-            applicationsData.push({
+            allApplications.push({
               id: doc.id,
               userId: data.userId,
               applicationId: data.applicationId || doc.id,
@@ -138,22 +142,75 @@ const MyApplicationsPage: React.FC<MyApplicationsPageProps> = ({ onSidebarToggle
           });
         } catch (submittedError) {
           console.warn('Error fetching submitted applications:', submittedError);
-          // Continue even if submitted query fails
+          hasErrors = true;
+          errors.push('submitted applications');
         }
 
-        // Sort all applications by lastModified desc
-        applicationsData.sort((a, b) => {
-          const aTime = a.lastModified?.toMillis ? a.lastModified.toMillis() : new Date(a.lastModified).getTime();
-          const bTime = b.lastModified?.toMillis ? b.lastModified.toMillis() : new Date(b.lastModified).getTime();
-          return bTime - aTime;
+        // Fallback: Try simple query without status filter if both specific queries failed
+        if (allApplications.length === 0 && hasErrors) {
+          try {
+            console.log('Attempting fallback query without status filter...');
+            const fallbackQuery = query(
+              collection(db, 'submissions'),
+              where('userId', '==', user.uid),
+              orderBy('lastModified', 'desc')
+            );
+
+            const fallbackSnapshot = await getDocs(fallbackQuery);
+            console.log(`Fallback query found ${fallbackSnapshot.size} applications`);
+
+            fallbackSnapshot.docs.forEach(doc => {
+              const data = doc.data();
+              allApplications.push({
+                id: doc.id,
+                userId: data.userId,
+                applicationId: data.applicationId || doc.id,
+                competitionCategory: data.competitionCategory || data.category,
+                status: data.status || 'draft',
+                filmTitle: data.filmTitle,
+                filmTitleTh: data.filmTitleTh,
+                filmLanguages: data.filmLanguages || (data.filmLanguage ? [data.filmLanguage] : []),
+                files: {
+                  posterFile: {
+                    downloadURL: data.files?.posterFile?.downloadURL || data.files?.posterFile?.url || '',
+                    fileName: data.files?.posterFile?.fileName || data.files?.posterFile?.name || ''
+                  }
+                },
+                submittedAt: data.submittedAt,
+                createdAt: data.createdAt,
+                lastModified: data.lastModified
+              });
+            });
+
+            if (allApplications.length > 0) {
+              console.log('Fallback query successful, clearing errors');
+              hasErrors = false;
+              errors.length = 0;
+            }
+          } catch (fallbackError) {
+            console.error('Fallback query also failed:', fallbackError);
+            errors.push('fallback query');
+          }
+        }
+
+        // Sort all applications by lastModified (most recent first)
+        allApplications.sort((a, b) => {
+          const aTime = a.lastModified?.toDate?.() || new Date(a.lastModified || 0);
+          const bTime = b.lastModified?.toDate?.() || new Date(b.lastModified || 0);
+          return bTime.getTime() - aTime.getTime();
         });
 
-        console.log(`Total applications found: ${applicationsData.length}`);
-        setApplications(applicationsData);
+        setApplications(allApplications);
+        console.log(`Total applications loaded: ${allApplications.length}`);
 
-        // Debug logging for empty results
-        if (applicationsData.length === 0) {
-          console.log('No applications found for user. This could be normal for new users.');
+        // Show partial error if some queries failed but we got some results
+        if (hasErrors && allApplications.length > 0) {
+          console.warn(`Partial success: Failed to load ${errors.join(', ')}, but loaded ${allApplications.length} applications`);
+        }
+
+        // Only show error if we couldn't load any applications and had errors
+        if (hasErrors && allApplications.length === 0) {
+          throw new Error(`Failed to load applications: ${errors.join(', ')}`);
         }
 
       } catch (error) {

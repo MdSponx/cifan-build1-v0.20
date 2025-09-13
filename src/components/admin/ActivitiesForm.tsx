@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
+import { TFunction } from 'i18next';
 import { 
   Activity, 
   ActivityFormData, 
@@ -53,7 +54,7 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
   mode,
   errors: externalErrors = {}
 }) => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const { getClass } = useTypography();
   const { user } = useAuth();
   const currentLanguage = i18n.language as 'en' | 'th';
@@ -944,13 +945,22 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                   <MapPin className="w-4 h-4 inline mr-2" />
                   {currentContent.venueName} <span className="text-red-400">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={formData.venueName}
                   onChange={(e) => handleInputChange('venueName', e.target.value)}
-                  className={`w-full p-3 rounded-lg bg-white/10 border ${errors.venueName ? 'border-red-400 error-field' : 'border-white/20'} text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none transition-colors`}
-                  placeholder={currentContent.venueNamePlaceholder}
-                />
+                  className={`w-full p-3 rounded-lg bg-white/10 border ${errors.venueName ? 'border-red-400 error-field' : 'border-white/20'} text-white focus:border-[#FCB283] focus:outline-none transition-colors`}
+                >
+                  {[
+                    { key: 'stageZone' },
+                    { key: 'expoZone' },
+                    { key: 'market' },
+                    { key: 'anusarn' }
+                  ].map(venue => (
+                    <option key={venue.key} value={venue.key} className="bg-[#1a1a2e] text-white">
+                      {String(t(`schedule.activities.venues.${venue.key}`))}
+                    </option>
+                  ))}
+                </select>
                 <ErrorMessage error={errors.venueName} />
               </div>
 

@@ -231,11 +231,8 @@
     },
 
     "theatres": {
-      "majorChiangMai": "Major Chiang Mai",
-      "sfMaya": "SF Maya",
-      "imaxMajorChiangMai": "IMAX Major Chiang Mai",
-      "railwayPark": "Railway Park",
-      "imax": "IMAX"
+      "majorTheatre7": "Major Theatre 7",
+      "majorImax": "Major IMAX"
     },
 
     "statuses": {
@@ -524,10 +521,20 @@
     "venues": {
       "stageZone": "Stage Zone",
       "expoZone": "EXPO Zone",
-      "majorTheatre4": "Major Theatre 4",
+      "majorTheatre7": "Major Theatre 7",
       "majorImax": "Major IMAX",
       "market": "Market",
       "anusarn": "Anusarn"
+    },
+    "activities": {
+      "venues": {
+        "stageZone": "Railway Park CIFAN Pavillion : Stage Zone",
+        "expoZone": "Railway Park CIFAN Pavillion : EXPO Zone",
+        "majorTheatre7": "Major Theatre 7",
+        "majorImax": "Major IMAX",
+        "market": "Railway Park CIFAN Market",
+        "anusarn": "Anusarn Building Sanpakoi"
+      }
     }
   },
   "registration": {

@@ -172,9 +172,9 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460]">
+    <div className="min-h-screen bg-gradient-to-br from-[#1a1a2e] via-[#16213e] to-[#0f3460] pt-16 sm:pt-20">
       {/* Header Section */}
-      <div className="bg-white/5 backdrop-blur-sm border-b border-white/10">
+      <div className="border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 py-12">
           <div className="text-center">
             {/* Official Selection Logo */}
@@ -197,7 +197,7 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
 
       {/* Search and Filter Bar */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-2xl p-6 mb-8">
+        <div className="border border-white/20 rounded-2xl p-6 mb-8">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search Input */}
             <div className="flex-1 relative">
@@ -228,7 +228,7 @@ const PublicFeatureFilmsPage: React.FC<PublicFeatureFilmsPageProps> = ({
 
               {/* Dropdown Menu */}
               {showYearDropdown && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl overflow-hidden z-10">
+                <div className="absolute top-full left-0 right-0 mt-2 border border-white/20 rounded-xl overflow-hidden z-10">
                   <button
                     onClick={() => handleYearSelect('')}
                     className="w-full px-4 py-3 text-left text-white hover:bg-white/10 transition-colors"

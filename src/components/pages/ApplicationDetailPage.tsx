@@ -82,15 +82,17 @@ const ApplicationDetailPage: React.FC<ApplicationDetailPageProps> = ({
       try {
         setLoading(true);
         setError(null);
-        
+
         const docRef = doc(db, 'submissions', applicationId);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
           const data = docSnap.data();
-          
-          // Verify that this application belongs to the current user
-          if (data.userId !== user.uid) {
+
+          // Add owner-based permission checks
+          const canAccessApplication = data.userId === user.uid;
+
+          if (!canAccessApplication) {
             setError(currentLanguage === 'th' ? 'คุณไม่มีสิทธิ์เข้าถึงใบสมัครนี้' : 'You do not have permission to access this application');
             setLoading(false);
             return;

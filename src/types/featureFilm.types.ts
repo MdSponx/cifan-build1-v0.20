@@ -281,12 +281,9 @@ export type TargetAudience =
 
 export type TimeEstimate = 'เช้า' | 'บ่าย' | 'ค่ำ' | 'กลางคืน';
 
-export type Theatre = 
-  | 'Major Chiang Mai'
-  | 'SF Maya'
-  | 'IMAX Major Chiang Mai'
-  | 'Railway Park'
-  | 'IMAX';
+export type Theatre =
+  | 'majorTheatre7'
+  | 'majorImax';
 
 export type FilmStatus = 
   | 'ตอบรับ / Accepted'
@@ -353,11 +350,8 @@ export const TIME_ESTIMATES: TimeEstimate[] = [
 ];
 
 export const THEATRES: Theatre[] = [
-  'Major Chiang Mai',
-  'SF Maya',
-  'IMAX Major Chiang Mai',
-  'Railway Park',
-  'IMAX'
+  'majorTheatre7',
+  'majorImax'
 ];
 
 export const FILM_STATUSES: FilmStatus[] = [

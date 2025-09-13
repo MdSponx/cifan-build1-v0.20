@@ -18,7 +18,7 @@ import {
 import AnimatedButton from '../ui/AnimatedButton';
 
 const PublicActivitiesPage: React.FC = () => {
-  const { i18n } = useTranslation();
+  const { i18n, t } = useTranslation();
   const { getClass } = useTypography();
   const currentLanguage = i18n.language as 'en' | 'th';
 
@@ -199,7 +199,7 @@ const PublicActivitiesPage: React.FC = () => {
       filtered = filtered.filter(activity =>
         activity.name.toLowerCase().includes(searchLower) ||
         activity.shortDescription.toLowerCase().includes(searchLower) ||
-        activity.description.toLowerCase().includes(searchLower) ||
+        (activity.description && activity.description.toLowerCase().includes(searchLower)) ||
         activity.venueName.toLowerCase().includes(searchLower) ||
         activity.organizers.some(org => org.toLowerCase().includes(searchLower))
       );
@@ -604,7 +604,9 @@ const PublicActivitiesPage: React.FC = () => {
                                 <div className="space-y-2">
                                   <div className="flex items-center text-sm text-white/60">
                                     <MapPin className="w-4 h-4 mr-2 flex-shrink-0" />
-                                    <span className="line-clamp-1">{activity.venueName}</span>
+                                    <span className="line-clamp-1">
+                                      {activity.venueName ? t(`schedule.activities.venues.${activity.venueName}`) : activity.venueName}
+                                    </span>
                                   </div>
                                   
                                   <div className="flex items-center text-sm text-white/60">

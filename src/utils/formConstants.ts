@@ -9,7 +9,7 @@ export const FILM_ROLES = [
 // Genre options with multi-language support
 export const GENRE_OPTIONS = [
   { value: 'horror', label: { th: 'สยองขวัญ', en: 'Horror' } },
-  { value: 'scifi', label: { th: 'วิทยาศศ', en: 'Science Fiction' } },
+  { value: 'scifi', label: { th: 'วิทยาศาสตร์', en: 'Science Fiction' } },
   { value: 'fantasy', label: { th: 'แฟนตาซี', en: 'Fantasy' } },
   { value: 'dark-comedy', label: { th: 'ตลกร้าย', en: 'Dark Comedy' } },
   { value: 'folklore', label: { th: 'เรื่องเล่าพื้นบ้าน', en: 'Folklore' } },
@@ -17,7 +17,7 @@ export const GENRE_OPTIONS = [
   { value: 'surreal', label: { th: 'เหนือจริง / อาร์ตแฟนตาสติก', en: 'Surreal / Art Fantastic' } },
   { value: 'monster', label: { th: 'สัตว์ประหลาด / มอนสเตอร์', en: 'Monster' } },
   { value: 'magic', label: { th: 'เวทมนตร์ / ไสยศาสตร์', en: 'Magic / Supernatural' } },
-    { value: 'mีusical', label: { th: 'เพลง', en: 'Musical' } },
+    { value: 'musical', label: { th: 'เพลง', en: 'Musical' } },
   { value: 'thriller', label: { th: 'ระทึกขวัญ', en: 'Thriller' } },
 ];
 

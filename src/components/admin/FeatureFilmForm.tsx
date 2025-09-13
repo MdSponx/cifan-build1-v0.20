@@ -87,44 +87,53 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   const { user } = useAuth();
   const currentLanguage = i18n.language;
 
-  // Form state
-  const [formData, setFormData] = useState<FeatureFilmData>({
-    titleEn: '',
-    titleTh: '',
-    category: '' as FilmCategory,
-    genres: [],
-    countries: [],
-    languages: [],
-    logline: '',
-    synopsis: '',
-    targetAudience: [],
-    length: undefined,
-    screeningDate1: '',
-    screeningDate2: '',
-    timeEstimate: '' as TimeEstimate,
-    theatre: '' as Theatre,
-    director: '',
-    producer: '',
-    studio: '',
-    distributor: '',
-    mainActors: '',
-    posterFile: undefined,
-    posterUrl: '',
-    trailerFile: undefined,
-    trailerUrl: '',
-    screenerUrl: '',
-    materials: '',
-    galleryFiles: [],
-    galleryUrls: [''],
-    galleryCoverIndex: 0,
-    galleryLogoIndex: undefined,
-    afterScreenActivities: [],
-    status: '' as FilmStatus,
-    publicationStatus: 'draft' as PublicationStatus,
-    remarks: '',
-    guestComing: false,
-    guests: [],
-    ...initialData
+  // Form state with proper initialization
+  const [formData, setFormData] = useState<FeatureFilmData>(() => {
+    const defaultData: FeatureFilmData = {
+      titleEn: '',
+      titleTh: '',
+      category: '' as FilmCategory,
+      genres: [],
+      countries: [],
+      languages: [],
+      logline: '',
+      synopsis: '',
+      targetAudience: [],
+      length: undefined,
+      screeningDate1: '',
+      screeningDate2: '',
+      timeEstimate: '' as TimeEstimate,
+      theatre: '' as Theatre,
+      director: '',
+      producer: '',
+      studio: '',
+      distributor: '',
+      mainActors: '',
+      posterFile: undefined,
+      posterUrl: '',
+      trailerFile: undefined,
+      trailerUrl: '',
+      screenerUrl: '',
+      materials: '',
+      galleryFiles: [],
+      galleryUrls: [''],
+      galleryCoverIndex: 0,
+      galleryLogoIndex: undefined,
+      afterScreenActivities: [],
+      status: '' as FilmStatus,
+      publicationStatus: 'draft' as PublicationStatus,
+      remarks: '',
+      guestComing: false,
+      guests: []
+    };
+    
+    // Merge with initial data if provided
+    if (initialData) {
+      const normalizedInitialData = normalizeArrayFields(initialData);
+      return { ...defaultData, ...normalizedInitialData };
+    }
+    
+    return defaultData;
   });
 
   const [errors, setErrors] = useState<FeatureFilmFormErrors>({});
@@ -284,13 +293,13 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
   };
 
   /**
-   * Validate form data
+   * Validate form data with safe null/undefined checks
    */
   const validateForm = (): boolean => {
     const newErrors: FeatureFilmFormErrors = {};
 
-    // Required fields validation
-    if (!formData.titleEn.trim()) {
+    // Required fields validation with safe null/undefined checks
+    if (!formData.titleEn || !formData.titleEn.trim()) {
       newErrors.titleEn = 'English title is required';
     }
 
@@ -310,14 +319,13 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       newErrors.languages = 'At least one language is required';
     }
 
-    if (!formData.logline.trim()) {
+    if (!formData.logline || !formData.logline.trim()) {
       newErrors.logline = 'Logline is required';
     }
 
-    if (!formData.synopsis.trim()) {
+    if (!formData.synopsis || !formData.synopsis.trim()) {
       newErrors.synopsis = 'Synopsis is required';
     }
-
 
     if (!formData.timeEstimate) {
       newErrors.timeEstimate = 'Time estimate is required';
@@ -327,7 +335,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       newErrors.theatre = 'Theatre is required';
     }
 
-    if (!formData.director.trim()) {
+    if (!formData.director || !formData.director.trim()) {
       newErrors.director = 'Director is required';
     }
 
@@ -335,21 +343,23 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       newErrors.status = 'Status is required';
     }
 
-    // URL validation
+    // URL validation with safe checks
     const urlFields = ['posterUrl', 'trailerUrl', 'screenerUrl'];
     urlFields.forEach(field => {
       const value = formData[field as keyof FeatureFilmData] as string;
-      if (value && !isValidUrl(value)) {
+      if (value && value.trim() && !isValidUrl(value)) {
         newErrors[field] = 'Please enter a valid URL';
       }
     });
 
-    // Gallery URLs validation
-    formData.galleryUrls.forEach((url, index) => {
-      if (url && !isValidUrl(url)) {
-        newErrors[`galleryUrl_${index}`] = 'Please enter a valid URL';
-      }
-    });
+    // Gallery URLs validation with safe checks
+    if (formData.galleryUrls && Array.isArray(formData.galleryUrls)) {
+      formData.galleryUrls.forEach((url, index) => {
+        if (url && url.trim() && !isValidUrl(url)) {
+          newErrors[`galleryUrl_${index}`] = 'Please enter a valid URL';
+        }
+      });
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -866,7 +876,7 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                   <option value="">{t('featureFilm.placeholders.selectTheatre')}</option>
                   {THEATRES.map(theatre => (
                     <option key={theatre} value={theatre} className="bg-[#1a1a2e] text-white">
-                      {theatre}
+                      {t(`featureFilm.theatres.${theatre}`)}
                     </option>
                   ))}
                 </select>
