@@ -304,9 +304,68 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             return; // Skip this screening
           }
           
-          // Extract time from screening time or use default
-          const startTime = screening.time || '19:00';
+          // 🚨 CRITICAL FIX: Handle Thai time words in modern screening time field
+          let startTime: string;
+          
+          console.log(`🔍 MODERN SCREENING TIME PROCESSING for "${film.title}" screening ${index + 1}:`, {
+            rawTime: screening.time,
+            timeType: typeof screening.time,
+            timeValue: screening.time
+          });
+          
+          // Helper function to validate if a string is a valid time format (H:MM or HH:MM)
+          const isValidTimeFormat = (timeStr: string): boolean => {
+            if (!timeStr || typeof timeStr !== 'string') return false;
+            // Updated regex to accept both H:MM and HH:MM formats
+            const timeRegex = /^(\d{1,2}):(\d{2})$/;
+            const thaiTimeWords = ['เช้า', 'บ่าย', 'ค่ำ', 'กลางคืน'];
+            return timeRegex.test(timeStr.trim()) && !thaiTimeWords.some(word => timeStr.includes(word));
+          };
+          
+          // Convert Thai time words to proper time format
+          const convertThaiTimeToProperTime = (thaiTime: string): string => {
+            console.log(`🔄 Converting Thai time word: "${thaiTime}"`);
+            
+            const timeMap: Record<string, string> = {
+              'เช้า': '10:00',      // Morning -> 10:00 AM
+              'บ่าย': '14:00',     // Afternoon -> 2:00 PM  
+              'ค่ำ': '19:00',      // Evening -> 7:00 PM
+              'กลางคืน': '22:00'   // Night -> 10:00 PM
+            };
+            
+            for (const [thaiWord, properTime] of Object.entries(timeMap)) {
+              if (thaiTime.includes(thaiWord)) {
+                console.log(`✅ Converted "${thaiTime}" → "${properTime}"`);
+                return properTime;
+              }
+            }
+            
+            console.log(`⚠️ No conversion found for "${thaiTime}", using default 19:00`);
+            return '19:00'; // Default fallback
+          };
+          
+          if (screening.time && isValidTimeFormat(screening.time)) {
+            // Use valid time format directly
+            startTime = screening.time;
+            console.log(`✅ USING VALID TIME FORMAT: ${startTime}`);
+          } else if (screening.time && typeof screening.time === 'string') {
+            // Convert Thai time words to proper time format
+            startTime = convertThaiTimeToProperTime(screening.time);
+            console.log(`🔄 CONVERTED THAI TIME: "${screening.time}" → "${startTime}"`);
+          } else {
+            // Use default time
+            startTime = '19:00';
+            console.log(`⚠️ USING DEFAULT TIME: ${startTime}`);
+          }
+          
           const endTime = calculateEndTime(startTime, film.duration);
+          
+          console.log(`✅ FINAL MODERN SCREENING TIMES for "${film.title}" screening ${index + 1}:`, {
+            startTime,
+            endTime,
+            originalScreeningTime: screening.time,
+            duration: film.duration
+          });
           
           // Map venue name to standardized venue
           const venue = mapVenueName(screening.venue);
@@ -348,7 +407,152 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           console.error(`❌ Error processing modern screening ${index + 1} for "${film.title}":`, error);
         }
       });
-    } else {
+    }
+
+    // 🚨 CRITICAL FIX: Always check for legacy screeningDate2 fields regardless of modern screenings
+    // This ensures that films with both modern screenings AND legacy second screening data show both
+    const legacyFilm = film as any;
+    
+    console.log(`🔍 CHECKING LEGACY SECOND SCREENING for "${film.title}":`, {
+      hasScreeningDate2: !!legacyFilm.screeningDate2,
+      screeningDate2Value: legacyFilm.screeningDate2,
+      hasStartTime2: !!legacyFilm.startTime2,
+      startTime2Value: legacyFilm.startTime2,
+      hasEndTime2: !!legacyFilm.endTime2,
+      endTime2Value: legacyFilm.endTime2,
+      currentScheduleItemsCount: scheduleItems.length
+    });
+
+    // Check for legacy screeningDate2 with startTime2 and endTime2
+    if (legacyFilm.screeningDate2) {
+      try {
+        console.log(`🎬 PROCESSING LEGACY SECOND SCREENING for "${film.title}":`, {
+          screeningDate2: legacyFilm.screeningDate2,
+          startTime2: legacyFilm.startTime2,
+          endTime2: legacyFilm.endTime2
+        });
+
+        // Extract date from screeningDate2 field
+        const screeningDateTime = new Date(legacyFilm.screeningDate2);
+
+        // Check if the date is valid
+        if (isNaN(screeningDateTime.getTime())) {
+          console.error(`❌ Invalid screeningDate2 for film "${film.title}":`, legacyFilm.screeningDate2);
+        } else {
+          const screeningDate = screeningDateTime.toISOString().split('T')[0];
+          
+          // Helper function to validate if a string is a valid time format (H:MM or HH:MM)
+          const isValidTimeFormat = (timeStr: string): boolean => {
+            if (!timeStr || typeof timeStr !== 'string') return false;
+            // Updated regex to accept both H:MM and HH:MM formats
+            const timeRegex = /^(\d{1,2}):(\d{2})$/;
+            const thaiTimeWords = ['เช้า', 'บ่าย', 'ค่ำ', 'กลางคืน'];
+            return timeRegex.test(timeStr.trim()) && !thaiTimeWords.some(word => timeStr.includes(word));
+          };
+          
+          // Process startTime2 and endTime2
+          let startTime: string;
+          let endTime: string;
+          
+          console.log(`🔍 LEGACY SECOND SCREENING TIME PROCESSING for "${film.title}":`, {
+            startTime2Field: legacyFilm.startTime2,
+            endTime2Field: legacyFilm.endTime2,
+            startTime2Type: typeof legacyFilm.startTime2,
+            endTime2Type: typeof legacyFilm.endTime2
+          });
+          
+          // Use startTime2 field if valid, otherwise extract from screeningDate2
+          if (legacyFilm.startTime2 && isValidTimeFormat(legacyFilm.startTime2)) {
+            const cleanStartTime = legacyFilm.startTime2.trim();
+            const timeRegex = /^(\d{1,2}):(\d{2})$/;
+            const timeMatch = cleanStartTime.match(timeRegex);
+            
+            if (timeMatch) {
+              const [, hours, minutes] = timeMatch;
+              startTime = `${hours.padStart(2, '0')}:${minutes}`;
+              console.log(`✅ USING DEDICATED startTime2 FIELD: ${startTime}`);
+              
+              // Use endTime2 field if valid, otherwise calculate from duration
+              if (legacyFilm.endTime2 && isValidTimeFormat(legacyFilm.endTime2)) {
+                const cleanEndTime = legacyFilm.endTime2.trim();
+                const endTimeMatch = cleanEndTime.match(timeRegex);
+                if (endTimeMatch) {
+                  const [, endHours, endMinutes] = endTimeMatch;
+                  endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
+                  console.log(`✅ USING DEDICATED endTime2 FIELD: ${endTime}`);
+                } else {
+                  // Calculate from duration
+                  const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+                  endTime = calculateEndTime(startTime, durationMinutes);
+                  console.log(`🔄 Calculated endTime from duration (invalid endTime2 field): ${endTime}`);
+                }
+              } else {
+                // Calculate from duration
+                const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+                endTime = calculateEndTime(startTime, durationMinutes);
+                console.log(`🔄 Calculated endTime from duration (no endTime2 field): ${endTime}`);
+              }
+            } else {
+              console.log(`❌ ERROR: Time regex failed for startTime2: ${cleanStartTime}`);
+              // Fallback to extracting time from screeningDate2
+              startTime = extractTimeFromScreeningDate(legacyFilm.screeningDate2);
+              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+              endTime = calculateEndTime(startTime, durationMinutes);
+              console.log(`⚠️ FALLBACK TIME EXTRACTION for second screening:`, { startTime, endTime });
+            }
+          } else {
+            console.log(`⚠️ No valid startTime2 field (value: "${legacyFilm.startTime2}"), falling back to screeningDate2 extraction`);
+            // Fallback to extracting time from screeningDate2
+            startTime = extractTimeFromScreeningDate(legacyFilm.screeningDate2);
+            const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+            endTime = calculateEndTime(startTime, durationMinutes);
+            console.log(`⚠️ FALLBACK TIME EXTRACTION for second screening:`, { startTime, endTime, source: 'screeningDate2' });
+          }
+          
+          // Map venue from theatre field
+          const venue = mapVenueName(legacyFilm.theatre || 'Major Theatre 7');
+
+          const secondScreeningItem: ScheduleItem = {
+            id: `${film.id}-screening-2`,
+            title: film.title,
+            type: 'film',
+            category: 'screening',
+            startTime,
+            endTime,
+            date: screeningDate,
+            venue,
+            duration: legacyFilm.length || legacyFilm.Length || film.duration || 120,
+            description: film.synopsis,
+            publicationStatus: film.publicationStatus || (film.status === 'published' ? 'public' : 'draft'),
+            image: film.files?.poster?.url || film.posterUrl || legacyFilm.posterUrl,
+            director: film.director,
+            cast: film.cast?.map(member => member.name),
+            genres: film.genres,
+            rating: film.rating,
+            tags: film.tags,
+            status: film.status,
+            featured: film.featured
+          };
+
+          scheduleItems.push(secondScreeningItem);
+          console.log(`✅ SUCCESSFULLY ADDED LEGACY SECOND SCREENING ITEM for "${film.title}":`, {
+            startTime,
+            endTime,
+            venue,
+            date: screeningDate,
+            usedDedicatedStartTime2: isValidTimeFormat(legacyFilm.startTime2),
+            usedDedicatedEndTime2: isValidTimeFormat(legacyFilm.endTime2),
+            originalStartTime2Field: legacyFilm.startTime2,
+            originalEndTime2Field: legacyFilm.endTime2
+          });
+        }
+      } catch (error) {
+        console.error(`❌ Error processing legacy second screening for "${film.title}":`, error);
+      }
+    }
+
+    // Handle films without modern screenings (legacy films with only screeningDate1)
+    if (!film.screenings || film.screenings.length === 0) {
       // For films without specific screening data, check legacy fields
       const legacyFilm = film as any;
       
@@ -399,24 +603,31 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
 
           const screeningDate = screeningDateTime.toISOString().split('T')[0];
           
-          // 🚨 SIMPLIFIED FIX: Use dedicated startTime1/endTime1 fields directly (like activities)
+          // 🚨 CRITICAL FIX: Proper time field priority logic
           let startTime: string;
           let endTime: string;
           
-          console.log(`🔍 DIRECT TIME FIELD USAGE for "${film.title}" screening ${screeningNumber}:`);
-          console.log('startTimeField:', startTimeField);
-          console.log('endTimeField:', endTimeField);
+          console.log(`🔍 TIME FIELD PRIORITY PROCESSING for "${film.title}" screening ${screeningNumber}:`);
+          console.log('📋 Available time fields:', {
+            startTimeField,
+            endTimeField,
+            startTimeFieldType: typeof startTimeField,
+            endTimeFieldType: typeof endTimeField,
+            timeEstimate: legacyFilm.timeEstimate
+          });
           
-          // Helper function to validate if a string is a valid time format (HH:MM)
+          // Helper function to validate if a string is a valid time format (H:MM or HH:MM)
           const isValidTimeFormat = (timeStr: string): boolean => {
             if (!timeStr || typeof timeStr !== 'string') return false;
+            // Updated regex to accept both H:MM and HH:MM formats
             const timeRegex = /^(\d{1,2}):(\d{2})$/;
             const thaiTimeWords = ['เช้า', 'บ่าย', 'ค่ำ', 'กลางคืน'];
             return timeRegex.test(timeStr.trim()) && !thaiTimeWords.some(word => timeStr.includes(word));
           };
           
-          // DIRECT USAGE: Use startTime1/endTime1 fields exactly like activities use startTime/endTime
-          if (isValidTimeFormat(startTimeField)) {
+          // 🚨 CRITICAL FIX: Always prioritize dedicated time fields over date extraction
+          // PRIORITY 1: Use dedicated startTime1/endTime1 fields from database
+          if (startTimeField && isValidTimeFormat(startTimeField)) {
             const cleanStartTime = startTimeField.trim();
             const timeRegex = /^(\d{1,2}):(\d{2})$/;
             const timeMatch = cleanStartTime.match(timeRegex);
@@ -424,37 +635,49 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             if (timeMatch) {
               const [, hours, minutes] = timeMatch;
               startTime = `${hours.padStart(2, '0')}:${minutes}`;
-              console.log(`✅ SUCCESS: Using startTime${screeningNumber}:`, startTime);
+              console.log(`✅ USING DEDICATED startTime${screeningNumber} FIELD:`, startTime);
               
               // Use endTime field if valid, otherwise calculate from duration
-              if (isValidTimeFormat(endTimeField)) {
+              if (endTimeField && isValidTimeFormat(endTimeField)) {
                 const cleanEndTime = endTimeField.trim();
                 const endTimeMatch = cleanEndTime.match(timeRegex);
                 if (endTimeMatch) {
                   const [, endHours, endMinutes] = endTimeMatch;
                   endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
-                  console.log(`✅ SUCCESS: Using endTime${screeningNumber}:`, endTime);
+                  console.log(`✅ USING DEDICATED endTime${screeningNumber} FIELD:`, endTime);
                 } else {
                   // Calculate from duration
                   const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
                   endTime = calculateEndTime(startTime, durationMinutes);
-                  console.log(`🔄 Calculated endTime from duration:`, endTime);
+                  console.log(`🔄 Calculated endTime from duration (invalid endTime field):`, endTime);
                 }
               } else {
                 // Calculate from duration
                 const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
                 endTime = calculateEndTime(startTime, durationMinutes);
-                console.log(`🔄 Calculated endTime from duration (no valid endTime):`, endTime);
+                console.log(`🔄 Calculated endTime from duration (no endTime field):`, endTime);
               }
             } else {
               console.log(`❌ ERROR: Time regex failed for startTime${screeningNumber}:`, cleanStartTime);
-              // Skip this screening - no valid time available
-              return;
+              // PRIORITY 2: Fallback to extracting time from screeningDate
+              console.log(`🔄 FALLBACK: Extracting time from screeningDate for screening ${screeningNumber}`);
+              startTime = extractTimeFromScreeningDate(dateField);
+              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+              endTime = calculateEndTime(startTime, durationMinutes);
+              console.log(`⚠️ FALLBACK TIME EXTRACTION:`, { startTime, endTime });
             }
           } else {
-            console.log(`❌ SKIPPING: No valid startTime${screeningNumber} field available:`, startTimeField);
-            // Skip this screening - no valid time available
-            return;
+            console.log(`⚠️ No valid startTime${screeningNumber} field (value: "${startTimeField}"), falling back to screeningDate extraction`);
+            // PRIORITY 2: Fallback to extracting time from screeningDate if dedicated fields are invalid
+            startTime = extractTimeFromScreeningDate(dateField);
+            const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+            endTime = calculateEndTime(startTime, durationMinutes);
+            console.log(`⚠️ FALLBACK TIME EXTRACTION:`, { startTime, endTime, source: 'screeningDate' });
+          }
+          
+          // 🚨 CRITICAL FIX: Completely ignore timeEstimate field - it should never be used
+          if (legacyFilm.timeEstimate) {
+            console.log(`🚫 COMPLETELY IGNORING timeEstimate field (value: "${legacyFilm.timeEstimate}") - this field should never affect time calculation`);
           }
           
           // Debug logging for film data processing
@@ -497,12 +720,30 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             featured: film.featured
           });
 
-          console.log(`✅ Created schedule item for film "${film.title}" screening ${screeningNumber}:`, {
+          console.log(`🎬 Created schedule item for film "${film.title}" screening ${screeningNumber}`);
+          console.log(`✅ FINAL RESULT:`, {
+            title: film.title,
             startTime,
             endTime,
             venue,
             date: screeningDate,
-            usedDedicatedFields: !!(startTimeField && startTimeField.match(/^\d{2}:\d{2}$/))
+            duration: legacyFilm.length || legacyFilm.Length || film.duration || 120,
+            usedDedicatedStartTime: isValidTimeFormat(startTimeField),
+            usedDedicatedEndTime: isValidTimeFormat(endTimeField),
+            timeFieldSource: isValidTimeFormat(startTimeField) ? 'dedicated' : 'screeningDate',
+            originalStartTimeField: startTimeField,
+            originalEndTimeField: endTimeField,
+            ignoredTimeEstimate: legacyFilm.timeEstimate
+          });
+
+          // 🚨 CRITICAL DEBUG: Check if startTime is being overwritten somewhere
+          console.log(`🔍 CRITICAL CHECK - Final startTime before schedule item creation:`, {
+            startTime,
+            startTimeType: typeof startTime,
+            startTimeLength: startTime?.length,
+            isValidFormat: /^(\d{1,2}):(\d{2})$/.test(startTime),
+            parsedHour: startTime.split(':')[0],
+            parsedMinute: startTime.split(':')[1]
           });
 
         } catch (error) {

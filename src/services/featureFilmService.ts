@@ -1359,7 +1359,7 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     ],
     screenings: legacyData.screeningDate1 ? [{
       date: new Date(legacyData.screeningDate1),
-      time: legacyData.timeEstimate || '',
+      time: legacyData.startTime1 || '', // 🚨 CRITICAL FIX: Use startTime1 instead of timeEstimate
       venue: legacyData.theatre || 'TBD'
     }] : undefined,
     status: status,

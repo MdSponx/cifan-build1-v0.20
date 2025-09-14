@@ -125,11 +125,9 @@ export const calculateScreeningTimes = (
     endTime2?: string;
   } = {};
 
-  // Calculate times for screening 1
-  if (screeningDate1 || timeEstimate) {
-    const startTime1 = screeningDate1 
-      ? extractTimeFromScreeningDate(screeningDate1)
-      : mapTimeEstimate(timeEstimate || '');
+  // Calculate times for screening 1 - 🚨 CRITICAL FIX: Only use screeningDate1, ignore timeEstimate
+  if (screeningDate1) {
+    const startTime1 = extractTimeFromScreeningDate(screeningDate1);
     
     result.startTime1 = startTime1;
     
@@ -137,6 +135,7 @@ export const calculateScreeningTimes = (
       result.endTime1 = calculateEndTime(startTime1, duration);
     }
   }
+  // 🚨 CRITICAL FIX: Completely ignore timeEstimate parameter - it should never be used
 
   // Calculate times for screening 2 - ONLY if screeningDate2 exists
   // Don't use timeEstimate fallback for screening 2 to avoid duplication
