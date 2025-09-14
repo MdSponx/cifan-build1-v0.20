@@ -400,8 +400,8 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           const screeningDate = screeningDateTime.toISOString().split('T')[0];
           
           // 🚨 SIMPLIFIED FIX: Use dedicated startTime1/endTime1 fields directly (like activities)
-          let startTime: string = '';
-          let endTime: string = '';
+          let startTime: string;
+          let endTime: string;
           
           console.log(`🔍 DIRECT TIME FIELD USAGE for "${film.title}" screening ${screeningNumber}:`);
           console.log('startTimeField:', startTimeField);
@@ -415,10 +415,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             return timeRegex.test(timeStr.trim()) && !thaiTimeWords.some(word => timeStr.includes(word));
           };
           
-          // 🚨 ENHANCED FIX: More flexible time handling with multiple fallback strategies
-          let timeFound = false;
-          
-          // Strategy 1: Use dedicated startTime1/endTime1 fields if valid
+          // DIRECT USAGE: Use startTime1/endTime1 fields exactly like activities use startTime/endTime
           if (isValidTimeFormat(startTimeField)) {
             const cleanStartTime = startTimeField.trim();
             const timeRegex = /^(\d{1,2}):(\d{2})$/;
@@ -449,65 +446,14 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
                 endTime = calculateEndTime(startTime, durationMinutes);
                 console.log(`🔄 Calculated endTime from duration (no valid endTime):`, endTime);
               }
-              timeFound = true;
-            }
-          }
-          
-          // Strategy 2: Extract time from screening date if no dedicated time fields
-          if (!timeFound) {
-            console.log(`⚠️ No valid dedicated time fields, trying to extract from screening date...`);
-            try {
-              startTime = extractTimeFromScreeningDate(dateField);
-              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-              endTime = calculateEndTime(startTime, durationMinutes);
-              console.log(`🔄 Extracted time from screening date: ${startTime} - ${endTime}`);
-              timeFound = true;
-            } catch (error) {
-              console.warn(`❌ Failed to extract time from screening date:`, error);
-            }
-          }
-          
-          // Strategy 3: Use timeEstimate as fallback
-          if (!timeFound && legacyFilm.timeEstimate) {
-            console.log(`⚠️ Using timeEstimate as fallback:`, legacyFilm.timeEstimate);
-            
-            // Try to parse timeEstimate - it might be in various formats
-            const timeEstimate = legacyFilm.timeEstimate.toString().trim();
-            
-            // Check if it's already in HH:MM format
-            if (isValidTimeFormat(timeEstimate)) {
-              startTime = timeEstimate;
-              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-              endTime = calculateEndTime(startTime, durationMinutes);
-              console.log(`✅ Used timeEstimate directly: ${startTime} - ${endTime}`);
-              timeFound = true;
             } else {
-              // Try to extract time from timeEstimate string
-              try {
-                startTime = extractTimeFromScreeningDate(timeEstimate);
-                const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-                endTime = calculateEndTime(startTime, durationMinutes);
-                console.log(`🔄 Extracted time from timeEstimate: ${startTime} - ${endTime}`);
-                timeFound = true;
-              } catch (error) {
-                console.warn(`❌ Failed to extract time from timeEstimate:`, error);
-              }
+              console.log(`❌ ERROR: Time regex failed for startTime${screeningNumber}:`, cleanStartTime);
+              // Skip this screening - no valid time available
+              return;
             }
-          }
-          
-          // Strategy 4: Default time as last resort
-          if (!timeFound) {
-            console.log(`⚠️ No time information found, using default time 19:00`);
-            startTime = '19:00';
-            const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-            endTime = calculateEndTime(startTime, durationMinutes);
-            console.log(`🔄 Using default time: ${startTime} - ${endTime}`);
-            timeFound = true;
-          }
-          
-          // Only skip if we absolutely cannot determine a time
-          if (!timeFound) {
-            console.log(`❌ SKIPPING: Could not determine any time for screening ${screeningNumber}`);
+          } else {
+            console.log(`❌ SKIPPING: No valid startTime${screeningNumber} field available:`, startTimeField);
+            // Skip this screening - no valid time available
             return;
           }
           
@@ -616,32 +562,10 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       console.log('📅 Activities fetched:', activitiesResponse.activities.length);
 
       // Fetch films with screenings for the selected date
-      // Try both modern and legacy status filtering
-      let filmsResponse = await getEnhancedFeatureFilms({
+      const filmsResponse = await getEnhancedFeatureFilms({
+        status: 'published',
         publicationStatus: 'public'
       });
-      
-      // If no films found with publicationStatus, try legacy status
-      if (!filmsResponse.success || !filmsResponse.data || filmsResponse.data.length === 0) {
-        console.log('🔄 No films found with publicationStatus=public, trying legacy status=published');
-        filmsResponse = await getEnhancedFeatureFilms({
-          status: 'published'
-        });
-      }
-      
-      // If still no films, try without any status filter to see what's available
-      if (!filmsResponse.success || !filmsResponse.data || filmsResponse.data.length === 0) {
-        console.log('🔄 No films found with status filters, fetching all films for debugging');
-        filmsResponse = await getEnhancedFeatureFilms({});
-        console.log('📊 All films found:', filmsResponse.data?.length || 0);
-        if (filmsResponse.data && filmsResponse.data.length > 0) {
-          console.log('📋 Film statuses:', filmsResponse.data.map((f: FeatureFilm) => ({
-            title: f.title,
-            status: f.status,
-            publicationStatus: f.publicationStatus
-          })));
-        }
-      }
 
       console.log('🎬 Films fetched:', filmsResponse.data?.length || 0);
 
@@ -725,20 +649,6 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           venue: item.venue
         })));
         console.error('🚨 This should not happen! These items bypassed our conversion logic.');
-        
-        // REMOVE THAI TIME ITEMS AS EMERGENCY FIX
-        console.log('🚨 EMERGENCY: Removing Thai time items from schedule');
-        const cleanItems = allItems.filter(item => 
-          !item.startTime.includes('บ่าย') && 
-          !item.startTime.includes('เช้า') && 
-          !item.startTime.includes('ค่ำ') && 
-          !item.startTime.includes('กลางคืน')
-        );
-        
-        console.log(`🚨 EMERGENCY: Removed ${allItems.length - cleanItems.length} items with Thai time estimates`);
-        setScheduleItems(cleanItems);
-        setLastUpdated(new Date());
-        return;
       }
 
       setScheduleItems(allItems);
