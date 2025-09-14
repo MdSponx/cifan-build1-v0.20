@@ -149,6 +149,10 @@ export interface FeatureFilmData {
   // Screening Information
   screeningDate1?: string; // datetime-local format (optional)
   screeningDate2?: string;
+  startTime1?: string; // Calculated from screeningDate1 or timeEstimate
+  endTime1?: string;   // Calculated from startTime1 + length
+  startTime2?: string; // Calculated from screeningDate2 or timeEstimate
+  endTime2?: string;   // Calculated from startTime2 + length
   timeEstimate: TimeEstimate;
   theatre: Theatre;
 

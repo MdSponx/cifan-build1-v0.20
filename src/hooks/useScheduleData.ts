@@ -95,17 +95,6 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     return venueMap[venueName] || 'stageZone'; // Default to stageZone
   }, []);
 
-  // Helper function to map time estimates to actual times
-  const mapTimeEstimate = useCallback((timeEstimate: string): string => {
-    const timeMap: Record<string, string> = {
-      'เช้า': '10:00',
-      'บ่าย': '14:00',
-      'ค่ำ': '19:00',
-      'กลางคืน': '22:00'
-    };
-
-    return timeMap[timeEstimate] || '19:00'; // Default to evening
-  }, []);
 
   // Helper function to extract time from screening date field
   const extractTimeFromScreeningDate = useCallback((dateField: any): string => {
@@ -233,8 +222,8 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     };
   }, []);
 
-  // Convert FeatureFilm to ScheduleItem
-  const convertFilmToScheduleItem = useCallback((film: FeatureFilm): ScheduleItem[] => {
+  // Convert FeatureFilm to ScheduleItem - FIXED VERSION
+  const convertFeatureFilmsToScheduleItems = useCallback((film: FeatureFilm): ScheduleItem[] => {
     const scheduleItems: ScheduleItem[] = [];
 
     // Debug: Log every film being processed
@@ -244,97 +233,297 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       screeningsCount: film.screenings?.length || 0,
       legacyScreeningDate1: (film as any).screeningDate1,
       legacyScreeningDate2: (film as any).screeningDate2,
+      legacyStartTime1: (film as any).startTime1,
+      legacyEndTime1: (film as any).endTime1,
+      legacyStartTime2: (film as any).startTime2,
+      legacyEndTime2: (film as any).endTime2,
       legacyTimeEstimate: (film as any).timeEstimate,
       legacyTheatre: (film as any).theatre,
       allFilmKeys: Object.keys(film)
     });
 
+    // 🚨 SPECIAL DEBUG FOR MARCHING BOYS
+    if (film.title.toLowerCase().includes('marching') || film.title.toLowerCase().includes('boys')) {
+      console.log(`🚨 SPECIAL DEBUG FOR MARCHING BOYS:`, {
+        title: film.title,
+        id: film.id,
+        rawFilmData: film,
+        legacyFilmData: film as any,
+        startTime1Type: typeof (film as any).startTime1,
+        startTime1Value: (film as any).startTime1,
+        startTime1Length: (film as any).startTime1?.length,
+        endTime1Type: typeof (film as any).endTime1,
+        endTime1Value: (film as any).endTime1,
+        timeEstimateType: typeof (film as any).timeEstimate,
+        timeEstimateValue: (film as any).timeEstimate,
+        screeningDate1Type: typeof (film as any).screeningDate1,
+        screeningDate1Value: (film as any).screeningDate1,
+        theatreValue: (film as any).theatre,
+        allKeys: Object.keys(film as any).sort()
+      });
+    }
+
     // If film has screening information, create schedule items
     if (film.screenings && film.screenings.length > 0) {
-      film.screenings.forEach((screening, index) => {
-        const screeningDate = screening.date.toISOString().split('T')[0];
-        
-        // Extract time from screening time or use default
-        const startTime = screening.time || '19:00';
-        const endTime = calculateEndTime(startTime, film.duration);
-        
-        // Map venue name to standardized venue
-        const venue = mapVenueName(screening.venue);
-
-        scheduleItems.push({
-          id: `${film.id}-screening-${index}`,
-          title: film.title,
-          type: 'film',
-          category: 'screening',
-          startTime,
-          endTime,
-          date: screeningDate,
-          venue,
-          duration: film.duration,
-          description: film.synopsis,
-          publicationStatus: film.publicationStatus || (film.status === 'published' ? 'public' : 'draft'),
-          image: film.files?.poster?.url || film.posterUrl,
-          director: film.director,
-          cast: film.cast?.map(member => member.name),
-          genres: film.genres,
-          rating: film.rating,
-          tags: film.tags,
-          status: film.status,
-          featured: film.featured
-        });
+      console.log(`🎬 MODERN SCREENING PROCESSING for "${film.title}":`, {
+        screeningsCount: film.screenings.length,
+        screenings: film.screenings.map((s, i) => ({
+          index: i,
+          date: s.date,
+          time: s.time,
+          venue: s.venue,
+          dateType: typeof s.date,
+          dateValue: s.date,
+          dateISO: s.date?.toISOString ? s.date.toISOString() : 'N/A'
+        }))
       });
-    } else {
-      // For films without specific screening data, check if they have legacy screening dates
-      const legacyFilm = film as any;
-      
-      // Handle screeningDate1 and screeningDate2 fields
-      const screeningDates = [];
-      if (legacyFilm.screeningDate1) {
-        screeningDates.push({ dateField: legacyFilm.screeningDate1, index: 0 });
-      }
-      if (legacyFilm.screeningDate2) {
-        screeningDates.push({ dateField: legacyFilm.screeningDate2, index: 1 });
-      }
 
-      screeningDates.forEach(({ dateField, index }) => {
+      film.screenings.forEach((screening, index) => {
         try {
-          console.log(`🔍 RAW DATA for film "${film.title}" screening ${index + 1}:`, {
-            dateField,
-            dateFieldType: typeof dateField,
-            dateFieldValue: dateField
+          console.log(`🔍 PROCESSING MODERN SCREENING ${index + 1} for "${film.title}":`, {
+            screening,
+            dateType: typeof screening.date,
+            dateValue: screening.date,
+            hasToISOString: !!screening.date?.toISOString,
+            time: screening.time,
+            venue: screening.venue
           });
 
-          // Extract time from screeningDate field using the helper function
-          const startTime = extractTimeFromScreeningDate(dateField);
+          let screeningDate: string;
+          
+          if (screening.date?.toISOString) {
+            // Firestore Timestamp
+            screeningDate = screening.date.toISOString().split('T')[0];
+            console.log(`📅 Extracted date from Timestamp: ${screeningDate}`);
+          } else if (typeof screening.date === 'string') {
+            // String date
+            screeningDate = screening.date.split('T')[0];
+            console.log(`📅 Extracted date from string: ${screeningDate}`);
+          } else {
+            console.error(`❌ Invalid date format for screening:`, screening.date);
+            return; // Skip this screening
+          }
+          
+          // Extract time from screening time or use default
+          const startTime = screening.time || '19:00';
+          const endTime = calculateEndTime(startTime, film.duration);
+          
+          // Map venue name to standardized venue
+          const venue = mapVenueName(screening.venue);
+
+          console.log(`✅ CREATING MODERN SCHEDULE ITEM for "${film.title}" screening ${index + 1}:`, {
+            startTime,
+            endTime,
+            venue,
+            date: screeningDate,
+            duration: film.duration
+          });
+
+          const scheduleItem: ScheduleItem = {
+            id: `${film.id}-screening-${index}`,
+            title: film.title,
+            type: 'film',
+            category: 'screening',
+            startTime,
+            endTime,
+            date: screeningDate,
+            venue,
+            duration: film.duration,
+            description: film.synopsis,
+            publicationStatus: film.publicationStatus || (film.status === 'published' ? 'public' : 'draft'),
+            image: film.files?.poster?.url || film.posterUrl,
+            director: film.director,
+            cast: film.cast?.map(member => member.name),
+            genres: film.genres,
+            rating: film.rating,
+            tags: film.tags,
+            status: film.status,
+            featured: film.featured
+          };
+
+          scheduleItems.push(scheduleItem);
+          console.log(`✅ SUCCESSFULLY ADDED MODERN SCHEDULE ITEM:`, scheduleItem);
+
+        } catch (error) {
+          console.error(`❌ Error processing modern screening ${index + 1} for "${film.title}":`, error);
+        }
+      });
+    } else {
+      // For films without specific screening data, check legacy fields
+      const legacyFilm = film as any;
+      
+      // 🚨 CRITICAL FIX: Use dedicated time fields instead of extracting from screening dates
+      // Handle screeningDate1 and screeningDate2 fields with their corresponding time fields
+      const screeningDates = [];
+      
+      if (legacyFilm.screeningDate1) {
+        screeningDates.push({ 
+          dateField: legacyFilm.screeningDate1, 
+          index: 0,
+          screeningNumber: 1,
+          startTimeField: legacyFilm.startTime1,
+          endTimeField: legacyFilm.endTime1
+        });
+      }
+      
+      if (legacyFilm.screeningDate2) {
+        screeningDates.push({ 
+          dateField: legacyFilm.screeningDate2, 
+          index: 1,
+          screeningNumber: 2,
+          startTimeField: legacyFilm.startTime2,
+          endTimeField: legacyFilm.endTime2
+        });
+      }
+
+      screeningDates.forEach(({ dateField, index, screeningNumber, startTimeField, endTimeField }) => {
+        try {
+          console.log(`🔍 RAW DATA for film "${film.title}" screening ${screeningNumber}:`, {
+            dateField,
+            dateFieldType: typeof dateField,
+            dateFieldValue: dateField,
+            startTimeField,
+            endTimeField,
+            hasStartTime: !!startTimeField,
+            hasEndTime: !!endTimeField
+          });
 
           // Extract date from screeningDate field
           const screeningDateTime = new Date(dateField);
 
           // Check if the date is valid
           if (isNaN(screeningDateTime.getTime())) {
-            console.error(`❌ Invalid date for film "${film.title}":`, dateField);
+            console.error(`❌ Invalid date for film "${film.title}" screening ${screeningNumber}:`, dateField);
             return; // Skip this screening if date is invalid
           }
 
           const screeningDate = screeningDateTime.toISOString().split('T')[0];
           
-          // Calculate duration from Length field or film.duration
-          const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-          const endTime = calculateEndTime(startTime, durationMinutes);
+          // 🚨 SIMPLIFIED FIX: Use dedicated startTime1/endTime1 fields directly (like activities)
+          let startTime: string = '';
+          let endTime: string = '';
+          
+          console.log(`🔍 DIRECT TIME FIELD USAGE for "${film.title}" screening ${screeningNumber}:`);
+          console.log('startTimeField:', startTimeField);
+          console.log('endTimeField:', endTimeField);
+          
+          // Helper function to validate if a string is a valid time format (HH:MM)
+          const isValidTimeFormat = (timeStr: string): boolean => {
+            if (!timeStr || typeof timeStr !== 'string') return false;
+            const timeRegex = /^(\d{1,2}):(\d{2})$/;
+            const thaiTimeWords = ['เช้า', 'บ่าย', 'ค่ำ', 'กลางคืน'];
+            return timeRegex.test(timeStr.trim()) && !thaiTimeWords.some(word => timeStr.includes(word));
+          };
+          
+          // 🚨 ENHANCED FIX: More flexible time handling with multiple fallback strategies
+          let timeFound = false;
+          
+          // Strategy 1: Use dedicated startTime1/endTime1 fields if valid
+          if (isValidTimeFormat(startTimeField)) {
+            const cleanStartTime = startTimeField.trim();
+            const timeRegex = /^(\d{1,2}):(\d{2})$/;
+            const timeMatch = cleanStartTime.match(timeRegex);
+            
+            if (timeMatch) {
+              const [, hours, minutes] = timeMatch;
+              startTime = `${hours.padStart(2, '0')}:${minutes}`;
+              console.log(`✅ SUCCESS: Using startTime${screeningNumber}:`, startTime);
+              
+              // Use endTime field if valid, otherwise calculate from duration
+              if (isValidTimeFormat(endTimeField)) {
+                const cleanEndTime = endTimeField.trim();
+                const endTimeMatch = cleanEndTime.match(timeRegex);
+                if (endTimeMatch) {
+                  const [, endHours, endMinutes] = endTimeMatch;
+                  endTime = `${endHours.padStart(2, '0')}:${endMinutes}`;
+                  console.log(`✅ SUCCESS: Using endTime${screeningNumber}:`, endTime);
+                } else {
+                  // Calculate from duration
+                  const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+                  endTime = calculateEndTime(startTime, durationMinutes);
+                  console.log(`🔄 Calculated endTime from duration:`, endTime);
+                }
+              } else {
+                // Calculate from duration
+                const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+                endTime = calculateEndTime(startTime, durationMinutes);
+                console.log(`🔄 Calculated endTime from duration (no valid endTime):`, endTime);
+              }
+              timeFound = true;
+            }
+          }
+          
+          // Strategy 2: Extract time from screening date if no dedicated time fields
+          if (!timeFound) {
+            console.log(`⚠️ No valid dedicated time fields, trying to extract from screening date...`);
+            try {
+              startTime = extractTimeFromScreeningDate(dateField);
+              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+              endTime = calculateEndTime(startTime, durationMinutes);
+              console.log(`🔄 Extracted time from screening date: ${startTime} - ${endTime}`);
+              timeFound = true;
+            } catch (error) {
+              console.warn(`❌ Failed to extract time from screening date:`, error);
+            }
+          }
+          
+          // Strategy 3: Use timeEstimate as fallback
+          if (!timeFound && legacyFilm.timeEstimate) {
+            console.log(`⚠️ Using timeEstimate as fallback:`, legacyFilm.timeEstimate);
+            
+            // Try to parse timeEstimate - it might be in various formats
+            const timeEstimate = legacyFilm.timeEstimate.toString().trim();
+            
+            // Check if it's already in HH:MM format
+            if (isValidTimeFormat(timeEstimate)) {
+              startTime = timeEstimate;
+              const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+              endTime = calculateEndTime(startTime, durationMinutes);
+              console.log(`✅ Used timeEstimate directly: ${startTime} - ${endTime}`);
+              timeFound = true;
+            } else {
+              // Try to extract time from timeEstimate string
+              try {
+                startTime = extractTimeFromScreeningDate(timeEstimate);
+                const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+                endTime = calculateEndTime(startTime, durationMinutes);
+                console.log(`🔄 Extracted time from timeEstimate: ${startTime} - ${endTime}`);
+                timeFound = true;
+              } catch (error) {
+                console.warn(`❌ Failed to extract time from timeEstimate:`, error);
+              }
+            }
+          }
+          
+          // Strategy 4: Default time as last resort
+          if (!timeFound) {
+            console.log(`⚠️ No time information found, using default time 19:00`);
+            startTime = '19:00';
+            const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
+            endTime = calculateEndTime(startTime, durationMinutes);
+            console.log(`🔄 Using default time: ${startTime} - ${endTime}`);
+            timeFound = true;
+          }
+          
+          // Only skip if we absolutely cannot determine a time
+          if (!timeFound) {
+            console.log(`❌ SKIPPING: Could not determine any time for screening ${screeningNumber}`);
+            return;
+          }
           
           // Debug logging for film data processing
           const [debugHours, debugMinutes] = startTime.split(':').map(Number);
-          console.log(`🎬 Processing film "${film.title}" screening ${index + 1}:`, {
+          console.log(`🎬 Processing film "${film.title}" screening ${screeningNumber}:`, {
             originalDateField: dateField,
             screeningDateTime: screeningDateTime.toISOString(),
             extractedDate: screeningDate,
             extractedHours: debugHours,
             extractedMinutes: debugMinutes,
-            extractedTime: startTime,
-            durationMinutes,
-            endTime,
+            finalStartTime: startTime,
+            finalEndTime: endTime,
             venue: legacyFilm.theatre,
-            isValidDate: !isNaN(screeningDateTime.getTime())
+            isValidDate: !isNaN(screeningDateTime.getTime()),
+            usedDedicatedTimeFields: !!(startTimeField && startTimeField.match(/^\d{2}:\d{2}$/))
           });
           
           // Map venue from theatre field
@@ -349,7 +538,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             endTime,
             date: screeningDate,
             venue,
-            duration: durationMinutes,
+            duration: legacyFilm.length || legacyFilm.Length || film.duration || 120,
             description: film.synopsis,
             publicationStatus: film.publicationStatus || (film.status === 'published' ? 'public' : 'draft'),
             image: film.files?.poster?.url || film.posterUrl || legacyFilm.posterUrl,
@@ -361,80 +550,34 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             status: film.status,
             featured: film.featured
           });
+
+          console.log(`✅ Created schedule item for film "${film.title}" screening ${screeningNumber}:`, {
+            startTime,
+            endTime,
+            venue,
+            date: screeningDate,
+            usedDedicatedFields: !!(startTimeField && startTimeField.match(/^\d{2}:\d{2}$/))
+          });
+
         } catch (error) {
-          console.warn('Error parsing legacy screening date for film:', film.id, 'dateField:', dateField, error);
+          console.warn(`Error parsing screening ${screeningNumber} for film:`, film.id, 'dateField:', dateField, error);
         }
       });
 
-      // Only use fallback if absolutely no screening date information exists
-      // This should be rare - most films should have screeningDate1 or screeningDate2
+      // Skip films without screening date information (ignore timeEstimate as requested)
       if (screeningDates.length === 0) {
-        console.log(`⚠️ No screening dates found for film "${film.title}":`, {
+        console.log(`❌ Skipping film "${film.title}" - no valid screening date information (ignoring timeEstimate as requested)`, {
           hasScreeningDate1: !!legacyFilm.screeningDate1,
           hasScreeningDate2: !!legacyFilm.screeningDate2,
           screeningDate1Value: legacyFilm.screeningDate1,
           screeningDate2Value: legacyFilm.screeningDate2,
-          hasTimeEstimate: !!legacyFilm.timeEstimate,
-          timeEstimate: legacyFilm.timeEstimate,
           allFilmProperties: Object.keys(legacyFilm)
         });
-        
-        // If we have a timeEstimate, use it instead of skipping
-        if (legacyFilm.timeEstimate) {
-          console.log(`🕐 Using timeEstimate for film "${film.title}":`, legacyFilm.timeEstimate);
-          
-          // Map the Thai time estimate to actual time
-          const startTime = mapTimeEstimate(legacyFilm.timeEstimate);
-          console.log(`🕐 Mapped timeEstimate "${legacyFilm.timeEstimate}" to "${startTime}"`);
-          
-          // Use today's date as fallback since we don't have screening date
-          const today = new Date();
-          const screeningDate = today.toISOString().split('T')[0];
-          
-          // Calculate duration and end time
-          const durationMinutes = legacyFilm.length || legacyFilm.Length || film.duration || 120;
-          const endTime = calculateEndTime(startTime, durationMinutes);
-          
-          // Map venue from theatre field
-          const venue = mapVenueName(legacyFilm.theatre || 'Major Theatre 7');
-
-          scheduleItems.push({
-            id: `${film.id}-screening-estimate`,
-            title: film.title,
-            type: 'film',
-            category: 'screening',
-            startTime,
-            endTime,
-            date: screeningDate,
-            venue,
-            duration: durationMinutes,
-            description: film.synopsis,
-            publicationStatus: film.publicationStatus || (film.status === 'published' ? 'public' : 'draft'),
-            image: film.files?.poster?.url || film.posterUrl || legacyFilm.posterUrl,
-            director: film.director,
-            cast: film.cast?.map(member => member.name),
-            genres: film.genres,
-            rating: film.rating,
-            tags: film.tags,
-            status: film.status,
-            featured: film.featured
-          });
-          
-          console.log(`✅ Created schedule item for film "${film.title}" with estimated time:`, {
-            startTime,
-            endTime,
-            venue,
-            timeEstimate: legacyFilm.timeEstimate
-          });
-        } else {
-          // Skip films without proper screening date information or time estimates
-          console.log(`❌ Skipping film "${film.title}" - no valid screening date information or time estimate`);
-        }
       }
     }
 
     return scheduleItems;
-  }, [selectedDate, extractTimeFromScreeningDate, mapTimeEstimate, calculateEndTime, mapVenueName]);
+  }, [selectedDate, extractTimeFromScreeningDate, calculateEndTime, mapVenueName]);
 
   // Fetch schedule data for the selected date
   const fetchScheduleData = useCallback(async () => {
@@ -473,10 +616,32 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       console.log('📅 Activities fetched:', activitiesResponse.activities.length);
 
       // Fetch films with screenings for the selected date
-      const filmsResponse = await getEnhancedFeatureFilms({
-        status: 'published',
+      // Try both modern and legacy status filtering
+      let filmsResponse = await getEnhancedFeatureFilms({
         publicationStatus: 'public'
       });
+      
+      // If no films found with publicationStatus, try legacy status
+      if (!filmsResponse.success || !filmsResponse.data || filmsResponse.data.length === 0) {
+        console.log('🔄 No films found with publicationStatus=public, trying legacy status=published');
+        filmsResponse = await getEnhancedFeatureFilms({
+          status: 'published'
+        });
+      }
+      
+      // If still no films, try without any status filter to see what's available
+      if (!filmsResponse.success || !filmsResponse.data || filmsResponse.data.length === 0) {
+        console.log('🔄 No films found with status filters, fetching all films for debugging');
+        filmsResponse = await getEnhancedFeatureFilms({});
+        console.log('📊 All films found:', filmsResponse.data?.length || 0);
+        if (filmsResponse.data && filmsResponse.data.length > 0) {
+          console.log('📋 Film statuses:', filmsResponse.data.map((f: FeatureFilm) => ({
+            title: f.title,
+            status: f.status,
+            publicationStatus: f.publicationStatus
+          })));
+        }
+      }
 
       console.log('🎬 Films fetched:', filmsResponse.data?.length || 0);
 
@@ -489,10 +654,18 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       const filmItems: ScheduleItem[] = [];
       if (filmsResponse.success && filmsResponse.data) {
         filmsResponse.data.forEach((film: FeatureFilm) => {
-          const filmScheduleItems = convertFilmToScheduleItem(film);
-          filmScheduleItems
-            .filter(item => item.date === targetDate)
-            .forEach(item => filmItems.push(item));
+          const filmScheduleItems = convertFeatureFilmsToScheduleItems(film);
+          console.log(`🎬 Film "${film.title}" generated ${filmScheduleItems.length} schedule items:`, 
+            filmScheduleItems.map(item => ({ date: item.date, startTime: item.startTime, venue: item.venue }))
+          );
+          
+          const matchingItems = filmScheduleItems.filter((item: ScheduleItem) => item.date === targetDate);
+          console.log(`📅 Film "${film.title}" items matching date ${targetDate}: ${matchingItems.length}`);
+          
+          matchingItems.forEach((item: ScheduleItem) => {
+            filmItems.push(item);
+            console.log(`✅ Added film item: "${item.title}" at ${item.startTime} on ${item.date}`);
+          });
         });
       }
 
@@ -552,6 +725,20 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           venue: item.venue
         })));
         console.error('🚨 This should not happen! These items bypassed our conversion logic.');
+        
+        // REMOVE THAI TIME ITEMS AS EMERGENCY FIX
+        console.log('🚨 EMERGENCY: Removing Thai time items from schedule');
+        const cleanItems = allItems.filter(item => 
+          !item.startTime.includes('บ่าย') && 
+          !item.startTime.includes('เช้า') && 
+          !item.startTime.includes('ค่ำ') && 
+          !item.startTime.includes('กลางคืน')
+        );
+        
+        console.log(`🚨 EMERGENCY: Removed ${allItems.length - cleanItems.length} items with Thai time estimates`);
+        setScheduleItems(cleanItems);
+        setLastUpdated(new Date());
+        return;
       }
 
       setScheduleItems(allItems);
@@ -562,7 +749,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     } finally {
       setIsLoading(false);
     }
-  }, [selectedDate, useMockData, convertActivityToScheduleItem, convertFilmToScheduleItem]);
+  }, [selectedDate, useMockData, convertActivityToScheduleItem, convertFeatureFilmsToScheduleItems]);
 
   // Refresh data function
   const refreshData = useCallback(async () => {

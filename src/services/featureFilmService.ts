@@ -29,6 +29,7 @@ import {
 } from '../types/featureFilm.types';
 import { createMultipleGuests, getGuests, deleteAllGuests } from './guestService';
 import { uploadFile, generateFeatureFilmUploadPath } from '../utils/fileUpload';
+import { calculateScreeningTimes } from '../utils/timeCalculations';
 
 const COLLECTION_NAME = 'films';
 const NEW_COLLECTION_NAME = 'films'; // Use the existing films collection consistently
@@ -264,11 +265,34 @@ const uploadFeatureFilmFiles = async (
 };
 
 /**
+ * Add calculated time fields to film data
+ */
+const addCalculatedTimeFields = (filmData: FeatureFilmData): FeatureFilmData => {
+  const calculatedTimes = calculateScreeningTimes(
+    filmData.screeningDate1,
+    filmData.screeningDate2,
+    filmData.timeEstimate,
+    filmData.length
+  );
+
+  return {
+    ...filmData,
+    startTime1: calculatedTimes.startTime1,
+    endTime1: calculatedTimes.endTime1,
+    startTime2: calculatedTimes.startTime2,
+    endTime2: calculatedTimes.endTime2
+  };
+};
+
+/**
  * Prepare film data for Firestore (remove File objects and undefined values)
- * Enhanced to handle optional galleryLogoIndex
+ * Enhanced to handle optional galleryLogoIndex and calculated time fields
  */
 const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<FeatureFilmData> => {
-  const { posterFile, trailerFile, galleryFiles, ...cleanData } = filmData;
+  // First add calculated time fields
+  const dataWithCalculatedTimes = addCalculatedTimeFields(filmData);
+  
+  const { posterFile, trailerFile, galleryFiles, ...cleanData } = dataWithCalculatedTimes;
   
   // Remove undefined values as Firestore doesn't accept them
   const firestoreData: any = {};
@@ -290,7 +314,7 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
     }
   });
   
-  console.log('🧹 Cleaned data for Firestore:', {
+  console.log('🧹 Cleaned data for Firestore with calculated times:', {
     originalKeys: Object.keys(filmData),
     cleanedKeys: Object.keys(firestoreData),
     removedUndefined: Object.keys(filmData).filter(key => 
@@ -298,7 +322,13 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
     ),
     hasGalleryLogoIndex: 'galleryLogoIndex' in firestoreData,
     galleryLogoIndexValue: firestoreData.galleryLogoIndex,
-    hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData
+    hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData,
+    calculatedTimes: {
+      startTime1: firestoreData.startTime1,
+      endTime1: firestoreData.endTime1,
+      startTime2: firestoreData.startTime2,
+      endTime2: firestoreData.endTime2
+    }
   });
   
   return firestoreData;

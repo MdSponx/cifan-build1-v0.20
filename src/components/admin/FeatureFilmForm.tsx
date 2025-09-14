@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { 
   Film, 
@@ -55,6 +55,7 @@ import GuestManagement from '../forms/GuestManagement';
 import RichTextEditor from '../ui/RichTextEditor';
 import SuccessModal from '../ui/SuccessModal';
 import { getTargetAudienceEmoji } from '../../utils/flagsAndEmojis';
+import { calculateEndTime, extractTimeFromScreeningDate, mapTimeEstimate } from '../../utils/timeCalculations';
 
 interface FeatureFilmFormProps {
   mode: 'create' | 'edit';
@@ -216,6 +217,37 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
 
   // Note: Real-time guest updates are handled by the existing featureFilmService
   // The service already loads guests when loading film data
+
+  // Calculate start times and end times using useMemo for real-time updates
+  const startTime1 = useMemo(() => {
+    if (formData.screeningDate1) {
+      return extractTimeFromScreeningDate(formData.screeningDate1);
+    } else if (formData.timeEstimate) {
+      return mapTimeEstimate(formData.timeEstimate);
+    }
+    return '';
+  }, [formData.screeningDate1, formData.timeEstimate]);
+
+  const startTime2 = useMemo(() => {
+    if (formData.screeningDate2) {
+      return extractTimeFromScreeningDate(formData.screeningDate2);
+    }
+    return '';
+  }, [formData.screeningDate2]);
+
+  const endTime1 = useMemo(() => {
+    if (startTime1 && formData.length) {
+      return calculateEndTime(startTime1, formData.length);
+    }
+    return '';
+  }, [startTime1, formData.length]);
+
+  const endTime2 = useMemo(() => {
+    if (startTime2 && formData.length) {
+      return calculateEndTime(startTime2, formData.length);
+    }
+    return '';
+  }, [startTime2, formData.length]);
 
   /**
    * Handle input field changes
@@ -884,6 +916,83 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                   <p className="mt-1 text-sm text-red-400">{errors.theatre}</p>
                 )}
               </div>
+
+              {/* Start Time 1 - Read Only */}
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  <Clock className="w-4 h-4 inline-block mr-1" />
+                  Start Time 1 <span className="text-white/50 text-xs">(auto-calculated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={startTime1}
+                  readOnly
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/80 cursor-not-allowed"
+                  placeholder="Calculated from screening date/time estimate"
+                />
+              </div>
+
+              {/* End Time 1 - Read Only */}
+              <div>
+                <label className="block text-sm font-medium text-white/90 mb-2">
+                  <Clock className="w-4 h-4 inline-block mr-1" />
+                  End Time 1 <span className="text-white/50 text-xs">(auto-calculated)</span>
+                </label>
+                <input
+                  type="text"
+                  value={endTime1}
+                  readOnly
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/80 cursor-not-allowed"
+                  placeholder="Calculated from start time + duration"
+                />
+              </div>
+
+              {/* Start Time 2 - Read Only - Only show if screeningDate2 exists */}
+              {formData.screeningDate2 && (
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    <Clock className="w-4 h-4 inline-block mr-1" />
+                    Start Time 2 <span className="text-white/50 text-xs">(auto-calculated)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={startTime2}
+                    readOnly
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/80 cursor-not-allowed"
+                    placeholder="Calculated from screening date 2"
+                  />
+                </div>
+              )}
+
+              {/* End Time 2 - Read Only - Only show if screeningDate2 exists */}
+              {formData.screeningDate2 && (
+                <div>
+                  <label className="block text-sm font-medium text-white/90 mb-2">
+                    <Clock className="w-4 h-4 inline-block mr-1" />
+                    End Time 2 <span className="text-white/50 text-xs">(auto-calculated)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={endTime2}
+                    readOnly
+                    className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white/80 cursor-not-allowed"
+                    placeholder="Calculated from start time 2 + duration"
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Information Note */}
+            <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <p className="text-blue-200 text-sm">
+                <Clock className="w-4 h-4 inline-block mr-1" />
+                <strong>Note:</strong> Start and End times are automatically calculated from:
+              </p>
+              <ul className="text-blue-200/80 text-sm mt-2 ml-5 space-y-1">
+                <li>• <strong>Start Time:</strong> Extracted from Screening Date or mapped from Time Estimate</li>
+                <li>• <strong>End Time:</strong> Start Time + Film Duration</li>
+                <li>• <strong>Time Estimate Mapping:</strong> เช้า→10:00, บ่าย→14:00, ค่ำ→19:00, กลางคืน→22:00</li>
+              </ul>
             </div>
           </div>
 
