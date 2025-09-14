@@ -88,7 +88,7 @@ export interface UseScheduleDataReturn {
   refreshData: () => Promise<void>;
 }
 
-// Venue configuration
+// Venue configuration - ✅ FIX: Use camelCase names that match database storage
 export const FESTIVAL_VENUES: VenueColumn[] = [
   { name: 'stageZone', displayName: 'Stage Zone', gridColumn: 1, color: '#FF6B6B' },
   { name: 'expoZone', displayName: 'EXPO Zone', gridColumn: 2, color: '#4ECDC4' },

@@ -36,8 +36,8 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
   const { t } = useTranslation();
   const { getFontClass, getFontStyle, isThaiLanguage, currentLanguage } = useFontUtils();
   
-  // Hooks - Enable mock data for testing
-  const { scheduleItems, isLoading, error, lastUpdated, refreshData } = useScheduleData(selectedDate, true);
+  // Hooks - Use real Firestore data
+  const { scheduleItems, isLoading, error, lastUpdated, refreshData } = useScheduleData(selectedDate);
   
   // State
   const [filters, setFilters] = useState<ScheduleFilters>({
@@ -108,37 +108,71 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
     return FESTIVAL_VENUES.map((venue, index) => ({
       ...venue,
       color: colors[index % colors.length],
-      gridColumn: index + 1 // +1 since we removed the time column header
+      gridColumn: index + 2 // +2 to account for time column (index 1)
     }));
   }, []); // Remove dependency on filters.venues to always show all venues
 
   // Filter schedule items
   const filteredItems = useMemo(() => {
+    console.log('🔍 Starting filtering process...');
+    console.log('📊 Input scheduleItems:', scheduleItems.length, scheduleItems);
+    console.log('🎛️ Current filters:', filters);
+    
     let items = scheduleItems;
 
     if (filters.venues?.length) {
-      items = items.filter(item => filters.venues!.includes(item.venue));
+      console.log('🏢 Applying venue filter:', filters.venues);
+      console.log('🏢 Available venues in items:', [...new Set(items.map(item => item.venue))]);
+      items = items.filter(item => {
+        const matches = filters.venues!.includes(item.venue);
+        console.log(`🏢 Item "${item.title}" venue "${item.venue}" matches:`, matches);
+        return matches;
+      });
+      console.log('🏢 Items after venue filter:', items.length);
     }
 
     if (filters.categories?.length) {
+      console.log('📂 Applying category filter:', filters.categories);
       items = items.filter(item => filters.categories!.includes(item.category));
+      console.log('📂 Items after category filter:', items.length);
     }
 
     if (filters.types?.length) {
+      console.log('🎭 Applying type filter:', filters.types);
       items = items.filter(item => filters.types!.includes(item.type));
+      console.log('🎭 Items after type filter:', items.length);
     }
 
     if (filters.search) {
+      console.log('🔍 Applying search filter:', filters.search);
       const searchLower = filters.search.toLowerCase();
       items = items.filter(item => 
         item.title.toLowerCase().includes(searchLower) ||
         item.description?.toLowerCase().includes(searchLower) ||
         item.director?.toLowerCase().includes(searchLower)
       );
+      console.log('🔍 Items after search filter:', items.length);
     }
 
+    console.log('✅ Final filtered items:', items.length, items);
     return items;
   }, [scheduleItems, filters]);
+
+  // Group activities by venue for grid layout
+  const itemsByVenue = useMemo(() => {
+    const grouped = filteredItems.reduce((acc, item) => {
+      if (!acc[item.venue]) acc[item.venue] = [];
+      acc[item.venue].push(item);
+      return acc;
+    }, {} as Record<string, ScheduleItem[]>);
+
+    // Sort items within each venue by start time
+    Object.keys(grouped).forEach(venue => {
+      grouped[venue].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    });
+
+    return grouped;
+  }, [filteredItems]);
 
   const formatDate = useCallback((date: Date) => {
     const days = [t('schedule.sunday'), t('schedule.monday'), t('schedule.tuesday'), t('schedule.wednesday'), t('schedule.thursday'), t('schedule.friday'), t('schedule.saturday')];
@@ -203,6 +237,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
 
   const getVenueColumn = useCallback((venueName: string): number => {
     const venue = venueColumns.find(v => v.name === venueName);
+    console.log('🎯 getVenueColumn:', venueName, '→', venue ? venue.gridColumn : 2, venue);
     return venue ? venue.gridColumn : 2;
   }, [venueColumns]);
 
@@ -293,6 +328,16 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
       }, 100);
     }
   }, [filteredItems, isLoading]);
+
+  // Debug logging for development
+  useEffect(() => {
+    console.log('📊 Schedule Items:', scheduleItems);
+    console.log('📅 Selected Date:', selectedDate.toISOString().split('T')[0]);
+    console.log('🏢 Items by Venue:', itemsByVenue);
+    console.log('🔍 Filtered Items:', filteredItems);
+    console.log('⚡ Loading State:', isLoading);
+    console.log('❌ Error State:', error);
+  }, [scheduleItems, selectedDate, itemsByVenue, filteredItems, isLoading, error]);
 
   return (
     <div className={`festival-schedule-grid bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen ${className}`}>
@@ -519,6 +564,7 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                     {filteredItems
                       .filter(item => item.venue === venue.name)
                       .map((item) => {
+                        // Parse the time directly (should now be in HH:MM format from screeningDate1)
                         const [itemStartHour, startMinute] = item.startTime.split(':').map(Number);
                         const [itemEndHour, endMinute] = item.endTime.split(':').map(Number);
                         
@@ -527,6 +573,19 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                         const hoursSinceStart = itemStartHour - fixedStartHour;
                         const startMinuteOffset = (startMinute / 60) * 120;
                         const topPosition = hoursSinceStart * 120 + startMinuteOffset;
+                        
+                        // Debug logging for film positioning
+                        if (item.type === 'film') {
+                          console.log(`🎬 Film "${item.title}" positioning:`, {
+                            startTime: item.startTime,
+                            itemStartHour,
+                            startMinute,
+                            hoursSinceStart,
+                            startMinuteOffset,
+                            topPosition,
+                            venue: item.venue
+                          });
+                        }
                         
                         // Calculate duration and height
                         const startTotalMinutes = itemStartHour * 60 + startMinute;
@@ -578,21 +637,42 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                             </div>
                             
-                            {/* Content - Simplified to show only Title and Emoji */}
+                            {/* Content - Enhanced to show Time, Duration, and Title */}
                             <div className={`relative z-10 h-full flex flex-col p-3 text-white ${getFontClass('body')}`} style={getFontStyle('body')}>
-                              {/* Emoji - Top Right */}
+                              {/* Type Emoji - Top Right */}
                               <div className="absolute top-2 right-2">
                                 <span className="text-lg">
                                   {item.type === 'film' ? '🎬' : '🎭'}
                                 </span>
                               </div>
                               
+                              {/* Time and Duration - Top Left */}
+                              <div className="mb-2">
+                                <div className="text-xs font-semibold text-orange-200 drop-shadow-md">
+                                  {item.startTime}
+                                  {item.endTime && item.endTime !== item.startTime && (
+                                    <span> - {item.endTime}</span>
+                                  )}
+                                </div>
+                                {item.duration && (
+                                  <div className="text-xs text-white/80 drop-shadow-md">
+                                    {item.duration} {t('schedule.minutes')}
+                                  </div>
+                                )}
+                              </div>
+                              
                               {/* Title - Center Focus */}
-                              <div className="flex-1 flex items-center justify-center px-2 py-2">
+                              <div className="flex-1 flex items-center justify-center px-1">
                                 <div className="text-center">
-                                  <h3 className="font-bold text-sm leading-tight text-white drop-shadow-lg line-clamp-4 group-hover:text-orange-200 transition-colors duration-300">
+                                  <h3 className="font-bold text-sm leading-tight text-white drop-shadow-lg line-clamp-3 group-hover:text-orange-200 transition-colors duration-300">
                                     {item.title}
                                   </h3>
+                                  {/* Director for films */}
+                                  {item.type === 'film' && item.director && (
+                                    <p className="text-xs text-white/70 mt-1 drop-shadow-md line-clamp-1">
+                                      {t('schedule.director')}: {item.director}
+                                    </p>
+                                  )}
                                 </div>
                               </div>
                             </div>
