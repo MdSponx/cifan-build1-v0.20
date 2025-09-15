@@ -32,6 +32,7 @@ import { getTagColor } from '../../utils/tagColors';
 interface FeatureFilmGalleryPageProps {
   onNavigateToForm?: (mode: 'create' | 'edit', filmId?: string) => void;
   onNavigateToDetail?: (filmId: string) => void;
+  fortuneCardsOnly?: boolean;
 }
 
 /**
@@ -46,7 +47,8 @@ interface FeatureFilmGalleryPageProps {
  */
 const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
   onNavigateToForm,
-  onNavigateToDetail
+  onNavigateToDetail,
+  fortuneCardsOnly = false
 }) => {
   const { t } = useTranslation();
   const { getClass } = useTypography();
@@ -66,7 +68,7 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
 
   // Use the custom hook
   const {
-    films,
+    films: allFilms,
     loading,
     error,
     refetch,
@@ -77,6 +79,16 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
     hasMore,
     loadMore
   } = useFeatureFilms(filters);
+
+  // Filter films for fortune cards only if needed
+  const films = React.useMemo(() => {
+    if (!fortuneCardsOnly) return allFilms;
+    
+    // Filter films that have fortune card URLs
+    return allFilms.filter(film => 
+      film.fortuneCard || film.fortuneCardUrl
+    );
+  }, [allFilms, fortuneCardsOnly]);
 
   /**
    * Handle search
@@ -499,10 +511,10 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
               </div>
               <div>
                 <h1 className={`text-2xl font-bold text-white ${getClass('header')}`}>
-                  Feature Films Gallery
+                  {fortuneCardsOnly ? 'Fortune Cards Gallery' : 'Feature Films Gallery'}
                 </h1>
                 <p className={`text-white/70 ${getClass('subtitle')}`}>
-                  Manage your feature film collection
+                  {fortuneCardsOnly ? 'Manage films with fortune cards' : 'Manage your feature film collection'}
                 </p>
               </div>
             </div>

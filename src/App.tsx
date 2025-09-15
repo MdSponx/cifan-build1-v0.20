@@ -57,6 +57,8 @@ import AdminNewsGallery from './components/admin/AdminNewsGallery';
 import AdminNewsForm from './components/admin/AdminNewsForm';
 import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
 import FestivalSchedulePage from './components/pages/FestivalSchedulePage';
+import FortuneCardsGalleryPage from './components/pages/FortuneCardsGalleryPage';
+import FortuneCardDetailPage from './components/pages/FortuneCardDetailPage';
 import { newsService } from './services/newsService';
 import { NewsArticle } from './types/news.types';
 import { useAuth } from './components/auth/AuthContext';
@@ -328,6 +330,14 @@ function App() {
             }}
           />
         );
+      case 'fortune-cards':
+        return (
+          <FortuneCardsGalleryPage 
+            onNavigateToDetail={(filmId) => {
+              handleNavigate(`fortune-cards/detail/${filmId}`);
+            }}
+          />
+        );
       case 'admin/dashboard':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
@@ -436,6 +446,44 @@ function App() {
                   <NewsFormWrapper 
                     mode="create"
                     onCancel={() => handleNavigate('admin/news')}
+                  />
+                </ErrorBoundary>
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/fortune-cards':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute requiredPermission="canManageContent">
+              <AdminZoneLayout currentPage="admin/fortune-cards">
+                <FeatureFilmGalleryPage 
+                  onNavigateToForm={(mode, filmId) => {
+                    if (mode === 'create') {
+                      handleNavigate('admin/fortune-cards/new');
+                    } else if (mode === 'edit' && filmId) {
+                      handleNavigate(`admin/fortune-cards/edit/${filmId}`);
+                    }
+                  }}
+                  onNavigateToDetail={(filmId) => {
+                    handleNavigate(`admin/fortune-cards/detail/${filmId}`);
+                  }}
+                  fortuneCardsOnly={true}
+                />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/fortune-cards/new':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute requiredPermission="canManageContent">
+              <AdminZoneLayout currentPage="admin/fortune-cards/new">
+                <ErrorBoundary>
+                  <FeatureFilmForm 
+                    mode="create"
+                    onSave={() => handleNavigate('admin/fortune-cards')}
+                    onCancel={() => handleNavigate('admin/fortune-cards')}
                   />
                 </ErrorBoundary>
               </AdminZoneLayout>
@@ -621,6 +669,55 @@ function App() {
         if (currentPage.startsWith('activity/')) {
           const activityId = currentPage.replace('activity/', '');
           return <ActivityDetailPage activityId={activityId} />;
+        }
+        
+        // Handle admin fortune card edit page with dynamic ID
+        if (currentPage.startsWith('admin/fortune-cards/edit/')) {
+          const filmId = currentPage.replace('admin/fortune-cards/edit/', '');
+          return (
+            <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+              <AdminProtectedRoute requiredPermission="canManageContent">
+                <AdminZoneLayout currentPage="admin/fortune-cards/edit">
+                  <ErrorBoundary>
+                    <FeatureFilmForm 
+                      mode="edit"
+                      filmId={filmId}
+                      onSave={() => handleNavigate('admin/fortune-cards')}
+                      onCancel={() => handleNavigate('admin/fortune-cards')}
+                    />
+                  </ErrorBoundary>
+                </AdminZoneLayout>
+              </AdminProtectedRoute>
+            </ProtectedRoute>
+          );
+        }
+        
+        // Handle admin fortune card detail page with dynamic ID
+        if (currentPage.startsWith('admin/fortune-cards/detail/')) {
+          const filmId = currentPage.replace('admin/fortune-cards/detail/', '');
+          return (
+            <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+              <AdminProtectedRoute requiredPermission="canManageContent">
+                <AdminZoneLayout currentPage="admin/fortune-cards/detail">
+                  <FeatureFilmDetailPage 
+                    filmId={filmId}
+                    onNavigateBack={() => handleNavigate('admin/fortune-cards')}
+                  />
+                </AdminZoneLayout>
+              </AdminProtectedRoute>
+            </ProtectedRoute>
+          );
+        }
+        
+        // Handle fortune card detail page with dynamic film ID
+        if (currentPage.startsWith('fortune-cards/detail/')) {
+          const filmId = currentPage.replace('fortune-cards/detail/', '');
+          return (
+            <FortuneCardDetailPage 
+              filmId={filmId}
+              onNavigateBack={() => handleNavigate('fortune-cards')}
+            />
+          );
         }
         return (
           <>

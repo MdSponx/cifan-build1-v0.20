@@ -449,6 +449,14 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
         galleryUrlCount: cleanedData.galleryUrls?.length || 0,
         hasPosterFile: !!cleanedData.posterFile,
         hasTrailerFile: !!cleanedData.trailerFile,
+        hasFortuneCardFile: !!cleanedData.fortuneCardFile,
+        fortuneCardFileName: cleanedData.fortuneCardFile?.name,
+        fortuneCardFileSize: cleanedData.fortuneCardFile?.size,
+        fortuneCardFileType: cleanedData.fortuneCardFile?.type,
+        hasFortuneCard: !!cleanedData.fortuneCard,
+        fortuneCardValue: cleanedData.fortuneCard,
+        hasFortuneCardUrl: !!cleanedData.fortuneCardUrl,
+        fortuneCardUrlValue: cleanedData.fortuneCardUrl,
         coverIndex: cleanedData.galleryCoverIndex,
         logoIndex: cleanedData.galleryLogoIndex
       });
@@ -1450,10 +1458,22 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                 file={formData.fortuneCardFile}
                 url={formData.fortuneCard || formData.fortuneCardUrl}
                 onChange={(file, url) => {
+                  console.log('🔮 Fortune Card onChange called:', {
+                    file: file ? { name: file.name, size: file.size, type: file.type } : null,
+                    url: url,
+                    timestamp: new Date().toISOString()
+                  });
+                  
                   handleInputChange('fortuneCardFile', file);
                   handleInputChange('fortuneCard', url);
                   // Keep fortuneCardUrl for backward compatibility
                   handleInputChange('fortuneCardUrl', url);
+                  
+                  console.log('🔮 Fortune Card state updated:', {
+                    fortuneCardFile: file ? { name: file.name, size: file.size } : null,
+                    fortuneCard: url,
+                    fortuneCardUrl: url
+                  });
                 }}
                 error={errors.fortuneCard || errors.fortuneCardUrl}
               />

@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔮 Fortune Card Upload Debug Tool</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            color: white;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            background: linear-gradient(45deg, #FCB283, #AA4626);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .debug-section {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .debug-section h2 {
+            color: #FCB283;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #666;
+            display: inline-block;
+        }
+
+        .status-indicator.success {
+            background: #4CAF50;
+            box-shadow: 0 0 10px #4CAF50;
+        }
+
+        .status-indicator.error {
+            background: #f44336;
+            box-shadow: 0 0 10px #f44336;
+        }
+
+        .status-indicator.warning {
+            background: #ff9800;
+            box-shadow: 0 0 10px #ff9800;
+        }
+
+        .button {
+            background: linear-gradient(45deg, #FCB283, #AA4626);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(252, 178, 131, 0.3);
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .log-container {
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-radius: 4px;
+        }
+
+        .log-entry.success {
+            background: rgba(76, 175, 80, 0.1);
+            color: #4CAF50;
+        }
+
+        .log-entry.error {
+            background: rgba(244, 67, 54, 0.1);
+            color: #f44336;
+        }
+
+        .log-entry.warning {
+            background: rgba(255, 152, 0, 0.1);
+            color: #ff9800;
+        }
+
+        .log-entry.info {
+            background: rgba(33, 150, 243, 0.1);
+            color: #2196F3;
+        }
+
+        .file-upload-area {
+            border: 2px dashed rgba(252, 178, 131, 0.3);
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            margin: 15px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload-area:hover {
+            border-color: rgba(252, 178, 131, 0.6);
+            background: rgba(252, 178, 131, 0.05);
+        }
+
+        .file-upload-area.dragover {
+            border-color: #FCB283;
+            background: rgba(252, 178, 131, 0.1);
+        }
+
+        .preview-image {
+            max-width: 200px;
+            max-height: 150px;
+            border-radius: 8px;
+            margin: 10px 0;
+            border: 2px solid rgba(252, 178, 131, 0.3);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #FCB283, #AA4626);
+            width: 0%;
+            transition: width 0.3s ease;
+        }
+
+        .test-results {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .test-result-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            border-left: 4px solid #666;
+        }
+
+        .test-result-card.success {
+            border-left-color: #4CAF50;
+        }
+
+        .test-result-card.error {
+            border-left-color: #f44336;
+        }
+
+        .test-result-card.warning {
+            border-left-color: #ff9800;
+        }
+
+        .clear-logs {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            float: right;
+        }
+
+        .clear-logs:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔮 Fortune Card Upload Debug Tool</h1>
+            <p>Comprehensive testing suite for fortune card upload functionality</p>
+        </div>
+
+        <div class="grid">
+            <!-- System Status -->
+            <div class="debug-section">
+                <h2>
+                    <span class="status-indicator" id="system-status"></span>
+                    System Status
+                </h2>
+                <button class="button" onclick="checkSystemStatus()">Check System</button>
+                <div id="system-info"></div>
+            </div>
+
+            <!-- File Upload Test -->
+            <div class="debug-section">
+                <h2>
+                    <span class="status-indicator" id="upload-status"></span>
+                    File Upload Test
+                </h2>
+                <div class="file-upload-area" id="file-upload-area" onclick="document.getElementById('file-input').click()">
+                    <div id="upload-content">
+                        <div style="font-size: 48px; margin-bottom: 10px;">🔮</div>
+                        <p>Click to select fortune card or drag and drop</p>
+                        <p style="font-size: 14px; opacity: 0.7;">Supported: JPG, PNG, GIF (max 10MB)</p>
+                    </div>
+                </div>
+                <input type="file" id="file-input" accept="image/*" style="display: none;" onchange="handleFileSelect(event)">
+                <button class="button" onclick="testDirectUpload()" id="upload-btn" disabled>Test Upload</button>
+                <button class="button" onclick="generateTestImage()">Generate Test Image</button>
+            </div>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="debug-section" id="progress-section" style="display: none;">
+            <h2>Upload Progress</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="progress-fill"></div>
+            </div>
+            <div id="progress-text">Preparing upload...</div>
+        </div>
+
+        <!-- Test Results -->
+        <div class="debug-section">
+            <h2>Test Results</h2>
+            <button class="button" onclick="runAllTests()">Run All Tests</button>
+            <div class="test-results" id="test-results"></div>
+        </div>
+
+        <!-- Debug Logs -->
+        <div class="debug-section">
+            <h2>
+                Debug Logs
+                <button class="clear-logs" onclick="clearLogs()">Clear Logs</button>
+            </h2>
+            <div class="log-container" id="log-container"></div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-storage-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.0.0/firebase-firestore-compat.js"></script>
+
+    <script>
+        // Firebase Configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDzDuGiiL5RfqE1y1kLQp16RQPnYJbWw_I",
+            authDomain: "cifan-c41c6.firebaseapp.com",
+            projectId: "cifan-c41c6",
+            storageBucket: "cifan-c41c6.firebasestorage.app",
+            messagingSenderId: "789354543255",
+            appId: "1:789354543255:web:4506a0d3f2b5ff97e491d2",
+            measurementId: "G-EFSKHEYFWC"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        
+        let selectedFile = null;
+        let testResults = {};
+
+        // Logging functions
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('log-container');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry ${type}`;
+            logEntry.innerHTML = `<span style="opacity: 0.7;">[${new Date().toLocaleTimeString()}]</span> ${message}`;
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function clearLogs() {
+            document.getElementById('log-container').innerHTML = '';
+        }
+
+        function updateStatus(elementId, status) {
+            const indicator = document.getElementById(elementId);
+            indicator.className = `status-indicator ${status}`;
+        }
+
+        function updateProgress(percent, text) {
+            const progressSection = document.getElementById('progress-section');
+            const progressFill = document.getElementById('progress-fill');
+            const progressText = document.getElementById('progress-text');
+            
+            if (percent > 0) {
+                progressSection.style.display = 'block';
+                progressFill.style.width = percent + '%';
+                progressText.textContent = text || `${percent}% complete`;
+            } else {
+                progressSection.style.display = 'none';
+            }
+        }
+
+        // System status check
+        async function checkSystemStatus() {
+            log('🔍 Checking system status...', 'info');
+            const systemInfo = document.getElementById('system-info');
+            let status = 'success';
+            let info = '<div style="margin-top: 10px;">';
+
+            try {
+                // Check Firebase
+                if (typeof firebase === 'undefined') {
+                    throw new Error('Firebase SDK not loaded');
+                }
+                info += '<div>✅ Firebase SDK loaded</div>';
+
+                // Check Authentication
+                const auth = firebase.auth();
+                const user = auth.currentUser;
+                if (user) {
+                    info += `<div>✅ User authenticated: ${user.uid}</div>`;
+                    info += `<div>📧 Email: ${user.email}</div>`;
+                } else {
+                    info += '<div>⚠️ User not authenticated</div>';
+                    status = 'warning';
+                }
+
+                // Check Storage
+                const storage = firebase.storage();
+                info += '<div>✅ Firebase Storage accessible</div>';
+
+                // Check Firestore
+                const firestore = firebase.firestore();
+                info += '<div>✅ Firebase Firestore accessible</div>';
+
+                log('✅ System status check completed', 'success');
+
+            } catch (error) {
+                log(`❌ System status check failed: ${error.message}`, 'error');
+                info += `<div>❌ Error: ${error.message}</div>`;
+                status = 'error';
+            }
+
+            info += '</div>';
+            systemInfo.innerHTML = info;
+            updateStatus('system-status', status);
+        }
+
+        // File handling
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (file) {
+                selectedFile = file;
+                displayFileInfo(file);
+                document.getElementById('upload-btn').disabled = false;
+                log(`📁 File selected: ${file.name} (${formatFileSize(file.size)})`, 'info');
+            }
+        }
+
+        function displayFileInfo(file) {
+            const uploadContent = document.getElementById('upload-content');
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                uploadContent.innerHTML = `
+                    <img src="${e.target.result}" class="preview-image" alt="Preview">
+                    <div><strong>${file.name}</strong></div>
+                    <div>${formatFileSize(file.size)} • ${file.type}</div>
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Generate test image
+        function generateTestImage() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;
+            canvas.height = 400;
+            const ctx = canvas.getContext('2d');
+
+            // Draw test fortune card
+            ctx.fillStyle = '#4A0E4E';
+            ctx.fillRect(0, 0, 600, 400);
+
+            ctx.fillStyle = '#FFD700';
+            ctx.font = '24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('🔮 TEST FORTUNE CARD 🔮', 300, 180);
+            ctx.fillText('Debug Upload Test', 300, 220);
+            ctx.fillText(new Date().toISOString(), 300, 260);
+
+            canvas.toBlob(function(blob) {
+                // Create File object
+                const file = new File([blob], `test-fortune-card-${Date.now()}.png`, {
+                    type: 'image/png',
+                    lastModified: Date.now()
+                });
+                
+                selectedFile = file;
+                displayFileInfo(file);
+                document.getElementById('upload-btn').disabled = false;
+                log('🎨 Test image generated successfully', 'success');
+            }, 'image/png');
+        }
+
+        // Direct upload test
+        async function testDirectUpload() {
+            if (!selectedFile) {
+                log('❌ No file selected', 'error');
+                return;
+            }
+
+            log('🚀 Starting direct upload test...', 'info');
+            updateProgress(10, 'Initializing upload...');
+
+            try {
+                const storage = firebase.storage();
+                const timestamp = Date.now();
+                const sanitizedFileName = selectedFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+                const fortuneCardPath = `films/user_uploads/fortune_cards/${timestamp}_${sanitizedFileName}`;
+                
+                log(`📁 Upload path: ${fortuneCardPath}`, 'info');
+                updateProgress(20, 'Creating storage reference...');
+
+                const storageRef = storage.ref(fortuneCardPath);
+                updateProgress(30, 'Starting upload...');
+
+                const uploadTask = storageRef.put(selectedFile);
+
+                // Monitor upload progress
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        updateProgress(30 + (progress * 0.6), `Uploading... ${Math.round(progress)}%`);
+                    },
+                    (error) => {
+                        log(`❌ Upload failed: ${error.message}`, 'error');
+                        updateProgress(0);
+                        updateStatus('upload-status', 'error');
+                    },
+                    async () => {
+                        updateProgress(95, 'Getting download URL...');
+                        try {
+                            const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
+                            updateProgress(100, 'Upload completed!');
+                            
+                            log('✅ Upload completed successfully!', 'success');
+                            log(`🔗 Download URL: ${downloadURL}`, 'success');
+                            
+                            // Test URL accessibility
+                            const response = await fetch(downloadURL, { method: 'HEAD' });
+                            if (response.ok) {
+                                log('✅ File is accessible via URL', 'success');
+                            } else {
+                                log(`⚠️ File URL returned status: ${response.status}`, 'warning');
+                            }
+
+                            // Clean up test file
+                            setTimeout(async () => {
+                                try {
+                                    await storageRef.delete();
+                                    log('🗑️ Test file cleaned up', 'info');
+                                } catch (deleteError) {
+                                    log(`⚠️ Could not delete test file: ${deleteError.message}`, 'warning');
+                                }
+                                updateProgress(0);
+                            }, 3000);
+
+                            updateStatus('upload-status', 'success');
+                            
+                        } catch (urlError) {
+                            log(`❌ Error getting download URL: ${urlError.message}`, 'error');
+                            updateProgress(0);
+                            updateStatus('upload-status', 'error');
+                        }
+                    }
+                );
+
+            } catch (error) {
+                log(`❌ Upload test failed: ${error.message}`, 'error');
+                updateProgress(0);
+                updateStatus('upload-status', 'error');
+            }
+        }
+
+        // Run all tests
+        async function runAllTests() {
+            log('🧪 Running comprehensive test suite...', 'info');
+            const resultsContainer = document.getElementById('test-results');
+            resultsContainer.innerHTML = '';
+            testResults = {};
+
+            const tests = [
+                { name: 'Firebase Connectivity', func: testFirebaseConnectivity },
+                { name: 'Authentication Status', func: testAuthentication },
+                { name: 'Storage Permissions', func: testStoragePermissions },
+                { name: 'File Validation', func: testFileValidation },
+                { name: 'Path Generation', func: testPathGeneration }
+            ];
+
+            for (const test of tests) {
+                try {
+                    log(`🔍 Running test: ${test.name}`, 'info');
+                    const result = await test.func();
+                    testResults[test.name] = result;
+                    displayTestResult(test.name, result);
+                } catch (error) {
+                    const result = { success: false, message: error.message };
+                    testResults[test.name] = result;
+                    displayTestResult(test.name, result);
+                }
+            }
+
+            log('🎉 Test suite completed!', 'success');
+        }
+
+        function displayTestResult(testName, result) {
+            const resultsContainer = document.getElementById('test-results');
+            const card = document.createElement('div');
+            card.className = `test-result-card ${result.success ? 'success' : 'error'}`;
+            card.innerHTML = `
+                <h4>${result.success ? '✅' : '❌'} ${testName}</h4>
+                <p>${result.message}</p>
+                ${result.details ? `<div style="font-size: 12px; opacity: 0.8; margin-top: 5px;">${result.details}</div>` : ''}
+            `;
+            resultsContainer.appendChild(card);
+        }
+
+        // Individual test functions
+        async function testFirebaseConnectivity() {
+            if (typeof firebase === 'undefined') {
+                return { success: false, message: 'Firebase SDK not loaded' };
+            }
+            return { success: true, message: 'Firebase SDK loaded and accessible' };
+        }
+
+        async function testAuthentication() {
+            const auth = firebase.auth();
+            const user = auth.currentUser;
+            if (user) {
+                return { 
+                    success: true, 
+                    message: 'User authenticated', 
+                    details: `UID: ${user.uid}, Email: ${user.email}` 
+                };
+            } else {
+                return { success: false, message: 'User not authenticated' };
+            }
+        }
+
+        async function testStoragePermissions() {
+            try {
+                const storage = firebase.storage();
+                const testRef = storage.ref('films/user_uploads/fortune_cards/test-permissions.txt');
+                const testBlob = new Blob(['test'], { type: 'text/plain' });
+                
+                await testRef.put(testBlob);
+                await testRef.delete();
+                
+                return { success: true, message: 'Storage permissions are correct' };
+            } catch (error) {
+                return { 
+                    success: false, 
+                    message: 'Storage permission error', 
+                    details: error.message 
+                };
+            }
+        }
+
+        async function testFileValidation() {
+            if (!selectedFile) {
+                return { success: false, message: 'No file selected for validation' };
+            }
+
+            const validTypes = ['image/jpeg', 'image/png', 'image/gif'];
+            const maxSize = 10 * 1024 * 1024; // 10MB
+
+            if (!validTypes.includes(selectedFile.type)) {
+                return { success: false, message: 'Invalid file type' };
+            }
+
+            if (selectedFile.size > maxSize) {
+                return { success: false, message: 'File too large (max 10MB)' };
+            }
+
+            return { 
+                success: true, 
+                message: 'File validation passed', 
+                details: `${selectedFile.name} (${formatFileSize(selectedFile.size)})` 
+            };
+        }
+
+        async function testPathGeneration() {
+            const timestamp = Date.now();
+            const testFileName = 'test-fortune-card.png';
+            const sanitizedFileName = testFileName.replace(/[^a-zA-Z0-9.-]/g, '_');
+            const expectedPath = `films/user_uploads/fortune_cards/${timestamp}_${sanitizedFileName}`;
+            
+            return { 
+                success: true, 
+                message: 'Path generation working correctly', 
+                details: expectedPath 
+            };
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.getElementById('file-upload-area');
+        
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            const files = Array.from(e.dataTransfer.files);
+            const imageFile = files.find(file => file.type.startsWith('image/'));
+            
+            if (imageFile) {
+                selectedFile = imageFile;
+                displayFileInfo(imageFile);
+                document.getElementById('upload-btn').disabled = false;
+                log(`📁 File dropped: ${imageFile.name}`, 'info');
+            } else {
+                log('❌ No valid image file found in drop', 'error');
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🔮 Fortune Card Debug Tool initialized', 'info');
+            checkSystemStatus();
+        });
+    </script>
+</body>
+</html>

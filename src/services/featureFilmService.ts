@@ -114,6 +114,10 @@ const uploadFeatureFilmFiles = async (
     console.log('🚀 Starting file upload process for film:', filmId, {
       hasPoster: !!filmData.posterFile,
       hasTrailer: !!filmData.trailerFile,
+      hasFortuneCardFile: !!filmData.fortuneCardFile,
+      fortuneCardFileName: filmData.fortuneCardFile?.name,
+      fortuneCardFileSize: filmData.fortuneCardFile?.size,
+      fortuneCardFileType: filmData.fortuneCardFile?.type,
       galleryFileCount: filmData.galleryFiles?.length || 0,
       existingGalleryUrls: filmData.galleryUrls?.length || 0
     });
@@ -147,20 +151,42 @@ const uploadFeatureFilmFiles = async (
     }
 
     // Upload fortune card file if provided
-    if (filmData.fortuneCardFile) {
+    if (filmData.fortuneCardFile && filmData.fortuneCardFile instanceof File) {
       try {
-        console.log('📤 Uploading fortune card file:', filmData.fortuneCardFile.name);
+        console.log('🔄 Uploading fortune card file:', {
+          fileName: filmData.fortuneCardFile.name,
+          fileSize: filmData.fortuneCardFile.size,
+          fileType: filmData.fortuneCardFile.type,
+          isFile: filmData.fortuneCardFile instanceof File
+        });
+        
         // Use user_uploads path for fortune cards
         const timestamp = Date.now();
         const sanitizedFileName = filmData.fortuneCardFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
         const fortuneCardPath = `films/user_uploads/fortune_cards/${timestamp}_${sanitizedFileName}`;
+        
+        console.log('📁 Fortune card upload path:', fortuneCardPath);
+        
         const fortuneCardResult = await uploadFile(filmData.fortuneCardFile, fortuneCardPath);
         updatedData.fortuneCard = fortuneCardResult.url;
-        console.log('✅ Fortune card uploaded successfully to user_uploads:', fortuneCardResult.url);
+        
+        console.log('✅ Fortune card uploaded successfully:', {
+          path: fortuneCardPath,
+          url: fortuneCardResult.url,
+          uploadResult: fortuneCardResult
+        });
       } catch (error) {
         console.error('❌ Error uploading fortune card:', error);
-        errors.push('Failed to upload fortune card');
+        errors.push(`Failed to upload fortune card: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
+    } else if (filmData.fortuneCardFile) {
+      console.warn('⚠️ fortuneCardFile exists but is not a File instance:', {
+        type: typeof filmData.fortuneCardFile,
+        constructor: (filmData.fortuneCardFile as any)?.constructor?.name,
+        value: filmData.fortuneCardFile
+      });
+    } else {
+      console.log('ℹ️ No fortune card file to upload');
     }
 
     // Enhanced gallery files upload with proper merging
@@ -306,11 +332,29 @@ const addCalculatedTimeFields = (filmData: FeatureFilmData): FeatureFilmData => 
  * Enhanced to handle optional galleryLogoIndex and calculated time fields
  */
 const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<FeatureFilmData> => {
+  console.log('🔄 prepareFilmDataForFirestore - Input data:', {
+    hasFortuneCardFile: !!filmData.fortuneCardFile,
+    fortuneCardFileType: (filmData.fortuneCardFile as any)?.constructor?.name,
+    hasFortuneCard: !!filmData.fortuneCard,
+    fortuneCardValue: filmData.fortuneCard,
+    hasFortuneCardUrl: !!filmData.fortuneCardUrl,
+    fortuneCardUrlValue: filmData.fortuneCardUrl
+  });
+
   // First add calculated time fields
   const dataWithCalculatedTimes = addCalculatedTimeFields(filmData);
   
   // CRITICAL FIX: Remove ALL File objects including fortuneCardFile
   const { posterFile, trailerFile, galleryFiles, fortuneCardFile, ...cleanData } = dataWithCalculatedTimes;
+  
+  console.log('🗑️ Removed File objects:', {
+    removedPosterFile: !!posterFile,
+    removedTrailerFile: !!trailerFile,
+    removedGalleryFiles: !!galleryFiles,
+    removedFortuneCardFile: !!fortuneCardFile,
+    remainingFortuneCard: cleanData.fortuneCard,
+    remainingFortuneCardUrl: cleanData.fortuneCardUrl
+  });
   
   // Remove undefined values as Firestore doesn't accept them
   const firestoreData: any = {};
@@ -344,6 +388,9 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
     hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData,
     hasFortuneCardFile: 'fortuneCardFile' in firestoreData, // Should be false
     hasFortuneCard: 'fortuneCard' in firestoreData, // Should be true (URL)
+    fortuneCardValue: firestoreData.fortuneCard,
+    hasFortuneCardUrl: 'fortuneCardUrl' in firestoreData,
+    fortuneCardUrlValue: firestoreData.fortuneCardUrl,
     calculatedTimes: {
       startTime1: firestoreData.startTime1,
       endTime1: firestoreData.endTime1,
@@ -492,7 +539,11 @@ export const createFeatureFilm = async (
       hasGalleryFiles: !!(filmData.galleryFiles && filmData.galleryFiles.length > 0),
       hasGalleryUrls: !!(filmData.galleryUrls && filmData.galleryUrls.length > 0),
       galleryLogoIndex: filmData.galleryLogoIndex,
-      isLogoOptional: filmData.galleryLogoIndex === undefined
+      isLogoOptional: filmData.galleryLogoIndex === undefined,
+      hasFortuneCardFile: !!filmData.fortuneCardFile,
+      fortuneCardFileName: filmData.fortuneCardFile?.name,
+      hasFortuneCard: !!filmData.fortuneCard,
+      fortuneCardValue: filmData.fortuneCard
     });
 
     // Separate guests from film data and prepare clean data for Firestore
@@ -515,7 +566,13 @@ export const createFeatureFilm = async (
     // Upload files if any are provided
     const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0) || filmData.fortuneCardFile;
     if (hasFiles) {
-      console.log('📤 Starting file upload process...');
+      console.log('📤 Starting file upload process...', {
+        hasPosterFile: !!filmData.posterFile,
+        hasTrailerFile: !!filmData.trailerFile,
+        hasGalleryFiles: !!(filmData.galleryFiles && filmData.galleryFiles.length > 0),
+        hasFortuneCardFile: !!filmData.fortuneCardFile
+      });
+      
       const { updatedData, errors } = await uploadFeatureFilmFiles(filmId, filmData as FeatureFilmData, userId);
       
       if (errors.length > 0) {
@@ -524,12 +581,22 @@ export const createFeatureFilm = async (
       
       // Update the document with file URLs if any files were uploaded
       if (Object.keys(updatedData).length > 0) {
-        console.log('💾 Updating document with file URLs:', Object.keys(updatedData));
+        console.log('💾 Updating document with file URLs:', {
+          updatedFields: Object.keys(updatedData),
+          fortuneCardUrl: updatedData.fortuneCard,
+          posterUrl: updatedData.posterUrl,
+          trailerUrl: updatedData.trailerUrl
+        });
+        
         await safeUpdateDoc(docRef, {
           ...updatedData,
           updatedAt: serverTimestamp()
         });
+      } else {
+        console.log('ℹ️ No file URLs to update in document');
       }
+    } else {
+      console.log('ℹ️ No files to upload');
     }
     
     // CRITICAL: Create guests subcollection from crew/cast data
@@ -576,8 +643,12 @@ export const updateFeatureFilm = async (
     console.log('🔄 Updating feature film:', {
       filmId,
       userId,
-      hasFiles: !!(filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0)),
-      hasGalleryUrls: !!(filmData.galleryUrls && filmData.galleryUrls.length > 0)
+      hasFiles: !!(filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0) || filmData.fortuneCardFile),
+      hasGalleryUrls: !!(filmData.galleryUrls && filmData.galleryUrls.length > 0),
+      hasFortuneCardFile: !!filmData.fortuneCardFile,
+      fortuneCardFileName: filmData.fortuneCardFile?.name,
+      hasFortuneCard: !!filmData.fortuneCard,
+      fortuneCardValue: filmData.fortuneCard
     });
 
     // Separate guests from film data and prepare clean data for Firestore
@@ -591,7 +662,13 @@ export const updateFeatureFilm = async (
     let fileUploadData = {};
     
     if (hasFiles) {
-      console.log('📤 Starting file upload process for update...');
+      console.log('📤 Starting file upload process for update...', {
+        hasPosterFile: !!filmData.posterFile,
+        hasTrailerFile: !!filmData.trailerFile,
+        hasGalleryFiles: !!(filmData.galleryFiles && filmData.galleryFiles.length > 0),
+        hasFortuneCardFile: !!filmData.fortuneCardFile
+      });
+      
       const { updatedData, errors } = await uploadFeatureFilmFiles(filmId, filmData as FeatureFilmData, userId);
       
       if (errors.length > 0) {
@@ -599,7 +676,14 @@ export const updateFeatureFilm = async (
       }
       
       fileUploadData = updatedData;
-      console.log('📊 File upload data prepared:', Object.keys(fileUploadData));
+      console.log('📊 File upload data prepared:', {
+        updatedFields: Object.keys(fileUploadData),
+        fortuneCardUrl: updatedData.fortuneCard,
+        posterUrl: updatedData.posterUrl,
+        trailerUrl: updatedData.trailerUrl
+      });
+    } else {
+      console.log('ℹ️ No files to upload for update');
     }
     
     const updateData = {

@@ -130,6 +130,10 @@ export interface FeatureFilm {
   targetAudiences?: string[]; // Target audience information
   afterScreenActivities?: string[]; // After screen activities
   category?: string; // Film category
+  
+  // Fortune Card field
+  fortuneCard?: string; // Fortune card image URL
+  fortuneCardUrl?: string; // Legacy fortune card URL field
 }
 
 // Legacy interface for backward compatibility with existing form

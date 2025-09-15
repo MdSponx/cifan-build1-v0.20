@@ -20,7 +20,8 @@ import {
   Award,
   ChevronDown,
   ChevronRight,
-  Newspaper
+  Newspaper,
+  Sparkles
 } from 'lucide-react';
 
 interface AdminZoneSidebarProps {
@@ -227,7 +228,7 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
   };
 
   const isArticlesPageActive = (page: string) => {
-    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news');
+    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news') || page.startsWith('admin/fortune-cards');
   };
 
   // Applications submenu items
@@ -247,32 +248,53 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
   ];
 
 
-    // Articles & News submenu items
+    // Articles & News submenu items - always show for super-admin, admin, and editor
     const articlesSubmenuItems = [
-      {
-        id: 'admin/feature-films',
-        icon: <Eye size={18} />,
-        label: 'Film Gallery',
-        href: '#admin/feature-films'
-      },
-      {
-        id: 'admin/feature-films/new',
-        icon: <Plus size={18} />,
-        label: 'Add New Film',
-        href: '#admin/feature-films/new'
-      },
-      {
-        id: 'admin/news',
-        icon: <Eye size={18} />,
-        label: currentContent.allNews,
-        href: '#admin/news'
-      },
-      {
-        id: 'admin/news/create',
-        icon: <Plus size={18} />,
-        label: currentContent.createNews,
-        href: '#admin/news/create'
-      }
+      // Film Gallery items - visible to super-admin, admin, and editor
+      ...(actualUserRole === 'super-admin' || actualUserRole === 'admin' || actualUserRole === 'editor' ? [
+        {
+          id: 'admin/feature-films',
+          icon: <Eye size={18} />,
+          label: 'Film Gallery',
+          href: '#admin/feature-films'
+        },
+        {
+          id: 'admin/feature-films/new',
+          icon: <Plus size={18} />,
+          label: 'Add New Film',
+          href: '#admin/feature-films/new'
+        }
+      ] : []),
+      // Fortune Cards items - visible to super-admin, admin, and editor
+      ...(actualUserRole === 'super-admin' || actualUserRole === 'admin' || actualUserRole === 'editor' ? [
+        {
+          id: 'admin/fortune-cards',
+          icon: <Eye size={18} />,
+          label: 'Fortune Cards',
+          href: '#admin/fortune-cards'
+        },
+        {
+          id: 'admin/fortune-cards/new',
+          icon: <Plus size={18} />,
+          label: 'Add New Fortune Card',
+          href: '#admin/fortune-cards/new'
+        }
+      ] : []),
+      // News items - visible to super-admin, admin, and editor
+      ...(actualUserRole === 'super-admin' || actualUserRole === 'admin' || actualUserRole === 'editor' ? [
+        {
+          id: 'admin/news',
+          icon: <Eye size={18} />,
+          label: currentContent.allNews,
+          href: '#admin/news'
+        },
+        {
+          id: 'admin/news/create',
+          icon: <Plus size={18} />,
+          label: currentContent.createNews,
+          href: '#admin/news/create'
+        }
+      ] : [])
     ];
 
   // Activities submenu items
