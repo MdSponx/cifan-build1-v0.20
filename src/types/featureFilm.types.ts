@@ -174,6 +174,9 @@ export interface FeatureFilmData {
   galleryUrls: string[];
   galleryCoverIndex?: number; // Index of the cover image in gallery
   galleryLogoIndex?: number; // Index of the logo image in gallery
+  fortuneCardFile?: File;
+  fortuneCardUrl?: string;
+  fortuneCard?: string;
 
   // After Screen Activities
   afterScreenActivities: AfterScreenActivity[];

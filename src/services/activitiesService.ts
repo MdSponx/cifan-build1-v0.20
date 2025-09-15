@@ -325,7 +325,7 @@ export class ActivitiesService {
         activities = activities.filter(activity =>
           activity.name.toLowerCase().includes(searchLower) ||
           activity.shortDescription.toLowerCase().includes(searchLower) ||
-          activity.description.toLowerCase().includes(searchLower) ||
+          (activity.description || '').toLowerCase().includes(searchLower) ||
           activity.venueName.toLowerCase().includes(searchLower) ||
           activity.organizers.some(org => org.toLowerCase().includes(searchLower)) ||
           activity.tags.some(tag => tag.toLowerCase().includes(searchLower))
@@ -501,6 +501,66 @@ export class ActivitiesService {
       } catch (fallbackError) {
         console.error('Error in fallback query for upcoming activities:', fallbackError);
         return []; // Return empty array instead of throwing
+      }
+    }
+  }
+
+  /**
+   * Get ALL activities for admin management (no limits)
+   * This method should fetch all activities regardless of status
+   */
+  async getAllActivities(): Promise<Activity[]> {
+    try {
+      console.log('📊 Fetching ALL activities for admin...');
+      
+      // No filters, no limits - get everything for admin
+      const q = query(
+        collection(db, ACTIVITIES_COLLECTION),
+        orderBy('createdAt', 'desc') // Sort by creation date for admin
+      );
+      
+      const snapshot = await getDocs(q);
+      const activities = snapshot.docs.map(doc => 
+        this.convertFirestoreDocToActivity({
+          id: doc.id,
+          ...doc.data()
+        } as ActivityFirestoreDoc)
+      );
+      
+      console.log('✅ Successfully fetched all activities:', {
+        total: activities.length,
+        byStatus: {
+          published: activities.filter(a => a.status === 'published').length,
+          draft: activities.filter(a => a.status === 'draft').length,
+          cancelled: activities.filter(a => a.status === 'cancelled').length,
+          completed: activities.filter(a => a.status === 'completed').length
+        }
+      });
+      
+      return activities;
+      
+    } catch (error) {
+      console.error('❌ Error fetching all activities:', error);
+      
+      // Fallback: try without orderBy to avoid index issues
+      try {
+        console.log('🔄 Fallback: fetching without orderBy...');
+        const fallbackQuery = query(collection(db, ACTIVITIES_COLLECTION));
+        const fallbackSnapshot = await getDocs(fallbackQuery);
+        
+        const activities = fallbackSnapshot.docs.map(doc => 
+          this.convertFirestoreDocToActivity({
+            id: doc.id,
+            ...doc.data()
+          } as ActivityFirestoreDoc)
+        );
+        
+        console.log('✅ Fallback successful, total activities:', activities.length);
+        return activities;
+        
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        throw new Error('Failed to fetch activities. Please check your permissions.');
       }
     }
   }
@@ -811,9 +871,9 @@ export class ActivitiesService {
         const searchableText = [
           activity.name,
           activity.shortDescription,
-          activity.description,
+          activity.description || '',
           activity.venueName,
-          activity.contactName,
+          activity.contactName || '',
           ...activity.organizers,
           ...activity.tags
         ].join(' ').toLowerCase();
@@ -1070,13 +1130,13 @@ export class ActivitiesService {
       registrationDeadline: doc.registrationDeadline,
       venueName: doc.venueName,
       venueLocation: doc.venueLocation || '',
-      description: doc.description,
+      description: doc.description || '',
       organizers: doc.organizers || [],
       speakers: doc.speakers || [], // Use speakers directly from the document
       tags: doc.tags || [],
       contactEmail: doc.contactEmail,
-      contactName: doc.contactName,
-      contactPhone: doc.contactPhone,
+      contactName: doc.contactName || '',
+      contactPhone: doc.contactPhone || '',
       createdAt: doc.createdAt?.toDate ? doc.createdAt.toDate().toISOString() : new Date().toISOString(),
       updatedAt: doc.updatedAt?.toDate ? doc.updatedAt.toDate().toISOString() : new Date().toISOString(),
       createdBy: doc.createdBy,

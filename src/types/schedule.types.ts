@@ -17,6 +17,7 @@ export interface ScheduleItem {
   // Additional fields from existing data
   image?: string;
   director?: string;
+  country?: string;  // Film nationality for flag emoji
   cast?: string[];
   genres?: string[];
   rating?: string;

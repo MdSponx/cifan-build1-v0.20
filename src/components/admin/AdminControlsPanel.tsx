@@ -19,9 +19,12 @@ import {
   X
 } from 'lucide-react';
 import AnimatedButton from '../ui/AnimatedButton';
+import DeleteConfirmationModal from '../ui/DeleteConfirmationModal';
 import { useAdminNotes } from '../../hooks/useAdminNotes';
 import { notesService } from '../../services/notesService';
-import { isJuryUser } from '../../utils/userUtils';
+import { isJuryUser, isAdminUser, isEditorUser } from '../../utils/userUtils';
+import { AdminApplicationService, AdminDeleteProgress } from '../../services/adminApplicationService';
+import { useNotificationHelpers } from '../ui/NotificationSystem';
 
 const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
   application,
@@ -43,6 +46,12 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
   // Check if current user is jury - jury users have restricted access
   const isJury = isJuryUser(userProfile);
 
+  // Delete functionality state
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isDeletingApplication, setIsDeletingApplication] = useState(false);
+  const [deleteProgress, setDeleteProgress] = useState<AdminDeleteProgress | null>(null);
+  const { showSuccess, showError } = useNotificationHelpers();
+
   // Real notes system state
   const [newNoteContent, setNewNoteContent] = useState('');
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
@@ -54,7 +63,7 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
     loading: notesLoading,
     isCreating,
     isUpdating: isUpdatingNote,
-    isDeleting,
+    isDeleting: isDeletingNote,
     createNote,
     updateNote,
     deleteNote,
@@ -104,13 +113,17 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
       quickActions: "การดำเนินการด่วน",
       exportData: "ส่งออกข้อมูล",
       printView: "พิมพ์",
+      deleteApplication: "ลบใบสมัคร",
       
       // Confirmations
       confirmStatusChange: "คุณแน่ใจหรือไม่ที่จะเปลี่ยนสถานะ?",
       confirmFlag: "ตั้งค่าสถานะพิเศษ",
       confirmUnflag: "ยกเลิกสถานะพิเศษ",
+      confirmDeleteApplication: "ยืนยันการลบใบสมัคร",
+      deleteApplicationMessage: "คุณแน่ใจหรือไม่ที่จะลบใบสมัครนี้? การกระทำนี้จะลบข้อมูลทั้งหมดรวมถึงไฟล์และคะแนน และไม่สามารถยกเลิกได้",
       cancel: "ยกเลิก",
-      confirm: "ยืนยัน"
+      confirm: "ยืนยัน",
+      delete: "ลบ"
     },
     en: {
       title: "Admin Controls",
@@ -154,13 +167,17 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
       quickActions: "Quick Actions",
       exportData: "Export Data",
       printView: "Print View",
+      deleteApplication: "Delete Application",
       
       // Confirmations
       confirmStatusChange: "Are you sure you want to change the status?",
       confirmFlag: "Flag Application",
       confirmUnflag: "Unflag Application",
+      confirmDeleteApplication: "Confirm Application Deletion",
+      deleteApplicationMessage: "Are you sure you want to delete this application? This action will permanently remove all data including files and scores, and cannot be undone.",
       cancel: "Cancel",
-      confirm: "Confirm"
+      confirm: "Confirm",
+      delete: "Delete"
     }
   };
 
@@ -245,10 +262,52 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
     }
   };
 
+  // Delete application handlers
+  const handleDeleteApplication = () => {
+    // Check if user has permission to delete applications
+    const adminService = new AdminApplicationService();
+    if (!adminService.canDeleteApplication(userProfile?.role)) {
+      showError(currentLanguage === 'th' ? 'คุณไม่มีสิทธิ์ในการลบใบสมัคร' : 'You do not have permission to delete applications');
+      return;
+    }
+    setShowDeleteModal(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    setIsDeletingApplication(true);
+    setDeleteProgress(null);
+
+    try {
+      const adminService = new AdminApplicationService((progress) => {
+        setDeleteProgress(progress);
+      });
+
+      await adminService.deleteApplication(application.id);
+      
+      showSuccess(currentLanguage === 'th' ? 'ลบใบสมัครเรียบร้อยแล้ว' : 'Application deleted successfully');
+      
+      // Redirect to gallery after successful deletion
+      setTimeout(() => {
+        window.location.hash = '#admin/gallery';
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error deleting application:', error);
+      showError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการลบใบสมัคร' : 'Error deleting application');
+    } finally {
+      setIsDeletingApplication(false);
+      setShowDeleteModal(false);
+      setDeleteProgress(null);
+    }
+  };
+
   // If user is jury, don't show admin controls panel at all
   if (isJury) {
     return null;
   }
+
+  // Check if user can delete applications
+  const canDelete = isAdminUser(userProfile) || isEditorUser(userProfile);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -407,8 +466,8 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
                               <Edit3 className="w-3 h-3" />
                             </button>
                             <button
-                              onClick={isDeleting ? undefined : () => handleDeleteNote(note.id)}
-                              className={`p-1 text-white/60 hover:text-red-400 transition-colors ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                              onClick={isDeletingNote ? undefined : () => handleDeleteNote(note.id)}
+                              className={`p-1 text-white/60 hover:text-red-400 transition-colors ${isDeletingNote ? 'opacity-50 cursor-not-allowed' : ''}`}
                               title={currentContent.deleteNote}
                             >
                               <Trash2 className="w-3 h-3" />
@@ -459,7 +518,7 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
             {currentContent.quickActions}
           </h4>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Flag/Unflag Button */}
             <AnimatedButton
               variant={application.flagged ? "outline" : "secondary"}
@@ -492,6 +551,19 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
             >
               {currentContent.printView}
             </AnimatedButton>
+
+            {/* Delete Button - Only for Admin/Editor */}
+            {canDelete && (
+              <AnimatedButton
+                variant="outline"
+                size="medium"
+                icon="🗑️"
+                onClick={handleDeleteApplication}
+                className="w-full border-red-500/50 text-red-400 hover:bg-red-600/20 hover:border-red-500/70 hover:text-red-300"
+              >
+                {currentContent.deleteApplication}
+              </AnimatedButton>
+            )}
 
             {/* Back to Gallery */}
             <AnimatedButton
@@ -550,6 +622,17 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
           </div>
         </div>
       )}
+
+      {/* Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={() => setShowDeleteModal(false)}
+        onConfirm={handleConfirmDelete}
+        title={currentContent.confirmDeleteApplication}
+        message={currentContent.deleteApplicationMessage}
+        itemName={application.filmTitle}
+        isProcessing={isDeletingApplication}
+      />
     </div>
   );
 };

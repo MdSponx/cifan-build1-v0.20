@@ -14,6 +14,7 @@ import { FeatureFilm } from '../types/featureFilm.types';
 import { activitiesService } from '../services/activitiesService';
 import { getEnhancedFeatureFilms } from '../services/featureFilmService';
 import { getMockScheduleData } from '../utils/mockScheduleData';
+import { getFilmCoverImage, FilmImageData } from '../utils/filmImageHelpers';
 
 // Enhanced interface for better type safety
 interface EnhancedFeatureFilm extends FeatureFilm {
@@ -41,6 +42,11 @@ interface ScreeningData {
   endTime: string;
   venue: string;
   filmData: any;
+  // Image-related fields for cover image mapping
+  galleryUrls?: string[];
+  galleryCoverIndex?: number;
+  galleryLogoIndex?: number;
+  posterUrl?: string;
 }
 
 /**
@@ -250,42 +256,42 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     };
   }, []);
 
-  // Helper: Get screening time with fallback
+  // Helper: Get screening time with fallback - FIXED PRIORITY LOGIC
   const getScreeningTime = useCallback((dedicatedTimeField: string | undefined, screeningDate: Date, fieldName: string): string => {
-    // Priority 1: Use dedicated time field
+    // Priority 1: Use dedicated time field (startTime1/startTime2) - HIGHEST PRIORITY
     if (dedicatedTimeField && typeof dedicatedTimeField === 'string' && dedicatedTimeField.trim()) {
       const timeStr = dedicatedTimeField.trim();
-      const timeRegex = /^(\d{1,2}):(\d{2})$/;
-      
-      if (timeRegex.test(timeStr)) {
-        const [hours, minutes] = timeStr.split(':');
-        const formattedTime = `${hours.padStart(2, '0')}:${minutes}`;
+      if (/^(\d{1,2}):(\d{2})$/.test(timeStr)) {
+        const formattedTime = timeStr.padStart(5, '0'); // Ensure HH:MM format
         console.log(`✅ Using dedicated ${fieldName}: ${formattedTime}`);
         return formattedTime;
       } else {
-        console.log(`⚠️ Invalid ${fieldName} format: "${timeStr}"`);
+        console.log(`⚠️ Invalid ${fieldName} format: "${timeStr}" - falling back to screening date`);
       }
+    } else {
+      console.log(`⚠️ No valid dedicated ${fieldName} found - falling back to screening date`);
     }
     
-    // Priority 2: Extract from screening date
+    // Priority 2: Extract from screening date - ONLY IF NO DEDICATED TIME FIELD
     const extractedTime = `${screeningDate.getHours().toString().padStart(2, '0')}:${screeningDate.getMinutes().toString().padStart(2, '0')}`;
     console.log(`🔄 Extracted time from screening date: ${extractedTime}`);
     return extractedTime;
   }, []);
 
-  // Helper: Get end time with fallback
+  // Helper: Get end time with fallback - FIXED PRIORITY LOGIC
   const getScreeningEndTime = useCallback((dedicatedEndTimeField: string | undefined, startTime: string, duration: number | undefined, fieldName: string): string => {
-    // Priority 1: Use dedicated end time field
+    // Priority 1: Use dedicated end time field (endTime1/endTime2) - HIGHEST PRIORITY
     if (dedicatedEndTimeField && typeof dedicatedEndTimeField === 'string' && dedicatedEndTimeField.trim()) {
       const timeStr = dedicatedEndTimeField.trim();
-      const timeRegex = /^(\d{1,2}):(\d{2})$/;
-      
-      if (timeRegex.test(timeStr)) {
-        const [hours, minutes] = timeStr.split(':');
-        const formattedTime = `${hours.padStart(2, '0')}:${minutes}`;
+      if (/^(\d{1,2}):(\d{2})$/.test(timeStr)) {
+        const formattedTime = timeStr.padStart(5, '0'); // Ensure HH:MM format
         console.log(`✅ Using dedicated ${fieldName}: ${formattedTime}`);
         return formattedTime;
+      } else {
+        console.log(`⚠️ Invalid ${fieldName} format: "${timeStr}" - calculating from duration`);
       }
+    } else {
+      console.log(`⚠️ No valid dedicated ${fieldName} found - calculating from duration`);
     }
     
     // Priority 2: Calculate from start time + duration
@@ -301,6 +307,9 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
     const legacyFilm = film as any;
     const selectedDateStr = selectedDate.toDateString();
     
+    // 🚨 ENHANCED DEBUGGING FOR MARCHING BOYS FILM
+    const isMarchingBoys = film.title.toLowerCase().includes('marching');
+    
     console.log(`🎬 Extracting screenings for "${film.title}" on ${selectedDateStr}`);
     console.log(`🔍 Film data structure:`, {
       hasScreeningDate1: !!legacyFilm.screeningDate1,
@@ -310,6 +319,35 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       hasVenue: !!legacyFilm.venue,
       hasTheatre: !!legacyFilm.theatre
     });
+
+    // 🚨 CRITICAL DEBUG: Enhanced logging for Marching Boys
+    if (isMarchingBoys) {
+      console.log(`🚨 MARCHING BOYS DETAILED DEBUG:`, {
+        filmTitle: film.title,
+        filmId: film.id,
+        selectedDate: selectedDateStr,
+        rawFilmData: {
+          screeningDate1: legacyFilm.screeningDate1,
+          screeningDate2: legacyFilm.screeningDate2,
+          startTime1: legacyFilm.startTime1,
+          endTime1: legacyFilm.endTime1,
+          startTime2: legacyFilm.startTime2,
+          endTime2: legacyFilm.endTime2,
+          venue: legacyFilm.venue,
+          theatre: legacyFilm.theatre,
+          duration: film.duration,
+          timeEstimate: legacyFilm.timeEstimate // Should be IGNORED
+        }
+      });
+      
+      console.log(`🚨 MARCHING BOYS TIME FIELD ANALYSIS:`);
+      console.log(`   - startTime1: "${legacyFilm.startTime1}" (type: ${typeof legacyFilm.startTime1})`);
+      console.log(`   - endTime1: "${legacyFilm.endTime1}" (type: ${typeof legacyFilm.endTime1})`);
+      console.log(`   - startTime2: "${legacyFilm.startTime2}" (type: ${typeof legacyFilm.startTime2})`);
+      console.log(`   - endTime2: "${legacyFilm.endTime2}" (type: ${typeof legacyFilm.endTime2})`);
+      console.log(`   - timeEstimate: "${legacyFilm.timeEstimate}" (SHOULD BE IGNORED)`);
+      console.log(`   - duration: ${film.duration} minutes`);
+    }
 
     // Check screening 1
     if (legacyFilm.screeningDate1) {
@@ -331,10 +369,27 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             startTime,
             endTime,
             venue,
-            filmData: film
+            filmData: film,
+            // Pass image data for cover image mapping
+            galleryUrls: legacyFilm.galleryUrls,
+            galleryCoverIndex: legacyFilm.galleryCoverIndex,
+            galleryLogoIndex: legacyFilm.galleryLogoIndex,
+            posterUrl: legacyFilm.posterUrl
           });
           
           console.log(`✅ Added Screening 1: ${startTime}-${endTime} at ${venue}`);
+          
+          // 🚨 ENHANCED DEBUG: Additional logging for Marching Boys
+          if (isMarchingBoys) {
+            console.log(`🚨 MARCHING BOYS SCREENING 1 FINAL RESULT:`, {
+              originalStartTime1: legacyFilm.startTime1,
+              originalEndTime1: legacyFilm.endTime1,
+              finalStartTime: startTime,
+              finalEndTime: endTime,
+              venue: venue,
+              timeSource: legacyFilm.startTime1 ? 'dedicated startTime1 field' : 'extracted from screeningDate1'
+            });
+          }
         } else {
           console.log(`⏭️ Screening 1 date mismatch: ${date1.toDateString()} !== ${selectedDateStr}`);
         }
@@ -363,7 +418,12 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             startTime,
             endTime,
             venue,
-            filmData: film
+            filmData: film,
+            // Pass image data for cover image mapping
+            galleryUrls: legacyFilm.galleryUrls,
+            galleryCoverIndex: legacyFilm.galleryCoverIndex,
+            galleryLogoIndex: legacyFilm.galleryLogoIndex,
+            posterUrl: legacyFilm.posterUrl
           });
           
           console.log(`✅ Added Screening 2: ${startTime}-${endTime} at ${venue}`);
@@ -410,7 +470,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
             fallbackEndTime = getScreeningEndTime(legacyFilm.endTime2, fallbackStartTime, film.duration, 'endTime2');
             fallbackDate = date2;
             shouldCreateFallback = true;
-            console.log(`🔄 Using screening 2 data for fallback (date matches): ${fallbackStartTime}-${fallbackEndTime} on ${date2.toDateString()}`);
+            console.log(`� Using screening 2 data for fallback (date matches): ${fallbackStartTime}-${fallbackEndTime} on ${date2.toDateString()}`);
           }
         } catch (error) {
           console.error(`❌ Error extracting time from screeningDate2:`, error);
@@ -423,7 +483,7 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
         fallbackStartTime = legacyFilm.startTime1 || legacyFilm.startTime2 || '19:00';
         fallbackEndTime = legacyFilm.endTime1 || legacyFilm.endTime2 || calculateEndTime(fallbackStartTime, film.duration || 120);
         shouldCreateFallback = true;
-        console.log(`🔄 Using basic fallback for film without screening dates: ${fallbackStartTime}-${fallbackEndTime}`);
+        console.log(`� Using basic fallback for film without screening dates: ${fallbackStartTime}-${fallbackEndTime}`);
       }
       
       if (shouldCreateFallback) {
@@ -437,7 +497,12 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
           startTime: fallbackStartTime,
           endTime: fallbackEndTime,
           venue: fallbackVenue,
-          filmData: film
+          filmData: film,
+          // Pass image data for cover image mapping
+          galleryUrls: legacyFilm.galleryUrls,
+          galleryCoverIndex: legacyFilm.galleryCoverIndex,
+          galleryLogoIndex: legacyFilm.galleryLogoIndex,
+          posterUrl: legacyFilm.posterUrl
         });
         
         console.log(`✅ Added fallback screening: ${fallbackStartTime}-${fallbackEndTime} at ${fallbackVenue} on ${fallbackDate.toDateString()}`);
@@ -452,6 +517,26 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
 
   // Helper: Create schedule item from screening data
   const createScheduleItemFromScreening = useCallback((screening: ScreeningData): ScheduleItem => {
+    // Create FilmImageData object from screening data
+    const filmImageData: FilmImageData = {
+      galleryUrls: screening.galleryUrls,
+      galleryCoverIndex: screening.galleryCoverIndex,
+      galleryLogoIndex: screening.galleryLogoIndex,
+      posterUrl: screening.posterUrl
+    };
+    
+    // Use getFilmCoverImage helper for consistency with other components
+    const coverImageUrl = getFilmCoverImage(filmImageData);
+    
+    // Debug logging for image mapping process
+    console.log(`🖼️ Image mapping for "${screening.filmTitle}":`, {
+      filmId: screening.filmId,
+      galleryUrls: screening.galleryUrls?.length || 0,
+      galleryCoverIndex: screening.galleryCoverIndex,
+      posterUrl: !!screening.posterUrl,
+      finalCoverImageUrl: coverImageUrl
+    });
+    
     return {
       id: `${screening.filmId}_screening_${screening.screeningNumber}`,
       title: screening.filmData.title,
@@ -465,9 +550,11 @@ export const useScheduleData = (selectedDate: Date, useMockData: boolean = false
       date: screening.screeningDate.toISOString().split('T')[0],
       featured: screening.filmData.featured,
       director: screening.filmData.director,
+      country: screening.filmData.country, // Add country for flag emoji
       cast: screening.filmData.cast,
       genres: screening.filmData.genre ? [screening.filmData.genre] : undefined,
-      rating: screening.filmData.rating
+      rating: screening.filmData.rating,
+      image: coverImageUrl || undefined // Map cover image using helper
     };
   }, []);
 

@@ -51,6 +51,7 @@ import GenreSelector from '../forms/GenreSelector';
 import PosterUpload from '../forms/PosterUpload';
 import TrailerUpload from '../forms/TrailerUpload';
 import GalleryUpload from '../forms/GalleryUpload';
+import FortuneCardUpload from '../forms/FortuneCardUpload';
 import GuestManagement from '../forms/GuestManagement';
 import RichTextEditor from '../ui/RichTextEditor';
 import SuccessModal from '../ui/SuccessModal';
@@ -120,6 +121,9 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
       galleryUrls: [''],
       galleryCoverIndex: 0,
       galleryLogoIndex: undefined,
+      fortuneCardFile: undefined,
+      fortuneCardUrl: '',
+      fortuneCard: '',
       afterScreenActivities: [],
       status: '' as FilmStatus,
       publicationStatus: 'draft' as PublicationStatus,
@@ -1424,6 +1428,35 @@ const FeatureFilmForm: React.FC<FeatureFilmFormProps> = ({
                   disabled={isSubmitting}
                 />
               )}
+            </div>
+          </div>
+
+          {/* Section 8: Fortune Card */}
+          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl p-6">
+            <div className="flex items-center space-x-3 mb-6">
+              <div className="p-2 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg">
+                <span className="text-xl">🔮</span>
+              </div>
+              <h2 className={`text-xl font-semibold text-white ${getClass('header')}`}>Fortune Card</h2>
+            </div>
+
+            <div className="space-y-4">
+              <p className="text-white/70 text-sm">
+                Upload a mystical fortune card image that represents the spiritual essence or destiny associated with the film.
+              </p>
+              
+              {/* Fortune Card Upload */}
+              <FortuneCardUpload
+                file={formData.fortuneCardFile}
+                url={formData.fortuneCard || formData.fortuneCardUrl}
+                onChange={(file, url) => {
+                  handleInputChange('fortuneCardFile', file);
+                  handleInputChange('fortuneCard', url);
+                  // Keep fortuneCardUrl for backward compatibility
+                  handleInputChange('fortuneCardUrl', url);
+                }}
+                error={errors.fortuneCard || errors.fortuneCardUrl}
+              />
             </div>
           </div>
 

@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fortune Card Upload Test Page</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        .header h1 {
+            color: #4a5568;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+        }
+
+        .header .icon {
+            font-size: 3rem;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+        }
+
+        .test-section {
+            margin-bottom: 30px;
+            padding: 25px;
+            background: #f8fafc;
+            border-radius: 15px;
+            border-left: 5px solid #667eea;
+        }
+
+        .test-section h2 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+            color: white;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .btn-secondary {
+            background: linear-gradient(135deg, #48bb78, #38a169);
+        }
+
+        .btn-info {
+            background: linear-gradient(135deg, #4299e1, #3182ce);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ed8936, #dd6b20);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .console-output {
+            background: #1a202c;
+            color: #e2e8f0;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            margin-top: 20px;
+            border: 2px solid #2d3748;
+        }
+
+        .console-output:empty::before {
+            content: "Console output will appear here...";
+            color: #718096;
+            font-style: italic;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        .status-success { background: #48bb78; }
+        .status-error { background: #f56565; }
+        .status-warning { background: #ed8936; }
+        .status-info { background: #4299e1; }
+
+        .instructions {
+            background: linear-gradient(135deg, #fef5e7, #fed7aa);
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #ed8936;
+        }
+
+        .instructions h3 {
+            color: #9c4221;
+            margin-bottom: 10px;
+        }
+
+        .instructions ol {
+            color: #744210;
+            padding-left: 20px;
+        }
+
+        .instructions li {
+            margin-bottom: 5px;
+        }
+
+        .results-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .results-table th,
+        .results-table td {
+            padding: 12px 15px;
+            text-align: left;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .results-table th {
+            background: #4a5568;
+            color: white;
+            font-weight: 600;
+        }
+
+        .results-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .test-passed {
+            color: #48bb78;
+            font-weight: bold;
+        }
+
+        .test-failed {
+            color: #f56565;
+            font-weight: bold;
+        }
+
+        .navigation-links {
+            background: #e6fffa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            border-left: 5px solid #38b2ac;
+        }
+
+        .navigation-links h3 {
+            color: #234e52;
+            margin-bottom: 10px;
+        }
+
+        .navigation-links a {
+            color: #319795;
+            text-decoration: none;
+            font-weight: 600;
+            margin-right: 20px;
+        }
+
+        .navigation-links a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .btn {
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>
+                <span class="icon">🔮</span>
+                Fortune Card Upload Test
+                <span class="icon">🎬</span>
+            </h1>
+            <p>Comprehensive testing suite for the Feature Film fortune card upload functionality</p>
+        </div>
+
+        <div class="navigation-links">
+            <h3>🔗 Quick Navigation</h3>
+            <a href="/#admin/feature-films/new" target="_blank">New Feature Film</a>
+            <a href="/#admin/feature-films" target="_blank">Feature Films Gallery</a>
+            <a href="/FORTUNE_CARD_UPLOAD_FIX_SUMMARY.md" target="_blank">Fix Summary</a>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 How to Use This Test Page</h3>
+            <ol>
+                <li>Open the browser developer console (F12) to see detailed test output</li>
+                <li>Click "Run All Tests" to execute the complete test suite</li>
+                <li>Use individual test buttons to run specific tests</li>
+                <li>Check the results table and console output for detailed information</li>
+                <li>Use "Show Manual Test Instructions" for step-by-step testing guidance</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h2>🚀 Automated Tests</h2>
+            <div class="button-group">
+                <button class="btn btn-primary" onclick="runAllTests()">
+                    <span>🎯</span> Run All Tests
+                </button>
+                <button class="btn btn-secondary" onclick="runComponentTest()">
+                    <span>🧩</span> Component Integration
+                </button>
+                <button class="btn btn-info" onclick="runFormDataTest()">
+                    <span>📝</span> Form Data Handling
+                </button>
+                <button class="btn btn-info" onclick="runServiceTest()">
+                    <span>⚙️</span> Service Integration
+                </button>
+                <button class="btn btn-warning" onclick="runFileUploadTest()">
+                    <span>📤</span> File Upload Process
+                </button>
+                <button class="btn btn-secondary" onclick="runStorageRulesTest()">
+                    <span>🔒</span> Storage Rules
+                </button>
+            </div>
+            
+            <div id="test-results"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📖 Manual Testing</h2>
+            <div class="button-group">
+                <button class="btn btn-warning" onclick="showManualInstructions()">
+                    <span>📋</span> Show Manual Test Instructions
+                </button>
+                <button class="btn btn-info" onclick="clearConsole()">
+                    <span>🧹</span> Clear Console
+                </button>
+            </div>
+            
+            <div id="manual-instructions" style="display: none;">
+                <div class="instructions">
+                    <h3>🔧 Manual Testing Steps</h3>
+                    <ol>
+                        <li>Navigate to <a href="/#admin/feature-films/edit/" target="_blank">/#admin/feature-films/edit/</a> or <a href="/#admin/feature-films/new" target="_blank">/#admin/feature-films/new</a></li>
+                        <li>Scroll down to the "Fortune Card" section</li>
+                        <li>Try uploading an image file (JPG, PNG, GIF)</li>
+                        <li>Or try entering an image URL</li>
+                        <li>Save the form and check if the fortune card is saved to the database</li>
+                        <li>Check the browser network tab for upload requests to Firebase Storage</li>
+                        <li>Verify the fortune card appears in the film data after saving</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📊 Console Output</h2>
+            <div id="console-output" class="console-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>📈 Test Results Summary</h2>
+            <div id="results-summary">
+                <p>Run tests to see results here...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Load the test script -->
+    <script src="test-fortune-card-upload.js"></script>
+    
+    <script>
+        // Console capture for display in the page
+        const originalConsoleLog = console.log;
+        const originalConsoleError = console.error;
+        const originalConsoleWarn = console.warn;
+        
+        const consoleOutput = document.getElementById('console-output');
+        
+        function addToConsole(message, type = 'log') {
+            const timestamp = new Date().toLocaleTimeString();
+            const div = document.createElement('div');
+            div.style.marginBottom = '5px';
+            
+            let color = '#e2e8f0';
+            let prefix = '';
+            
+            switch(type) {
+                case 'error':
+                    color = '#f56565';
+                    prefix = '❌ ';
+                    break;
+                case 'warn':
+                    color = '#ed8936';
+                    prefix = '⚠️ ';
+                    break;
+                case 'success':
+                    color = '#48bb78';
+                    prefix = '✅ ';
+                    break;
+                case 'info':
+                    color = '#4299e1';
+                    prefix = 'ℹ️ ';
+                    break;
+            }
+            
+            div.innerHTML = `<span style="color: #718096;">[${timestamp}]</span> <span style="color: ${color};">${prefix}${message}</span>`;
+            consoleOutput.appendChild(div);
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+        }
+        
+        console.log = function(...args) {
+            originalConsoleLog.apply(console, args);
+            addToConsole(args.join(' '), 'log');
+        };
+        
+        console.error = function(...args) {
+            originalConsoleError.apply(console, args);
+            addToConsole(args.join(' '), 'error');
+        };
+        
+        console.warn = function(...args) {
+            originalConsoleWarn.apply(console, args);
+            addToConsole(args.join(' '), 'warn');
+        };
+        
+        // Test functions
+        function runAllTests() {
+            clearConsole();
+            console.log('🚀 Starting Fortune Card Upload Tests...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const results = testFortuneCardUpload.runAllTests();
+                displayResults(results);
+            } else {
+                console.error('Test script not loaded properly');
+                addToConsole('❌ Test script not loaded. Make sure test-fortune-card-upload.js is accessible.', 'error');
+            }
+        }
+        
+        function runComponentTest() {
+            clearConsole();
+            console.log('🧩 Running Component Integration Test...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const result = testFortuneCardUpload.testFortuneCardComponent();
+                displaySingleResult('Component Integration', result);
+            } else {
+                console.error('Test script not loaded properly');
+            }
+        }
+        
+        function runFormDataTest() {
+            clearConsole();
+            console.log('📝 Running Form Data Handling Test...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const result = testFortuneCardUpload.testFormDataHandling();
+                displaySingleResult('Form Data Handling', result);
+            } else {
+                console.error('Test script not loaded properly');
+            }
+        }
+        
+        function runServiceTest() {
+            clearConsole();
+            console.log('⚙️ Running Service Integration Test...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const result = testFortuneCardUpload.testServiceIntegration();
+                displaySingleResult('Service Integration', result);
+            } else {
+                console.error('Test script not loaded properly');
+            }
+        }
+        
+        function runFileUploadTest() {
+            clearConsole();
+            console.log('📤 Running File Upload Process Test...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const result = testFortuneCardUpload.testFileUploadProcess();
+                displaySingleResult('File Upload Process', result);
+            } else {
+                console.error('Test script not loaded properly');
+            }
+        }
+        
+        function runStorageRulesTest() {
+            clearConsole();
+            console.log('🔒 Running Storage Rules Test...');
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                const result = testFortuneCardUpload.testStorageRules();
+                displaySingleResult('Storage Rules', result);
+            } else {
+                console.error('Test script not loaded properly');
+            }
+        }
+        
+        function showManualInstructions() {
+            const instructions = document.getElementById('manual-instructions');
+            if (instructions.style.display === 'none') {
+                instructions.style.display = 'block';
+                console.log('📋 Manual testing instructions displayed');
+            } else {
+                instructions.style.display = 'none';
+            }
+            
+            if (typeof testFortuneCardUpload !== 'undefined') {
+                testFortuneCardUpload.showManualTestInstructions();
+            }
+        }
+        
+        function clearConsole() {
+            consoleOutput.innerHTML = '';
+            console.clear();
+        }
+        
+        function displayResults(results) {
+            const resultsDiv = document.getElementById('test-results');
+            const summaryDiv = document.getElementById('results-summary');
+            
+            if (!results) {
+                resultsDiv.innerHTML = '<p class="test-failed">❌ No results available</p>';
+                return;
+            }
+            
+            const passedTests = Object.values(results).filter(Boolean).length;
+            const totalTests = Object.keys(results).length;
+            
+            let tableHTML = `
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Status</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            Object.entries(results).forEach(([testName, passed]) => {
+                const statusClass = passed ? 'test-passed' : 'test-failed';
+                const statusIcon = passed ? '✅' : '❌';
+                const statusText = passed ? 'PASSED' : 'FAILED';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${testName.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase())}</td>
+                        <td><span class="status-indicator ${passed ? 'status-success' : 'status-error'}"></span></td>
+                        <td class="${statusClass}">${statusIcon} ${statusText}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += '</tbody></table>';
+            resultsDiv.innerHTML = tableHTML;
+            
+            const summaryClass = passedTests === totalTests ? 'test-passed' : 'test-failed';
+            const summaryIcon = passedTests === totalTests ? '🎉' : '⚠️';
+            
+            summaryDiv.innerHTML = `
+                <div class="${summaryClass}" style="font-size: 1.2rem; padding: 20px; text-align: center; background: ${passedTests === totalTests ? '#f0fff4' : '#fef5e7'}; border-radius: 10px; border: 2px solid ${passedTests === totalTests ? '#48bb78' : '#ed8936'};">
+                    ${summaryIcon} <strong>${passedTests}/${totalTests} tests passed</strong>
+                    <br><br>
+                    ${passedTests === totalTests 
+                        ? '🎉 All tests passed! Fortune card upload should be working correctly.' 
+                        : '⚠️ Some tests failed. Check the console output and test results above for details.'
+                    }
+                </div>
+            `;
+        }
+        
+        function displaySingleResult(testName, result) {
+            const resultsDiv = document.getElementById('test-results');
+            const summaryDiv = document.getElementById('results-summary');
+            
+            const statusClass = result ? 'test-passed' : 'test-failed';
+            const statusIcon = result ? '✅' : '❌';
+            const statusText = result ? 'PASSED' : 'FAILED';
+            
+            resultsDiv.innerHTML = `
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Test Name</th>
+                            <th>Status</th>
+                            <th>Result</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${testName}</td>
+                            <td><span class="status-indicator ${result ? 'status-success' : 'status-error'}"></span></td>
+                            <td class="${statusClass}">${statusIcon} ${statusText}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+            
+            summaryDiv.innerHTML = `
+                <div class="${statusClass}" style="font-size: 1.2rem; padding: 20px; text-align: center; background: ${result ? '#f0fff4' : '#fef5e7'}; border-radius: 10px; border: 2px solid ${result ? '#48bb78' : '#ed8936'};">
+                    ${statusIcon} <strong>${testName}: ${statusText}</strong>
+                </div>
+            `;
+        }
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🔮 Fortune Card Upload Test Page Loaded');
+            console.log('💡 Click "Run All Tests" to start testing');
+            
+            // Check if test script is loaded
+            if (typeof testFortuneCardUpload === 'undefined') {
+                addToConsole('⚠️ Test script not loaded. Make sure test-fortune-card-upload.js is in the same directory.', 'warn');
+            } else {
+                addToConsole('✅ Test script loaded successfully', 'success');
+            }
+        });
+    </script>
+</body>
+</html>

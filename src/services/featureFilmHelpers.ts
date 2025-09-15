@@ -21,10 +21,22 @@ export const createFeatureFilmWithGuests = async (
   filmData: FeatureFilmData
 ): Promise<{filmId: string, guestIds: string[]}> => {
   try {
-    // Clean the data to remove undefined values and system fields
+    console.log('🚀 createFeatureFilmWithGuests - Processing film data:', {
+      userId,
+      hasFortuneCardFile: !!filmData.fortuneCardFile,
+      fortuneCardFileName: filmData.fortuneCardFile?.name,
+      hasFortuneCard: !!filmData.fortuneCard,
+      hasFortuneCardUrl: !!filmData.fortuneCardUrl
+    });
+
+    // CRITICAL FIX: Pass the complete filmData including File objects to the service
+    // The featureFilmService.createFeatureFilm function handles file uploads internally
+    // We should NOT strip out File objects here as they're needed for upload processing
+    
+    // Only remove system fields, but keep all File objects for upload processing
     const cleanCreateData: any = {};
     Object.entries(filmData).forEach(([key, value]) => {
-      // Skip system fields and undefined values
+      // Only skip system fields, but keep File objects for upload processing
       if (value !== undefined && 
           key !== 'id' && 
           key !== 'createdAt' && 
@@ -40,13 +52,23 @@ export const createFeatureFilmWithGuests = async (
       delete cleanCreateData.galleryLogoIndex;
     }
 
-    // The existing featureFilmService already handles guest creation
-    // through the extractCrewMembersFromFilmData function
+    console.log('📤 Passing data to createFeatureFilm service:', {
+      hasFortuneCardFile: !!cleanCreateData.fortuneCardFile,
+      hasPosterFile: !!cleanCreateData.posterFile,
+      hasTrailerFile: !!cleanCreateData.trailerFile,
+      hasGalleryFiles: !!(cleanCreateData.galleryFiles && cleanCreateData.galleryFiles.length > 0),
+      dataKeys: Object.keys(cleanCreateData)
+    });
+
+    // The existing featureFilmService already handles guest creation and file uploads
+    // through the extractCrewMembersFromFilmData and uploadFeatureFilmFiles functions
     const result = await createFeatureFilm(cleanCreateData, userId);
     
     if (!result.success || !result.data) {
       throw new Error(result.error || 'Failed to create feature film');
     }
+    
+    console.log('✅ Film creation completed successfully:', result.data.id);
     
     // Return the film ID and empty guest IDs array since the existing service
     // handles guest creation internally
@@ -55,7 +77,7 @@ export const createFeatureFilmWithGuests = async (
       guestIds: [] // Guest IDs are managed internally by the existing service
     };
   } catch (error) {
-    console.error('Error creating feature film with guests:', error);
+    console.error('💥 Error creating feature film with guests:', error);
     throw new Error(error instanceof Error ? error.message : 'Failed to create feature film with guests');
   }
 };
@@ -69,10 +91,22 @@ export const updateFeatureFilmWithGuests = async (
   filmData: FeatureFilmData
 ): Promise<{filmId: string, guestIds: string[]}> => {
   try {
-    // Clean the data to remove undefined values and system fields
+    console.log('🔄 updateFeatureFilmWithGuests - Processing film data:', {
+      filmId,
+      hasFortuneCardFile: !!filmData.fortuneCardFile,
+      fortuneCardFileName: filmData.fortuneCardFile?.name,
+      hasFortuneCard: !!filmData.fortuneCard,
+      hasFortuneCardUrl: !!filmData.fortuneCardUrl
+    });
+
+    // CRITICAL FIX: Pass the complete filmData including File objects to the service
+    // The featureFilmService.updateFeatureFilm function handles file uploads internally
+    // We should NOT strip out File objects here as they're needed for upload processing
+    
+    // Only remove system fields, but keep all File objects for upload processing
     const cleanUpdateData: any = {};
     Object.entries(filmData).forEach(([key, value]) => {
-      // Skip system fields and undefined values
+      // Only skip system fields, but keep File objects for upload processing
       if (value !== undefined && 
           key !== 'id' && 
           key !== 'createdAt' && 
@@ -87,14 +121,24 @@ export const updateFeatureFilmWithGuests = async (
       // Don't include galleryLogoIndex in the update if it's undefined
       delete cleanUpdateData.galleryLogoIndex;
     }
+
+    console.log('📤 Passing data to updateFeatureFilm service:', {
+      hasFortuneCardFile: !!cleanUpdateData.fortuneCardFile,
+      hasPosterFile: !!cleanUpdateData.posterFile,
+      hasTrailerFile: !!cleanUpdateData.trailerFile,
+      hasGalleryFiles: !!(cleanUpdateData.galleryFiles && cleanUpdateData.galleryFiles.length > 0),
+      dataKeys: Object.keys(cleanUpdateData)
+    });
     
-    // The existing featureFilmService already handles guest updates
-    // through the extractCrewMembersFromFilmData function
+    // The existing featureFilmService already handles guest updates and file uploads
+    // through the extractCrewMembersFromFilmData and uploadFeatureFilmFiles functions
     const result = await updateFeatureFilm(filmId, cleanUpdateData);
     
     if (!result.success) {
       throw new Error(result.error || 'Failed to update feature film');
     }
+    
+    console.log('✅ Film update completed successfully:', result.data?.id);
     
     // Return the film ID and empty guest IDs array since the existing service
     // handles guest updates internally
@@ -103,7 +147,7 @@ export const updateFeatureFilmWithGuests = async (
       guestIds: [] // Guest IDs are managed internally by the existing service
     };
   } catch (error) {
-    console.error('Error updating feature film with guests:', error);
+    console.error('💥 Error updating feature film with guests:', error);
     throw new Error(error instanceof Error ? error.message : 'Failed to update feature film with guests');
   }
 };

@@ -18,7 +18,10 @@ import {
   ChevronRight,
   Loader2,
   RefreshCw,
-  AlertCircle
+  AlertCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from 'lucide-react';
 import { Activity, ActivityFilters, ActivitySortOptions } from '../../types/activities';
 import { useTypography } from '../../utils/typography';
@@ -57,7 +60,7 @@ interface FiltersState {
   sortOrder: 'asc' | 'desc';
 }
 
-interface ActivitiesGalleryProps {
+interface ActivitiesListViewProps {
   activities?: Activity[];
   filter?: string | null;
   onNavigate?: (route: string) => void;
@@ -66,14 +69,14 @@ interface ActivitiesGalleryProps {
   isLoading?: boolean;
 }
 
-export default function ActivitiesGallery({
+export default function ActivitiesListView({
   activities: propActivities,
   filter,
   onNavigate,
   onRefresh,
   onActivityDuplicated,
   isLoading: propIsLoading = false
-}: ActivitiesGalleryProps = {}) {
+}: ActivitiesListViewProps = {}) {
   const { getClass } = useTypography();
   const { user } = useAuth();
   const { showLoading, updateToSuccess, updateToError } = useNotificationHelpers();
@@ -98,7 +101,7 @@ export default function ActivitiesGallery({
     isProcessing: false
   });
 
-  // Pagination state
+  // Pagination state - Default to 20 items per page
   const [pagination, setPagination] = useState<PaginationState>({
     currentPage: 1,
     totalPages: 1,
@@ -120,36 +123,28 @@ export default function ActivitiesGallery({
     if (propActivities && propActivities.length > 0) {
       console.log('📊 Using prop activities:', propActivities.length);
       setAllActivities(propActivities);
-      // Don't reset pagination when receiving prop activities - this fixes the bug
-      // where switching views would show limited results
-    } else if (!propActivities) {
+      setPagination(prev => ({
+        ...prev,
+        totalItems: propActivities.length,
+        totalPages: Math.ceil(propActivities.length / prev.itemsPerPage)
+      }));
+    } else {
       console.log('📡 Loading activities from service...');
       loadActivities();
     }
   }, [propActivities]);
 
-  // Update pagination when allActivities changes
-  useEffect(() => {
-    if (allActivities.length > 0) {
-      setPagination(prev => ({
-        ...prev,
-        totalItems: allActivities.length,
-        totalPages: Math.ceil(allActivities.length / prev.itemsPerPage)
-      }));
-    }
-  }, [allActivities, pagination.itemsPerPage]);
-
   // Load activities when authentication changes
   useEffect(() => {
     if (user) {
-      console.log('🔍 AdminActivitiesGallery: User authenticated, loading activities');
+      console.log('🔍 AdminActivitiesListView: User authenticated, loading activities');
       loadActivities();
     } else {
-      console.log('⚠️ AdminActivitiesGallery: No user, clearing activities');
+      console.log('⚠️ AdminActivitiesListView: No user, clearing activities');
       setAllActivities([]);
       setError('Authentication required. Please log in as an admin.');
     }
-  }, [user]); // Depend on user changes
+  }, [user]);
 
   // Load activities from service
   const loadActivities = async () => {
@@ -157,38 +152,24 @@ export default function ActivitiesGallery({
       setIsLoading(true);
       setError(null);
       
-      // 🔍 DEBUG: Check authentication status
-      console.log('🔍 AdminActivitiesGallery: Authentication check:', {
-        user: user?.uid,
-        email: user?.email,
-        isAuthenticated: !!user,
-        timestamp: new Date().toISOString()
-      });
-      
       if (!user) {
-        console.warn('⚠️ AdminActivitiesGallery: No authenticated user found');
+        console.warn('⚠️ AdminActivitiesListView: No authenticated user found');
         setError('Authentication required. Please log in as an admin.');
         return;
       }
       
-      console.log('🔍 AdminActivitiesGallery: Fetching ALL activities using getAllActivities()...');
+      console.log('🔍 AdminActivitiesListView: Fetching ALL activities using getAllActivities()...');
       
-      // ✅ FIX: Use the new getAllActivities() method to get ALL activities without limits
       const allActivitiesData = await activitiesService.getAllActivities();
       
-      console.log('✅ AdminActivitiesGallery: Loaded activities using getAllActivities():', {
+      console.log('✅ AdminActivitiesListView: Loaded activities using getAllActivities():', {
         totalCount: allActivitiesData.length,
         statusBreakdown: {
           published: allActivitiesData.filter(a => a.status === 'published').length,
           draft: allActivitiesData.filter(a => a.status === 'draft').length,
           cancelled: allActivitiesData.filter(a => a.status === 'cancelled').length,
           completed: allActivitiesData.filter(a => a.status === 'completed').length
-        },
-        firstFewActivities: allActivitiesData.slice(0, 3).map(a => ({
-          name: a.name,
-          status: a.status,
-          eventDate: a.eventDate
-        }))
+        }
       });
       
       setAllActivities(allActivitiesData);
@@ -198,9 +179,8 @@ export default function ActivitiesGallery({
         totalPages: Math.ceil(allActivitiesData.length / prev.itemsPerPage)
       }));
     } catch (err) {
-      console.error('❌ AdminActivitiesGallery: Error loading activities:', err);
+      console.error('❌ AdminActivitiesListView: Error loading activities:', err);
       
-      // Provide more specific error messages
       if (err instanceof Error) {
         if (err.message.includes('permission-denied') || err.message.includes('Missing or insufficient permissions')) {
           setError('Admin authentication required. Please log in with admin credentials.');
@@ -295,14 +275,6 @@ export default function ActivitiesGallery({
       totalPages
     }));
 
-    console.log('📄 Pagination applied:', {
-      currentPage: pagination.currentPage,
-      itemsPerPage: pagination.itemsPerPage,
-      totalItems: filteredAndSortedActivities.length,
-      totalPages,
-      showing: result.length
-    });
-
     return result;
   }, [filteredAndSortedActivities, pagination.currentPage, pagination.itemsPerPage]);
 
@@ -310,6 +282,15 @@ export default function ActivitiesGallery({
   const handleFilterChange = (key: keyof FiltersState, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+  };
+
+  // Handle sorting
+  const handleSort = (field: string) => {
+    setFilters(prev => ({
+      ...prev,
+      sortBy: field,
+      sortOrder: prev.sortBy === field && prev.sortOrder === 'asc' ? 'desc' : 'asc'
+    }));
   };
 
   // Handle page changes
@@ -462,15 +443,24 @@ export default function ActivitiesGallery({
 
   // Utility functions
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('th-TH', {
+    return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
-      month: 'long',
+      month: 'short',
       day: 'numeric'
     });
   };
 
   const formatTime = (timeString: string) => {
     return timeString.slice(0, 5);
+  };
+
+  const getSortIcon = (field: string) => {
+    if (filters.sortBy !== field) {
+      return <ArrowUpDown className="w-4 h-4 text-white/40" />;
+    }
+    return filters.sortOrder === 'asc' 
+      ? <ArrowUp className="w-4 h-4 text-[#FCB283]" />
+      : <ArrowDown className="w-4 h-4 text-[#FCB283]" />;
   };
 
   // Loading state
@@ -555,47 +545,27 @@ export default function ActivitiesGallery({
               <option value="private" className="bg-gray-800 text-white">Private</option>
             </select>
           </div>
-
-          {/* Sort */}
-          <div>
-            <select
-              value={filters.sortBy}
-              onChange={(e) => handleFilterChange('sortBy', e.target.value)}
-              className="px-4 py-2.5 border border-white/20 bg-white/10 text-white rounded-lg focus:ring-2 focus:ring-[#FCB283] focus:border-[#FCB283] transition-all appearance-none backdrop-blur-sm"
-            >
-              <option value="eventDate" className="bg-gray-800 text-white">Event Date</option>
-              <option value="name" className="bg-gray-800 text-white">Name A-Z</option>
-              <option value="createdAt" className="bg-gray-800 text-white">Created Date</option>
-              <option value="views" className="bg-gray-800 text-white">Views</option>
-            </select>
-          </div>
-
-          {/* Sort Direction */}
-          <div>
-            <select
-              value={filters.sortOrder}
-              onChange={(e) => handleFilterChange('sortOrder', e.target.value as 'asc' | 'desc')}
-              className="px-4 py-2.5 border border-white/20 bg-white/10 text-white rounded-lg focus:ring-2 focus:ring-[#FCB283] focus:border-[#FCB283] transition-all appearance-none backdrop-blur-sm"
-            >
-              <option value="asc" className="bg-gray-800 text-white">Ascending</option>
-              <option value="desc" className="bg-gray-800 text-white">Descending</option>
-            </select>
-          </div>
         </div>
 
-        {/* Page Size Selector */}
-        <div className="flex items-center gap-4">
-          <span className="text-sm text-white/70">Items per page:</span>
-          <select
-            value={pagination.itemsPerPage}
-            onChange={(e) => handlePageSizeChange(Number(e.target.value))}
-            className="px-3 py-1.5 border border-white/20 bg-white/10 text-white rounded-lg focus:ring-2 focus:ring-[#FCB283] focus:border-[#FCB283] transition-all appearance-none backdrop-blur-sm"
-          >
-            <option value={20} className="bg-gray-800 text-white">20</option>
-            <option value={40} className="bg-gray-800 text-white">40</option>
-            <option value={60} className="bg-gray-800 text-white">60</option>
-            <option value={100} className="bg-gray-800 text-white">100</option>
-          </select>
+        {/* Page Size Selector and Results Info */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-white/70">Items per page:</span>
+            <select
+              value={pagination.itemsPerPage}
+              onChange={(e) => handlePageSizeChange(Number(e.target.value))}
+              className="px-3 py-1.5 border border-white/20 bg-white/10 text-white rounded-lg focus:ring-2 focus:ring-[#FCB283] focus:border-[#FCB283] transition-all appearance-none backdrop-blur-sm"
+            >
+              <option value={20} className="bg-gray-800 text-white">20</option>
+              <option value={40} className="bg-gray-800 text-white">40</option>
+              <option value={60} className="bg-gray-800 text-white">60</option>
+              <option value={100} className="bg-gray-800 text-white">100</option>
+            </select>
+          </div>
+          
+          <div className="text-sm text-white/70">
+            Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} activities
+          </div>
         </div>
 
         {/* Bulk Actions */}
@@ -622,55 +592,10 @@ export default function ActivitiesGallery({
         )}
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className="glass-container rounded-lg p-4">
-          <div className="text-2xl font-bold text-white">{allActivities.length}</div>
-          <div className="text-sm text-white/70">Total Activities</div>
-        </div>
-        <div className="glass-container rounded-lg p-4">
-          <div className="text-2xl font-bold text-green-400">
-            {allActivities.filter(a => a.status === 'published').length}
-          </div>
-          <div className="text-sm text-white/70">Published</div>
-        </div>
-        <div className="glass-container rounded-lg p-4">
-          <div className="text-2xl font-bold text-yellow-400">
-            {allActivities.filter(a => a.status === 'draft').length}
-          </div>
-          <div className="text-sm text-white/70">Drafts</div>
-        </div>
-        <div className="glass-container rounded-lg p-4">
-          <div className="text-2xl font-bold text-[#FCB283]">
-            {allActivities.filter(a => a.isPublic).length}
-          </div>
-          <div className="text-sm text-white/70">Public</div>
-        </div>
-      </div>
-
-      {/* Activities Grid */}
-      <div className="space-y-6">
-        {/* Select All and Results Info */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <input
-              type="checkbox"
-              checked={selectedActivities.size === paginatedActivities.length && paginatedActivities.length > 0}
-              onChange={handleSelectAll}
-              className="w-4 h-4 text-[#FCB283] border-white/30 bg-white/10 rounded focus:ring-[#FCB283]"
-            />
-            <span className={`text-sm text-white/80 ${getClass('body')}`}>
-              Select All ({paginatedActivities.length} on this page)
-            </span>
-          </div>
-          
-          <div className="text-sm text-white/70">
-            Showing {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-{Math.min(pagination.currentPage * pagination.itemsPerPage, pagination.totalItems)} of {pagination.totalItems} activities
-          </div>
-        </div>
-
+      {/* Activities Table */}
+      <div className="glass-container rounded-xl overflow-hidden">
         {paginatedActivities.length === 0 ? (
-          <div className="glass-container rounded-xl p-12 text-center">
+          <div className="p-12 text-center">
             <div className="text-white/40 mb-4">
               <Calendar className="w-16 h-16 mx-auto" />
             </div>
@@ -691,106 +616,150 @@ export default function ActivitiesGallery({
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-4 gap-4">
-            {paginatedActivities.map((activity) => (
-              <div key={activity.id} className="glass-container rounded-xl overflow-hidden group hover:shadow-xl hover:scale-105 transition-all duration-300 hover:border-[#FCB283]/50">
-                {/* Selection Checkbox */}
-                <div className="absolute top-3 left-3 z-10">
+          <>
+            {/* Table Header */}
+            <div className="bg-white/5 border-b border-white/10">
+              <div className="px-6 py-4">
+                <div className="flex items-center gap-3">
                   <input
                     type="checkbox"
-                    checked={selectedActivities.has(activity.id)}
-                    onChange={() => handleSelectActivity(activity.id)}
+                    checked={selectedActivities.size === paginatedActivities.length && paginatedActivities.length > 0}
+                    onChange={handleSelectAll}
                     className="w-4 h-4 text-[#FCB283] border-white/30 bg-white/10 rounded focus:ring-[#FCB283]"
                   />
+                  <span className={`text-sm text-white/80 font-medium ${getClass('body')}`}>
+                    Select All ({paginatedActivities.length} on this page)
+                  </span>
                 </div>
+              </div>
+            </div>
 
-                {/* Activity Image */}
-                <div className="relative h-32 bg-gradient-to-br from-gray-200 to-gray-300">
-                  <img
-                    src={activity.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'}
-                    alt={activity.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
-                    }}
-                  />
-                  
-                  {/* Status Badge */}
-                  <div className="absolute top-3 right-3">
+            {/* Table Headers */}
+            <div className="bg-white/5 border-b border-white/10">
+              <div className="grid grid-cols-12 gap-4 px-6 py-3 text-sm font-medium text-white/80">
+                <div className="col-span-1"></div> {/* Checkbox column */}
+                <div className="col-span-3">
+                  <button
+                    onClick={() => handleSort('name')}
+                    className="flex items-center gap-2 hover:text-[#FCB283] transition-colors"
+                  >
+                    Activity Name
+                    {getSortIcon('name')}
+                  </button>
+                </div>
+                <div className="col-span-2">
+                  <button
+                    onClick={() => handleSort('eventDate')}
+                    className="flex items-center gap-2 hover:text-[#FCB283] transition-colors"
+                  >
+                    Date & Time
+                    {getSortIcon('eventDate')}
+                  </button>
+                </div>
+                <div className="col-span-2">Venue</div>
+                <div className="col-span-1">Status</div>
+                <div className="col-span-1">Visibility</div>
+                <div className="col-span-1">Participants</div>
+                <div className="col-span-1">Actions</div>
+              </div>
+            </div>
+
+            {/* Table Body */}
+            <div className="divide-y divide-white/10">
+              {paginatedActivities.map((activity) => (
+                <div key={activity.id} className="grid grid-cols-12 gap-4 px-6 py-4 hover:bg-white/5 transition-colors">
+                  {/* Checkbox */}
+                  <div className="col-span-1 flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={selectedActivities.has(activity.id)}
+                      onChange={() => handleSelectActivity(activity.id)}
+                      className="w-4 h-4 text-[#FCB283] border-white/30 bg-white/10 rounded focus:ring-[#FCB283]"
+                    />
+                  </div>
+
+                  {/* Activity Name */}
+                  <div className="col-span-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                        <img
+                          src={activity.image || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+'}
+                          alt={activity.name}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNDAwIiBoZWlnaHQ9IjI0MCIgdmlld0JveD0iMCAwIDQwMCAyNDAiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxyZWN0IHdpZHRoPSI0MDAiIGhlaWdodD0iMjQwIiBmaWxsPSIjRjNGNEY2Ii8+CjxwYXRoIGQ9Ik0xNzUgOTBMMTg1IDEwNUwyMDUgODVMMjI1IDExMEgyNTVWMTMwSDEyNVYxMTBMMTQwIDk1TDE3NSA5MFoiIGZpbGw9IiM5Q0EzQUYiLz4KPC9zdmc+';
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className={`text-sm font-semibold text-white mb-1 truncate ${getClass('header')}`}>
+                          {activity.name}
+                        </h3>
+                        <p className={`text-xs text-white/70 line-clamp-2 ${getClass('body')}`}>
+                          {activity.shortDescription}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date & Time */}
+                  <div className="col-span-2">
+                    <div className="text-sm text-white">
+                      {formatDate(activity.eventDate)}
+                    </div>
+                    <div className="text-xs text-white/70">
+                      {formatTime(activity.startTime)} - {formatTime(activity.endTime)}
+                    </div>
+                  </div>
+
+                  {/* Venue */}
+                  <div className="col-span-2">
+                    <div className="flex items-center gap-2">
+                      <MapPin className="w-3 h-3 text-[#FCB283] flex-shrink-0" />
+                      <span className="text-sm text-white/80 truncate">{activity.venueName}</span>
+                    </div>
+                  </div>
+
+                  {/* Status */}
+                  <div className="col-span-1">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${statusColors[activity.status]}`}>
                       {statusLabels[activity.status]}
                     </span>
                   </div>
 
-                  {/* Public/Private Badge */}
-                  <div className="absolute bottom-3 right-3">
-                    {activity.isPublic ? (
-                      <div className="bg-white bg-opacity-90 rounded-full p-1">
-                        <Globe className="w-3 h-3 text-[#FCB283]" />
-                      </div>
-                    ) : (
-                      <div className="bg-white bg-opacity-90 rounded-full p-1">
-                        <EyeOff className="w-3 h-3 text-gray-500" />
-                      </div>
-                    )}
+                  {/* Visibility */}
+                  <div className="col-span-1">
+                    <div className="flex items-center gap-2">
+                      {activity.isPublic ? (
+                        <>
+                          <Globe className="w-3 h-3 text-[#FCB283]" />
+                          <span className="text-xs text-white/80">Public</span>
+                        </>
+                      ) : (
+                        <>
+                          <EyeOff className="w-3 h-3 text-gray-400" />
+                          <span className="text-xs text-white/80">Private</span>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
 
-                {/* Activity Content */}
-                <div className="p-4">
-                  <h3 className={`text-sm font-semibold text-white mb-2 line-clamp-2 leading-tight ${getClass('header')}`}>
-                    {activity.name}
-                  </h3>
-                  
-                  <p className={`text-xs text-white/70 mb-3 line-clamp-2 ${getClass('body')}`}>
-                    {activity.shortDescription.length > 120 
-                      ? `${activity.shortDescription.substring(0, 120)}...`
-                      : activity.shortDescription
-                    }
-                  </p>
-
-                  {/* Activity Details */}
-                  <div className="space-y-1.5 mb-3">
-                    <div className="flex items-center gap-2 text-xs text-white/80">
-                      <Calendar className="w-3 h-3 text-[#FCB283]" />
-                      <span>{formatDate(activity.eventDate)}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs text-white/80">
-                      <Clock className="w-3 h-3 text-[#FCB283]" />
-                      <span>{formatTime(activity.startTime)} - {formatTime(activity.endTime)}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs text-white/80">
-                      <MapPin className="w-3 h-3 text-[#FCB283]" />
-                      <span className="line-clamp-1">{activity.venueName}</span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2 text-xs text-white/80">
+                  {/* Participants */}
+                  <div className="col-span-1">
+                    <div className="flex items-center gap-2">
                       <Users className="w-3 h-3 text-[#FCB283]" />
-                      <span>
-                        {activity.maxParticipants === 0 ? 'Unlimited' : `${activity.registeredParticipants || 0}/${activity.maxParticipants}`}
+                      <span className="text-xs text-white/80">
+                        {activity.maxParticipants === 0 
+                          ? 'Unlimited' 
+                          : `${activity.registeredParticipants || 0}/${activity.maxParticipants}`
+                        }
                       </span>
                     </div>
                   </div>
 
-                  {/* Tags */}
-                  {activity.tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mb-3">
-                      {activity.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className={`px-2 py-0.5 text-xs rounded-full border ${getTagColor(tag)} ${getClass('body')}`}
-                        >
-                          {tag}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex items-center justify-between pt-3 border-t border-white/20">
-                    <div className="flex items-center gap-1">
+                  {/* Actions */}
+                  <div className="col-span-1 pr-4">
+                    <div className="flex items-center gap-1 justify-start">
                       <button
                         onClick={() => handleViewActivity(activity.id)}
                         className="p-1.5 text-white/60 hover:text-[#FCB283] hover:bg-[#FCB283]/20 rounded-lg transition-colors"
@@ -814,9 +783,7 @@ export default function ActivitiesGallery({
                       >
                         <Copy className="w-3.5 h-3.5" />
                       </button>
-                    </div>
-
-                    <div className="flex items-center gap-1">
+                      
                       <button
                         onClick={() => openDeleteModal(activity.id, activity.name)}
                         className="p-1.5 text-white/60 hover:text-red-400 hover:bg-red-400/20 rounded-lg transition-colors"
@@ -824,21 +791,17 @@ export default function ActivitiesGallery({
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
-                      
-                      <button className="p-1.5 text-white/60 hover:text-white hover:bg-white/10 rounded-lg transition-colors">
-                        <MoreHorizontal className="w-3.5 h-3.5" />
-                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Pagination */}
         {pagination.totalPages > 1 && (
-          <div className="glass-container rounded-xl p-6 mt-8">
+          <div className="bg-white/5 border-t border-white/10 px-6 py-4">
             <div className="flex items-center justify-between">
               <div className="text-sm text-white/70">
                 Page {pagination.currentPage} of {pagination.totalPages}

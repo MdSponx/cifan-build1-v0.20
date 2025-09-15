@@ -6,21 +6,25 @@ import {
   collection, 
   query, 
   orderBy, 
-  onSnapshot, 
+  getDocs, 
   where, 
   limit,
-  startAfter,
+  Timestamp,
   QueryDocumentSnapshot,
-  Timestamp
+  DocumentData
 } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { AdminApplicationCard as AdminApplicationCardType, GalleryFilters, PaginationState } from '../../types/admin.types';
 import ExportService from '../../services/exportService';
 import { useNotificationHelpers } from '../ui/NotificationSystem';
 import ExportDialog from '../ui/ExportDialog';
+import DeleteConfirmationModal from '../ui/DeleteConfirmationModal';
 import AdminZoneHeader from '../layout/AdminZoneHeader';
 import AdminApplicationCard from '../ui/AdminApplicationCard';
-import { Search, Download, Filter, Calendar, ChevronLeft, ChevronRight, Grid, List, RefreshCw, Wifi, WifiOff } from 'lucide-react';
+import AdminApplicationListItem from '../ui/AdminApplicationListItem';
+import { AdminApplicationService, AdminDeleteProgress } from '../../services/adminApplicationService';
+import { isAdminUser, isEditorUser } from '../../utils/userUtils';
+import { Search, Download, Filter, Calendar, ChevronLeft, ChevronRight, Grid, List, RefreshCw, Wifi, WifiOff, Trash2 } from 'lucide-react';
 
 interface AdminGalleryPageProps {
   onSidebarToggle?: () => void;
@@ -29,7 +33,7 @@ interface AdminGalleryPageProps {
 const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) => {
   const { i18n } = useTranslation();
   const { getClass } = useTypography();
-  const { user } = useAuth();
+  const { user, userProfile } = useAuth();
   const currentLanguage = i18n.language as 'en' | 'th';
 
   // State management
@@ -37,7 +41,10 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
   const [filteredApplications, setFilteredApplications] = useState<AdminApplicationCardType[]>([]);
   const [loading, setLoading] = useState(true);
   const [initialLoad, setInitialLoad] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    type: 'network' | 'permission' | 'data' | 'unknown';
+    message: string;
+  } | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
   const [hasMore, setHasMore] = useState(true);
@@ -49,6 +56,12 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [showExportDialog, setShowExportDialog] = useState(false);
   const [exportProgress, setExportProgress] = useState<any>();
+  
+  // Bulk delete state
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [bulkDeleteProgress, setBulkDeleteProgress] = useState<AdminDeleteProgress | null>(null);
+  
   const { showSuccess, showError } = useNotificationHelpers();
   
   // Filter and pagination state
@@ -120,7 +133,13 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
       connectionRestored: "เชื่อมต่อกลับมาแล้ว",
       loadMore: "โหลดเพิ่มเติม",
       errorLoading: "เกิดข้อผิดพลาดในการโหลดข้อมูล",
-      retry: "ลองใหม่"
+      retry: "ลองใหม่",
+      bulkDelete: "ลบหลายรายการ",
+      confirmBulkDelete: "ยืนยันการลบหลายรายการ",
+      bulkDeleteMessage: "คุณแน่ใจหรือไม่ที่จะลบใบสมัครที่เลือกไว้ทั้งหมด? การกระทำนี้จะลบข้อมูลทั้งหมดรวมถึงไฟล์และคะแนน และไม่สามารถยกเลิกได้",
+      cancel: "ยกเลิก",
+      delete: "ลบ",
+      totalDuration: "รวมระยะเวลา"
     },
     en: {
       pageTitle: "Applications Gallery",
@@ -169,7 +188,13 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
       connectionRestored: "Connection restored",
       loadMore: "Load More",
       errorLoading: "Error loading data",
-      retry: "Retry"
+      retry: "Retry",
+      bulkDelete: "Bulk Delete",
+      confirmBulkDelete: "Confirm Bulk Delete",
+      bulkDeleteMessage: "Are you sure you want to delete all selected applications? This action will permanently remove all data including files and scores, and cannot be undone.",
+      cancel: "Cancel",
+      delete: "Delete",
+      totalDuration: "Total Duration"
     }
   };
 
@@ -200,141 +225,89 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }, []);
 
-  // Real-time Firestore data loading
-  const loadApplications = useCallback(() => {
-    if (!user) {
+  // Stable Firestore data loading - FIXED APPROACH
+  const loadApplications = useCallback(async () => {
+    if (!user?.uid) {
       setLoading(false);
       return;
     }
 
-    setLoading(true);
-    setError(null);
-
     try {
-      // Build base Firestore query - only use orderBy to avoid composite index issues
-      // We'll do filtering client-side to avoid needing composite indexes
-      let q = query(
-        collection(db, 'submissions'),
-        orderBy('createdAt', 'desc'),
-        limit(100) // Fetch more items to allow for client-side filtering
-      );
-
-      // Only apply one server-side filter to avoid composite index requirements
-      // Priority: date range > category > status
-      if (filters.dateRange?.start && filters.dateRange?.end) {
-        // If we have a date range, use that as the server-side filter
-        q = query(
-          collection(db, 'submissions'),
-          where('createdAt', '>=', Timestamp.fromDate(new Date(filters.dateRange.start))),
-          where('createdAt', '<=', Timestamp.fromDate(new Date(filters.dateRange.end))),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
-      } else if (filters.dateRange?.start) {
-        q = query(
-          collection(db, 'submissions'),
-          where('createdAt', '>=', Timestamp.fromDate(new Date(filters.dateRange.start))),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
-      } else if (filters.dateRange?.end) {
-        q = query(
-          collection(db, 'submissions'),
-          where('createdAt', '<=', Timestamp.fromDate(new Date(filters.dateRange.end))),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
-      } else if (filters.category && filters.category !== 'all') {
-        // Use category as server-side filter if no date range
-        q = query(
-          collection(db, 'submissions'),
-          where('competitionCategory', '==', filters.category),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
-      } else if (filters.status && filters.status !== 'all') {
-        // Use status as server-side filter if no date range or category
-        q = query(
-          collection(db, 'submissions'),
-          where('status', '==', filters.status),
-          orderBy('createdAt', 'desc'),
-          limit(100)
-        );
+      setLoading(true);
+      setError(null);
+      
+      console.log(`Loading applications for user: ${user.uid}`);
+      
+      // Build optimized Firestore query using existing indexes
+      const applicationsRef = collection(db, 'submissions');
+      const q = query(applicationsRef, orderBy('createdAt', 'desc'));
+      
+      const snapshot = await getDocs(q);
+      const applicationsList: AdminApplicationCardType[] = [];
+      
+      snapshot.docs.forEach((doc) => {
+        const data = doc.data();
+        
+        // Map Firestore data to AdminApplicationCard type
+        const application: AdminApplicationCardType = {
+          id: doc.id,
+          userId: data.userId || '',
+          filmTitle: data.filmTitle || 'Untitled',
+          filmTitleTh: data.filmTitleTh,
+          directorName: data.submitterName || data.directorName || 'Unknown',
+          directorNameTh: data.submitterNameTh || data.directorNameTh,
+          competitionCategory: data.competitionCategory || data.category || 'youth',
+          status: data.status || 'draft',
+          posterUrl: data.files?.posterFile?.downloadURL || data.files?.posterFile?.url || '',
+          submittedAt: data.submittedAt?.toDate(),
+          createdAt: data.createdAt?.toDate() || new Date(),
+          lastModified: data.lastModified?.toDate() || new Date(),
+          country: data.nationality || 'Unknown',
+          hasScores: data.scores && data.scores.length > 0,
+          averageScore: data.scores && data.scores.length > 0 
+            ? data.scores.reduce((sum: number, score: any) => sum + (score.totalScore || 0), 0) / data.scores.length 
+            : undefined,
+          reviewStatus: data.reviewStatus,
+          genres: data.genres || [],
+          duration: data.duration || 0,
+          format: data.format || 'live-action'
+        };
+        
+        applicationsList.push(application);
+      });
+      
+      console.log(`Loaded ${applicationsList.length} applications`);
+      setApplications(applicationsList);
+      
+    } catch (error: any) {
+      console.error('Error loading applications:', error);
+      
+      // Enhanced error handling
+      let errorType: 'network' | 'permission' | 'data' | 'unknown' = 'unknown';
+      let errorMessage = 'Unknown error occurred';
+      
+      if (error.code === 'permission-denied') {
+        errorType = 'permission';
+        errorMessage = 'Access denied. Please check your permissions.';
+      } else if (error.code === 'unavailable') {
+        errorType = 'network';
+        errorMessage = 'Network unavailable. Please check your connection.';
+      } else if (error.code === 'failed-precondition') {
+        errorType = 'data';
+        errorMessage = 'Database configuration error. Please contact support.';
+      } else {
+        errorMessage = error.message || 'Failed to load applications';
       }
-
-      // Set up real-time listener
-      const unsubscribeListener = onSnapshot(
-        q,
-        (snapshot) => {
-          const applicationsData: AdminApplicationCardType[] = [];
-          
-          snapshot.forEach((doc) => {
-            const data = doc.data();
-            
-            // Map Firestore data to AdminApplicationCard type
-            const application: AdminApplicationCardType = {
-              id: doc.id,
-              userId: data.userId || '',
-              filmTitle: data.filmTitle || 'Untitled',
-              filmTitleTh: data.filmTitleTh,
-              directorName: data.submitterName || data.directorName || 'Unknown',
-              directorNameTh: data.submitterNameTh || data.directorNameTh,
-              competitionCategory: data.competitionCategory || data.category || 'youth',
-              status: data.status || 'draft',
-              posterUrl: data.files?.posterFile?.downloadURL || data.files?.posterFile?.url || '',
-              submittedAt: data.submittedAt?.toDate(),
-              createdAt: data.createdAt?.toDate() || new Date(),
-              lastModified: data.lastModified?.toDate() || new Date(),
-              country: data.nationality || 'Unknown',
-              hasScores: data.scores && data.scores.length > 0,
-              averageScore: data.scores && data.scores.length > 0 
-                ? data.scores.reduce((sum: number, score: any) => sum + (score.totalScore || 0), 0) / data.scores.length 
-                : undefined,
-              reviewStatus: data.reviewStatus,
-              genres: data.genres || [],
-              duration: data.duration || 0,
-              format: data.format || 'live-action'
-            };
-            
-            applicationsData.push(application);
-          });
-
-          setApplications(applicationsData);
-          setLoading(false);
-          setInitialLoad(false);
-          setRefreshing(false);
-          
-          // Update pagination info (will be recalculated after client-side filtering)
-          setPagination(prev => ({
-            ...prev,
-            totalItems: applicationsData.length,
-            totalPages: Math.ceil(applicationsData.length / prev.itemsPerPage)
-          }));
-        },
-        (error) => {
-          console.error('Error fetching applications:', error);
-          setError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการโหลดข้อมูล' : 'Error loading applications');
-          setLoading(false);
-          setInitialLoad(false);
-          setRefreshing(false);
-          
-          showError(
-            currentContent.errorLoading,
-            error.message
-          );
-        }
-      );
-
-      // Store unsubscribe function
-      setUnsubscribe(() => unsubscribeListener);
-
-    } catch (error) {
-      console.error('Error setting up listener:', error);
-      setError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการตั้งค่าการเชื่อมต่อ' : 'Error setting up connection');
+      
+      setError({ type: errorType, message: errorMessage });
+      showError(currentContent.errorLoading, errorMessage);
+      
+    } finally {
       setLoading(false);
       setInitialLoad(false);
+      setRefreshing(false);
     }
-  }, [user, filters.category, filters.status, filters.dateRange, currentLanguage, showError, currentContent]);
+  }, [user?.uid, currentContent.errorLoading, showError]);
 
   // Load data on mount and filter changes
   useEffect(() => {
@@ -348,26 +321,25 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
     };
   }, [loadApplications]);
 
-  // Client-side filtering and sorting
+  // Client-side filtering and sorting - FIXED SYNCHRONIZATION
   useEffect(() => {
+    if (!applications.length) {
+      setFilteredApplications([]);
+      setPagination(prev => ({ ...prev, totalItems: 0, totalPages: 1, currentPage: 1 }));
+      return;
+    }
+
     let filtered = [...applications];
 
-    // Apply category filter (client-side if not already applied server-side)
+    // Apply filters
     if (filters.category && filters.category !== 'all') {
       filtered = filtered.filter(app => app.competitionCategory === filters.category);
     }
 
-    // Apply status filter (client-side if not already applied server-side)
     if (filters.status && filters.status !== 'all') {
-      filtered = filtered.filter(app => {
-        // Ensure we're filtering by the exact status field from the database
-        const appStatus = app.status;
-        console.log(`Filtering: App ID ${app.id}, Status: "${appStatus}", Filter: "${filters.status}"`);
-        return appStatus === filters.status;
-      });
+      filtered = filtered.filter(app => app.status === filters.status);
     }
 
-    // Apply search filter
     if (filters.search) {
       const searchTerm = filters.search.toLowerCase();
       filtered = filtered.filter(app => 
@@ -379,12 +351,10 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
       );
     }
 
-    // Apply country filter
     if (filters.country && filters.country !== 'all') {
       filtered = filtered.filter(app => app.country === filters.country);
     }
 
-    // Apply date range filter (client-side if not already applied server-side)
     if (filters.dateRange?.start || filters.dateRange?.end) {
       filtered = filtered.filter(app => {
         const appDate = app.createdAt;
@@ -397,7 +367,7 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
         
         if (filters.dateRange?.end) {
           const endDate = new Date(filters.dateRange.end);
-          endDate.setHours(23, 59, 59, 999); // Include the entire end date
+          endDate.setHours(23, 59, 59, 999);
           matchesEnd = appDate <= endDate;
         }
         
@@ -425,14 +395,39 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
 
     setFilteredApplications(filtered);
     
-    // Update pagination
+    // Update pagination - CRITICAL FIX
+    const totalItems = filtered.length;
+    const totalPages = Math.max(1, Math.ceil(totalItems / pagination.itemsPerPage));
+    
     setPagination(prev => ({
       ...prev,
-      currentPage: 1,
-      totalItems: filtered.length,
-      totalPages: Math.ceil(filtered.length / prev.itemsPerPage)
+      currentPage: Math.min(prev.currentPage, totalPages), // Prevent invalid pages
+      totalItems,
+      totalPages
     }));
-  }, [applications, filters]);
+
+  }, [applications, filters, pagination.itemsPerPage]);
+
+  // Calculate total duration of filtered applications
+  const totalMinutes = React.useMemo(() => {
+    return filteredApplications.reduce((total, app) => total + (app.duration || 0), 0);
+  }, [filteredApplications]);
+
+  // Format duration for display
+  const formatDuration = (minutes: number) => {
+    if (minutes === 0) return '0 min';
+    
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    
+    if (hours === 0) {
+      return `${mins} min`;
+    } else if (mins === 0) {
+      return `${hours}h`;
+    } else {
+      return `${hours}h ${mins}min`;
+    }
+  };
 
   // Get unique countries for filter dropdown
   const uniqueCountries = Array.from(new Set(applications.map(app => app.country))).sort();
@@ -449,10 +444,18 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
     setFilters(prev => ({ ...prev, [key]: value }));
   };
 
-  const handlePageChange = (page: number) => {
+  const handlePageChange = useCallback((page: number) => {
+    console.log(`Changing to page ${page} of ${pagination.totalPages}`);
+    
+    // Validate page bounds
+    if (page < 1 || page > pagination.totalPages) {
+      console.warn(`Invalid page: ${page}. Valid range: 1-${pagination.totalPages}`);
+      return;
+    }
+
     setPagination(prev => ({ ...prev, currentPage: page }));
     window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
+  }, [pagination.totalPages]);
 
   const handleRefresh = () => {
     setRefreshing(true);
@@ -514,6 +517,62 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
     }, 100);
   };
 
+  // Bulk delete handlers
+  const handleBulkDelete = () => {
+    if (selectedItems.size === 0) {
+      showError(currentLanguage === 'th' ? 'กรุณาเลือกใบสมัครที่ต้องการลบ' : 'Please select applications to delete');
+      return;
+    }
+
+    // Check if user has permission to delete applications
+    const adminService = new AdminApplicationService();
+    if (!adminService.canDeleteApplication(userProfile?.role)) {
+      showError(currentLanguage === 'th' ? 'คุณไม่มีสิทธิ์ในการลบใบสมัคร' : 'You do not have permission to delete applications');
+      return;
+    }
+
+    setShowBulkDeleteModal(true);
+  };
+
+  const handleConfirmBulkDelete = async () => {
+    setIsBulkDeleting(true);
+    setBulkDeleteProgress(null);
+
+    try {
+      const adminService = new AdminApplicationService((progress) => {
+        setBulkDeleteProgress(progress);
+      });
+
+      const selectedIds = Array.from(selectedItems);
+      await adminService.bulkDeleteApplications(selectedIds);
+      
+      showSuccess(
+        currentLanguage === 'th' ? 'ลบใบสมัครเรียบร้อยแล้ว' : 'Applications deleted successfully',
+        currentLanguage === 'th' ? `ลบใบสมัครจำนวน ${selectedIds.length} รายการเรียบร้อยแล้ว` : `Successfully deleted ${selectedIds.length} applications`
+      );
+      
+      // Clear selection and refresh data
+      setSelectedItems(new Set());
+      setShowBulkSelect(false);
+      
+      // Refresh the applications list
+      setTimeout(() => {
+        handleRefresh();
+      }, 1000);
+
+    } catch (error) {
+      console.error('Error in bulk delete:', error);
+      showError(
+        currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการลบใบสมัคร' : 'Error deleting applications',
+        error instanceof Error ? error.message : 'Unknown error occurred'
+      );
+    } finally {
+      setIsBulkDeleting(false);
+      setShowBulkDeleteModal(false);
+      setBulkDeleteProgress(null);
+    }
+  };
+
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -535,18 +594,38 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Generate page numbers for pagination
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisible = 5;
-    const start = Math.max(1, pagination.currentPage - Math.floor(maxVisible / 2));
-    const end = Math.min(pagination.totalPages, start + maxVisible - 1);
+  // Generate page numbers for pagination - ENHANCED LOGIC
+  const getPageNumbers = useCallback(() => {
+    const { currentPage, totalPages } = pagination;
+    const pages: (number | string)[] = [];
     
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
+    if (totalPages <= 7) {
+      // Show all pages if 7 or fewer
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      // Always show first page
+      pages.push(1);
+      
+      // Add ellipsis if needed
+      if (currentPage > 4) pages.push('...');
+      
+      // Show pages around current page
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+      
+      for (let i = start; i <= end; i++) {
+        if (i !== 1 && i !== totalPages) pages.push(i);
+      }
+      
+      // Add ellipsis if needed
+      if (currentPage < totalPages - 3) pages.push('...');
+      
+      // Always show last page
+      if (totalPages > 1) pages.push(totalPages);
     }
+    
     return pages;
-  };
+  }, [pagination]);
 
   const getGridColumns = () => {
     return 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5';
@@ -575,7 +654,7 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
         {currentContent.errorLoading}
       </h2>
       <p className={`${getClass('body')} text-white/80 mb-6`}>
-        {error}
+        {error?.message}
       </p>
       <button
         onClick={handleRefresh}
@@ -598,6 +677,25 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
       </p>
     </div>
   );
+
+  // Debug helper component (Development Only)
+  const PaginationDebugInfo = () => {
+    if (process.env.NODE_ENV !== 'development') return null;
+    
+    return (
+      <div className="fixed bottom-4 right-4 bg-black/80 text-white p-4 rounded text-xs z-50">
+        <h4 className="text-yellow-400 font-bold mb-2">Debug Info</h4>
+        <div>Total: {applications.length}</div>
+        <div>Filtered: {filteredApplications.length}</div>
+        <div>Page: {pagination.currentPage}/{pagination.totalPages}</div>
+        <div>Showing: {paginatedApplications.length} items</div>
+        <div>Items per page: {pagination.itemsPerPage}</div>
+        <div>Error: {error ? error.type : 'None'}</div>
+        <div>Loading: {loading ? 'Yes' : 'No'}</div>
+        <div>Online: {isOnline ? 'Yes' : 'No'}</div>
+      </div>
+    );
+  };
 
   // Show loading skeleton only during initial load and no data exists yet
   if (initialLoad && applications.length === 0) {
@@ -747,9 +845,26 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
                   </button>
                   
                   {selectedItems.size > 0 && (
-                    <span className="px-3 py-2 bg-[#FCB283]/20 text-[#FCB283] rounded-lg text-sm" role="status">
-                      {selectedItems.size} {currentContent.selectedItems}
-                    </span>
+                    <>
+                      <span className="px-3 py-2 bg-[#FCB283]/20 text-[#FCB283] rounded-lg text-sm" role="status">
+                        {selectedItems.size} {currentContent.selectedItems}
+                      </span>
+                      
+                      {/* Bulk Delete Button - Only for Admin/Editor */}
+                      {(isAdminUser(userProfile) || isEditorUser(userProfile)) && (
+                        <button
+                          onClick={handleBulkDelete}
+                          disabled={isBulkDeleting}
+                          className="flex items-center space-x-2 px-4 py-2 bg-red-600/80 hover:bg-red-600 rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          aria-label={currentContent.bulkDelete}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          <span className="text-sm">
+                            {isBulkDeleting ? (currentLanguage === 'th' ? 'กำลังลบ...' : 'Deleting...') : currentContent.bulkDelete}
+                          </span>
+                        </button>
+                      )}
+                    </>
                   )}
                 </>
               )}
@@ -835,10 +950,22 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
           </div>
 
           {/* Results Summary */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/20">
-            <p className={`${getClass('body')} text-white/70 text-sm`} role="status">
-              {currentContent.showingResults} {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-{Math.min(pagination.currentPage * pagination.itemsPerPage, filteredApplications.length)} {currentContent.of} {filteredApplications.length} {currentLanguage === 'th' ? 'รายการ' : 'items'}
-            </p>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/20">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <p className={`${getClass('body')} text-white/70 text-sm`} role="status">
+                {currentContent.showingResults} {((pagination.currentPage - 1) * pagination.itemsPerPage) + 1}-{Math.min(pagination.currentPage * pagination.itemsPerPage, filteredApplications.length)} {currentContent.of} {filteredApplications.length} {currentLanguage === 'th' ? 'รายการ' : 'items'}
+              </p>
+              
+              {/* Total Duration Indicator */}
+              <div className="flex items-center space-x-2 px-3 py-1 bg-[#FCB283]/20 rounded-lg">
+                <span className={`${getClass('body')} text-[#FCB283] text-sm font-medium`}>
+                  {currentContent.totalDuration}:
+                </span>
+                <span className={`${getClass('body')} text-[#FCB283] text-sm font-bold`}>
+                  {formatDuration(totalMinutes)}
+                </span>
+              </div>
+            </div>
             
             <div className="flex items-center space-x-2">
               <span className={`${getClass('body')} text-white/70 text-sm`}>
@@ -865,22 +992,39 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
         </div>
       </div>
 
-      {/* Applications Grid */}
+      {/* Applications Display */}
       {paginatedApplications.length > 0 ? (
-        <div className={`grid ${getGridColumns()} gap-4 sm:gap-6`} role="grid">
-          {paginatedApplications.map((application) => (
-            <div key={application.id} role="gridcell">
-              <AdminApplicationCard
-                application={application}
-                onView={handleViewApplication}
-                onEdit={handleEditApplication}
-                isSelected={selectedItems.has(application.id)}
-                onSelect={handleBulkSelect}
-                showBulkSelect={showBulkSelect}
-              />
-            </div>
-          ))}
-        </div>
+        viewMode === 'grid' ? (
+          <div className={`grid ${getGridColumns()} gap-4 sm:gap-6`} role="grid">
+            {paginatedApplications.map((application) => (
+              <div key={application.id} role="gridcell">
+                <AdminApplicationCard
+                  application={application}
+                  onView={handleViewApplication}
+                  onEdit={handleEditApplication}
+                  isSelected={selectedItems.has(application.id)}
+                  onSelect={handleBulkSelect}
+                  showBulkSelect={showBulkSelect}
+                />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="space-y-4" role="list">
+            {paginatedApplications.map((application) => (
+              <div key={application.id} role="listitem">
+                <AdminApplicationListItem
+                  application={application}
+                  onView={handleViewApplication}
+                  onEdit={handleEditApplication}
+                  isSelected={selectedItems.has(application.id)}
+                  onSelect={handleBulkSelect}
+                  showBulkSelect={showBulkSelect}
+                />
+              </div>
+            ))}
+          </div>
+        )
       ) : (
         <EmptyState />
       )}
@@ -918,20 +1062,30 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
               </button>
 
               {/* Page Numbers */}
-              {getPageNumbers().map(pageNum => (
-                <button
-                  key={pageNum}
-                  onClick={() => handlePageChange(pageNum)}
-                  className={`px-3 py-2 rounded-lg transition-colors ${
-                    pageNum === pagination.currentPage
-                      ? 'bg-[#FCB283] text-white'
-                      : 'bg-white/10 border border-white/20 text-white hover:border-[#FCB283]'
-                  }`}
-                  aria-label={`Page ${pageNum}`}
-                  aria-current={pageNum === pagination.currentPage ? 'page' : undefined}
-                >
-                  {pageNum}
-                </button>
+              {getPageNumbers().map((pageNum, index) => (
+                pageNum === '...' ? (
+                  <span
+                    key={`ellipsis-${index}`}
+                    className="px-3 py-2 text-white/60"
+                    aria-hidden="true"
+                  >
+                    {pageNum}
+                  </span>
+                ) : (
+                  <button
+                    key={pageNum}
+                    onClick={() => handlePageChange(pageNum as number)}
+                    className={`px-3 py-2 rounded-lg transition-colors ${
+                      pageNum === pagination.currentPage
+                        ? 'bg-[#FCB283] text-white'
+                        : 'bg-white/10 border border-white/20 text-white hover:border-[#FCB283]'
+                    }`}
+                    aria-label={`Page ${pageNum}`}
+                    aria-current={pageNum === pagination.currentPage ? 'page' : undefined}
+                  >
+                    {pageNum}
+                  </button>
+                )
               ))}
 
               {/* Next Button */}
@@ -958,6 +1112,20 @@ const AdminGalleryPage: React.FC<AdminGalleryPageProps> = ({ onSidebarToggle }) 
         availableStatuses={['draft', 'submitted', 'under-review', 'accepted', 'rejected']}
         progress={exportProgress}
       />
+
+      {/* Bulk Delete Confirmation Modal */}
+      <DeleteConfirmationModal
+        isOpen={showBulkDeleteModal}
+        onClose={() => setShowBulkDeleteModal(false)}
+        onConfirm={handleConfirmBulkDelete}
+        title={currentContent.confirmBulkDelete}
+        message={currentContent.bulkDeleteMessage}
+        itemName={`${selectedItems.size} ${currentLanguage === 'th' ? 'ใบสมัคร' : 'applications'}`}
+        isProcessing={isBulkDeleting}
+      />
+
+      {/* Debug Info (Development Only) */}
+      <PaginationDebugInfo />
     </div>
   );
 };

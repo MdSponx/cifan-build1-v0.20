@@ -4,10 +4,11 @@ import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
 import { useNotificationHelpers } from '../ui/NotificationContext';
 import ActivitiesGallery from './ActivitiesGallery';
+import ActivitiesListView from './ActivitiesListView';
 import ActivitiesForm from './ActivitiesForm';
 import { Activity, ActivityFormData } from '../../types/activities';
 import { activitiesService } from '../../services/activitiesService';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Grid, List } from 'lucide-react';
 import AnimatedButton from '../ui/AnimatedButton';
 
 interface ActivitiesRouterProps {
@@ -30,6 +31,7 @@ const ActivitiesRouter: React.FC<ActivitiesRouterProps> = ({
   const [currentActivity, setCurrentActivity] = useState<Activity | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'gallery' | 'list'>('list');
 
   // Content translations
   const content = {
@@ -114,8 +116,23 @@ const ActivitiesRouter: React.FC<ActivitiesRouterProps> = ({
     try {
       setIsLoading(true);
       setError(null);
-      const response = await activitiesService.getActivities();
-      setActivities(response.activities);
+      
+      console.log('🔍 ActivitiesRouter: Loading ALL activities using getAllActivities()...');
+      
+      // Use getAllActivities() to get all activities without pagination limits
+      const allActivitiesData = await activitiesService.getAllActivities();
+      
+      console.log('✅ ActivitiesRouter: Loaded activities:', {
+        totalCount: allActivitiesData.length,
+        statusBreakdown: {
+          published: allActivitiesData.filter(a => a.status === 'published').length,
+          draft: allActivitiesData.filter(a => a.status === 'draft').length,
+          cancelled: allActivitiesData.filter(a => a.status === 'cancelled').length,
+          completed: allActivitiesData.filter(a => a.status === 'completed').length
+        }
+      });
+      
+      setActivities(allActivitiesData);
     } catch (err) {
       console.error('Error loading activities:', err);
       setError(currentContent.error);
@@ -316,14 +333,78 @@ const ActivitiesRouter: React.FC<ActivitiesRouterProps> = ({
     case 'gallery':
     default:
       return (
-        <ActivitiesGallery
-          activities={getFilteredActivities()}
-          filter={filter}
-          onNavigate={handleGalleryNavigate}
-          onRefresh={loadActivities}
-          onActivityDuplicated={handleActivityDuplicated}
-          isLoading={isLoading}
-        />
+        <div>
+          {/* View Toggle */}
+          <div className="max-w-7xl mx-auto px-6 pt-6">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h1 className={`text-3xl font-bold text-white mb-2 ${getClass('header')}`}>
+                  Activities & Events
+                </h1>
+                <p className={`text-white/70 ${getClass('subtitle')}`}>
+                  จัดการกิจกรรมและอีเว้นต์ทั้งหมดของเทศกาลภาพยนตร์
+                </p>
+              </div>
+              
+              <div className="flex items-center gap-3">
+                {/* View Toggle */}
+                <div className="flex items-center bg-white/10 rounded-lg p-1">
+                  <button
+                    onClick={() => setViewMode('gallery')}
+                    className={`px-3 py-2 rounded-md flex items-center gap-2 transition-all duration-200 ${
+                      viewMode === 'gallery'
+                        ? 'bg-[#FCB283] text-white shadow-sm'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <Grid className="w-4 h-4" />
+                    <span className="text-sm font-medium">Gallery</span>
+                  </button>
+                  <button
+                    onClick={() => setViewMode('list')}
+                    className={`px-3 py-2 rounded-md flex items-center gap-2 transition-all duration-200 ${
+                      viewMode === 'list'
+                        ? 'bg-[#FCB283] text-white shadow-sm'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }`}
+                  >
+                    <List className="w-4 h-4" />
+                    <span className="text-sm font-medium">List</span>
+                  </button>
+                </div>
+
+                {/* Create Button */}
+                <button
+                  onClick={() => onNavigate('admin/activities/create')}
+                  className="px-6 py-3 bg-gradient-to-r from-[#AA4626] to-[#FCB283] text-white rounded-lg hover:from-[#AA4626]/90 hover:to-[#FCB283]/90 transition-all duration-300 flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <span className="text-sm font-medium">Create New Activity</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Render appropriate view */}
+          {viewMode === 'gallery' ? (
+            <ActivitiesGallery
+              activities={getFilteredActivities()}
+              filter={filter}
+              onNavigate={handleGalleryNavigate}
+              onRefresh={loadActivities}
+              onActivityDuplicated={handleActivityDuplicated}
+              isLoading={isLoading}
+            />
+          ) : (
+            <ActivitiesListView
+              activities={getFilteredActivities()}
+              filter={filter}
+              onNavigate={handleGalleryNavigate}
+              onRefresh={loadActivities}
+              onActivityDuplicated={handleActivityDuplicated}
+              isLoading={isLoading}
+            />
+          )}
+        </div>
       );
   }
 };

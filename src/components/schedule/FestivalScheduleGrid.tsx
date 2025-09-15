@@ -15,6 +15,7 @@ import {
 import { useScheduleData } from '../../hooks/useScheduleData';
 import { useFontUtils } from '../../utils/fontUtils';
 import { FestivalScheduleManager, createFestivalScheduleManager } from '../../utils/FestivalScheduleManager';
+import { getCountryFlag } from '../../utils/flagsAndEmojis';
 import { RefreshCcwIcon } from 'lucide-react';
 
 /**
@@ -637,8 +638,8 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/15 to-transparent skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                             </div>
                             
-                            {/* Content - Enhanced to show Time, Duration, and Title */}
-                            <div className={`relative z-10 h-full flex flex-col p-3 text-white ${getFontClass('body')}`} style={getFontStyle('body')}>
+                            {/* Content - Left-aligned layout with Film Title, Time & Nationality, Director */}
+                            <div className={`relative z-10 h-full flex flex-col justify-between p-4 text-white ${getFontClass('body')}`} style={getFontStyle('body')}>
                               {/* Type Emoji - Top Right */}
                               <div className="absolute top-2 right-2">
                                 <span className="text-lg">
@@ -646,34 +647,42 @@ const FestivalScheduleGrid: React.FC<FestivalScheduleGridProps> = ({
                                 </span>
                               </div>
                               
-                              {/* Time and Duration - Top Left */}
-                              <div className="mb-2">
-                                <div className="text-xs font-semibold text-orange-200 drop-shadow-md">
-                                  {item.startTime}
-                                  {item.endTime && item.endTime !== item.startTime && (
-                                    <span> - {item.endTime}</span>
+                              {/* Main Content - Left Aligned */}
+                              <div className="flex flex-col justify-center flex-1 space-y-1.5">
+                                {/* Film Title - Larger text - Full text display */}
+                                <h3 className="font-bold text-lg leading-tight text-white drop-shadow-lg group-hover:text-orange-200 transition-colors duration-300">
+                                  {item.title}
+                                </h3>
+                                
+                                {/* Time and Duration - Second line */}
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="text-xs font-semibold text-orange-200 drop-shadow-md">
+                                    {item.startTime}
+                                    {item.endTime && item.endTime !== item.startTime && (
+                                      <span> - {item.endTime}</span>
+                                    )}
+                                  </span>
+                                  {item.duration && (
+                                    <>
+                                      <span className="text-xs text-white/60">•</span>
+                                      <span className="text-xs text-white/90 drop-shadow-md">{item.duration} {t('schedule.minutes')}</span>
+                                    </>
+                                  )}
+                                  {/* Flag emoji only (no country name) */}
+                                  {item.type === 'film' && item.country && (
+                                    <>
+                                      <span className="text-xs text-white/60">•</span>
+                                      <span className="text-sm">{getCountryFlag(item.country)}</span>
+                                    </>
                                   )}
                                 </div>
-                                {item.duration && (
-                                  <div className="text-xs text-white/80 drop-shadow-md">
-                                    {item.duration} {t('schedule.minutes')}
+                                
+                                {/* Director - Third line (for films only) - Smallest text, full name */}
+                                {item.type === 'film' && item.director && (
+                                  <div className="text-xs text-white/70 drop-shadow-md">
+                                    <span className="block">{item.director}</span>
                                   </div>
                                 )}
-                              </div>
-                              
-                              {/* Title - Center Focus */}
-                              <div className="flex-1 flex items-center justify-center px-1">
-                                <div className="text-center">
-                                  <h3 className="font-bold text-sm leading-tight text-white drop-shadow-lg line-clamp-3 group-hover:text-orange-200 transition-colors duration-300">
-                                    {item.title}
-                                  </h3>
-                                  {/* Director for films */}
-                                  {item.type === 'film' && item.director && (
-                                    <p className="text-xs text-white/70 mt-1 drop-shadow-md line-clamp-1">
-                                      {t('schedule.director')}: {item.director}
-                                    </p>
-                                  )}
-                                </div>
                               </div>
                             </div>
                             

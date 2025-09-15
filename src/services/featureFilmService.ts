@@ -146,6 +146,23 @@ const uploadFeatureFilmFiles = async (
       }
     }
 
+    // Upload fortune card file if provided
+    if (filmData.fortuneCardFile) {
+      try {
+        console.log('📤 Uploading fortune card file:', filmData.fortuneCardFile.name);
+        // Use user_uploads path for fortune cards
+        const timestamp = Date.now();
+        const sanitizedFileName = filmData.fortuneCardFile.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+        const fortuneCardPath = `films/user_uploads/fortune_cards/${timestamp}_${sanitizedFileName}`;
+        const fortuneCardResult = await uploadFile(filmData.fortuneCardFile, fortuneCardPath);
+        updatedData.fortuneCard = fortuneCardResult.url;
+        console.log('✅ Fortune card uploaded successfully to user_uploads:', fortuneCardResult.url);
+      } catch (error) {
+        console.error('❌ Error uploading fortune card:', error);
+        errors.push('Failed to upload fortune card');
+      }
+    }
+
     // Enhanced gallery files upload with proper merging
     if (filmData.galleryFiles && filmData.galleryFiles.length > 0) {
       console.log('🖼️ Starting gallery files upload:', {
@@ -292,7 +309,8 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
   // First add calculated time fields
   const dataWithCalculatedTimes = addCalculatedTimeFields(filmData);
   
-  const { posterFile, trailerFile, galleryFiles, ...cleanData } = dataWithCalculatedTimes;
+  // CRITICAL FIX: Remove ALL File objects including fortuneCardFile
+  const { posterFile, trailerFile, galleryFiles, fortuneCardFile, ...cleanData } = dataWithCalculatedTimes;
   
   // Remove undefined values as Firestore doesn't accept them
   const firestoreData: any = {};
@@ -317,12 +335,15 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
   console.log('🧹 Cleaned data for Firestore with calculated times:', {
     originalKeys: Object.keys(filmData),
     cleanedKeys: Object.keys(firestoreData),
+    removedFileObjects: ['posterFile', 'trailerFile', 'galleryFiles', 'fortuneCardFile'],
     removedUndefined: Object.keys(filmData).filter(key => 
       filmData[key as keyof FeatureFilmData] === undefined
     ),
     hasGalleryLogoIndex: 'galleryLogoIndex' in firestoreData,
     galleryLogoIndexValue: firestoreData.galleryLogoIndex,
     hasGalleryCoverIndex: 'galleryCoverIndex' in firestoreData,
+    hasFortuneCardFile: 'fortuneCardFile' in firestoreData, // Should be false
+    hasFortuneCard: 'fortuneCard' in firestoreData, // Should be true (URL)
     calculatedTimes: {
       startTime1: firestoreData.startTime1,
       endTime1: firestoreData.endTime1,
@@ -336,13 +357,19 @@ const prepareFilmDataForFirestore = (filmData: FeatureFilmData): Partial<Feature
 
 /**
  * Helper function to safely update Firestore documents with cleaned data
- * Ensures no undefined values are sent to Firestore
+ * Ensures no undefined values and File objects are sent to Firestore
  */
 const safeUpdateDoc = async (docRef: any, updateData: any): Promise<void> => {
-  // Clean the update data to remove undefined values
+  // Clean the update data to remove undefined values and File objects
   const cleanedData: any = {};
   
   Object.entries(updateData).forEach(([key, value]) => {
+    // CRITICAL FIX: Skip File objects that might have slipped through
+    if (value && typeof value === 'object' && value.constructor && value.constructor.name === 'File') {
+      console.log('🚫 Skipping File object in safeUpdateDoc:', key, (value as any).name);
+      return;
+    }
+    
     // Handle galleryLogoIndex specially - if undefined, don't include it at all
     if (key === 'galleryLogoIndex') {
       // Only include galleryLogoIndex if it's a valid number
@@ -363,8 +390,14 @@ const safeUpdateDoc = async (docRef: any, updateData: any): Promise<void> => {
     originalKeys: Object.keys(updateData),
     cleanedKeys: Object.keys(cleanedData),
     removedUndefined: Object.keys(updateData).filter(key => updateData[key] === undefined),
+    removedFileObjects: Object.keys(updateData).filter(key => {
+      const value = updateData[key];
+      return value && typeof value === 'object' && value.constructor && value.constructor.name === 'File';
+    }),
     hasGalleryLogoIndex: 'galleryLogoIndex' in cleanedData,
-    galleryLogoIndexValue: cleanedData.galleryLogoIndex
+    galleryLogoIndexValue: cleanedData.galleryLogoIndex,
+    hasFortuneCardFile: 'fortuneCardFile' in cleanedData, // Should be false
+    hasFortuneCard: 'fortuneCard' in cleanedData // Should be true (URL)
   });
   
   // Only proceed with update if we have data to update
@@ -480,7 +513,7 @@ export const createFeatureFilm = async (
     console.log('✅ Film document created with ID:', filmId);
     
     // Upload files if any are provided
-    const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0);
+    const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0) || filmData.fortuneCardFile;
     if (hasFiles) {
       console.log('📤 Starting file upload process...');
       const { updatedData, errors } = await uploadFeatureFilmFiles(filmId, filmData as FeatureFilmData, userId);
@@ -554,7 +587,7 @@ export const updateFeatureFilm = async (
     const filmRef = doc(db, COLLECTION_NAME, filmId);
     
     // Upload files if any are provided
-    const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0);
+    const hasFiles = filmData.posterFile || filmData.trailerFile || (filmData.galleryFiles && filmData.galleryFiles.length > 0) || filmData.fortuneCardFile;
     let fileUploadData = {};
     
     if (hasFiles) {
@@ -1382,7 +1415,20 @@ const convertLegacyToEnhanced = (legacyData: any): FeatureFilm => {
     // 🚨 CRITICAL FIX: Add the processed fields to the converted film object
     targetAudiences: targetAudiences,
     afterScreenActivities: afterScreenActivities,
-    category: category
+    category: category,
+    
+    // 🚨 CRITICAL FIX: Preserve dedicated time fields for useScheduleData hook
+    startTime1: legacyData.startTime1,
+    endTime1: legacyData.endTime1,
+    startTime2: legacyData.startTime2,
+    endTime2: legacyData.endTime2,
+    screeningDate1: legacyData.screeningDate1,
+    screeningDate2: legacyData.screeningDate2,
+    timeEstimate: legacyData.timeEstimate, // Preserve but should be ignored in schedule logic
+    length: legacyData.length || duration, // Preserve length field for backward compatibility
+    theatre: legacyData.theatre, // Preserve venue information
+    venue1: legacyData.venue1,
+    venue2: legacyData.venue2
   } as FeatureFilm;
 
   console.log('✅ Successfully converted legacy film:', {
