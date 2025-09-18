@@ -46,7 +46,7 @@ I have successfully created a comprehensive Festival Schedule Grid Component for
 
 ### Grid Layout
 - **Time Slots**: 15-minute increments from 10:00 AM to 12:00 AM
-- **Venues**: 6 festival venues (Stage Zone, EXPO Zone, Major Theatre 4, Major IMAX, Market, Asiatrip)
+- **Venues**: 6 festival venues (Stage Zone, EXPO Zone, Major Theatre 7, Major IMAX, Market, Asiatrip)
 - **Event Cards**: Automatically sized based on duration with precise positioning
 
 ### Color Scheme

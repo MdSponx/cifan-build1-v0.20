@@ -154,8 +154,8 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="glass-container rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="p-6 sm:p-8">
+      <div className="glass-container rounded-2xl max-w-2xl w-full max-h-[90vh] flex flex-col">
+        <div className="flex-1 overflow-y-auto p-6 sm:p-8">
           
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
@@ -377,13 +377,17 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
             </div>
           </div>
 
-          {/* Action Buttons */}
+        </div>
+        
+        {/* Fixed Action Buttons at Bottom */}
+        <div className="border-t border-white/10 p-6 sm:p-8 bg-black/20 backdrop-blur-sm">
           <div className="flex flex-col sm:flex-row gap-4 justify-end">
             <AnimatedButton
               variant="outline"
               size="large"
               onClick={onClose}
-              className={progress?.stage === 'processing' || progress?.stage === 'generating' ? 'opacity-50 cursor-not-allowed' : ''}
+              disabled={progress?.stage === 'processing' || progress?.stage === 'generating'}
+              className="min-w-[120px]"
             >
               {currentContent.cancel}
             </AnimatedButton>
@@ -391,9 +395,10 @@ const ExportDialog: React.FC<ExportDialogProps> = ({
             <AnimatedButton
               variant="primary"
               size="large"
-              icon={<Download className="w-4 h-4" />}
+              icon="📥"
               onClick={handleExport}
-              className={progress?.stage === 'processing' || progress?.stage === 'generating' ? 'opacity-50 cursor-not-allowed' : ''}
+              disabled={progress?.stage === 'processing' || progress?.stage === 'generating'}
+              className="min-w-[140px] bg-gradient-to-r from-[#AA4626] to-[#FCB283] hover:from-[#8B3A20] hover:to-[#E09B6F] shadow-lg"
             >
               {progress?.stage === 'processing' || progress?.stage === 'generating' 
                 ? currentContent.exporting 

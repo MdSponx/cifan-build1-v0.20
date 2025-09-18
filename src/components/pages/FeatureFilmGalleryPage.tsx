@@ -80,14 +80,31 @@ const FeatureFilmGalleryPage: React.FC<FeatureFilmGalleryPageProps> = ({
     loadMore
   } = useFeatureFilms(filters);
 
-  // Filter films for fortune cards only if needed
+  // Filter films based on fortuneCardsOnly prop
   const films = React.useMemo(() => {
-    if (!fortuneCardsOnly) return allFilms;
-    
-    // Filter films that have fortune card URLs
-    return allFilms.filter(film => 
-      film.fortuneCard || film.fortuneCardUrl
-    );
+    if (fortuneCardsOnly) {
+      // For fortune cards gallery, show only films that have fortune card fields with value
+      const filtered = allFilms.filter(film => {
+        const hasFortuneCardUrl = (film as any).fortuneCardUrl && 
+                                 (film as any).fortuneCardUrl.trim() !== '';
+        const hasFortuneCard = (film as any).fortuneCard && 
+                               (film as any).fortuneCard.trim() !== '';
+        
+        console.log('🔍 FeatureFilmGalleryPage - Checking film for fortune card:', {
+          id: film.id,
+          title: film.title,
+          hasFortuneCardUrl,
+          hasFortuneCard,
+          fortuneCardUrl: (film as any).fortuneCardUrl,
+          fortuneCard: (film as any).fortuneCard
+        });
+        
+        return hasFortuneCardUrl || hasFortuneCard;
+      });
+      console.log('Fortune cards filtered films:', filtered);
+      return filtered;
+    }
+    return allFilms;
   }, [allFilms, fortuneCardsOnly]);
 
   /**

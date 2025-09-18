@@ -23,7 +23,7 @@ import DeleteConfirmationModal from '../ui/DeleteConfirmationModal';
 import { useAdminNotes } from '../../hooks/useAdminNotes';
 import { notesService } from '../../services/notesService';
 import { isJuryUser, isAdminUser, isEditorUser } from '../../utils/userUtils';
-import { AdminApplicationService, AdminDeleteProgress } from '../../services/adminApplicationService';
+import { AdminApplicationService, AdminDeleteProgress, ValidationBypassResult } from '../../services/adminApplicationService';
 import { useNotificationHelpers } from '../ui/NotificationSystem';
 
 const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
@@ -42,6 +42,10 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
 
   const [showFlagDialog, setShowFlagDialog] = useState(false);
   const [flagReason, setFlagReason] = useState('');
+  const [showStatusChangeDialog, setShowStatusChangeDialog] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<AdminApplicationData['status'] | null>(null);
+  const [validationResult, setValidationResult] = useState<ValidationBypassResult | null>(null);
+  const [statusChangeReason, setStatusChangeReason] = useState('');
 
   // Check if current user is jury - jury users have restricted access
   const isJury = isJuryUser(userProfile);
@@ -123,7 +127,18 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
       deleteApplicationMessage: "คุณแน่ใจหรือไม่ที่จะลบใบสมัครนี้? การกระทำนี้จะลบข้อมูลทั้งหมดรวมถึงไฟล์และคะแนน และไม่สามารถยกเลิกได้",
       cancel: "ยกเลิก",
       confirm: "ยืนยัน",
-      delete: "ลบ"
+      delete: "ลบ",
+      
+      // Status change validation
+      statusChangeConfirmation: "ยืนยันการเปลี่ยนสถานะ",
+      validationWarning: "คำเตือนการตรวจสอบ",
+      missingFieldsWarning: "ข้อมูลที่ขาดหายไป:",
+      warningsFound: "พบปัญหา:",
+      bypassValidation: "ข้ามการตรวจสอบและดำเนินการต่อ",
+      statusChangeReason: "เหตุผลในการเปลี่ยนสถานะ",
+      statusChangeReasonPlaceholder: "ระบุเหตุผล (เช่น ข้อมูลไม่สมบูรณ์แต่อนุมัติเป็นพิเศษ)...",
+      proceedAnyway: "ดำเนินการต่อ",
+      adminOverride: "การแทรกแซงของผู้ดูแล"
     },
     en: {
       title: "Admin Controls",
@@ -177,7 +192,18 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
       deleteApplicationMessage: "Are you sure you want to delete this application? This action will permanently remove all data including files and scores, and cannot be undone.",
       cancel: "Cancel",
       confirm: "Confirm",
-      delete: "Delete"
+      delete: "Delete",
+      
+      // Status change validation
+      statusChangeConfirmation: "Confirm Status Change",
+      validationWarning: "Validation Warning",
+      missingFieldsWarning: "Missing critical fields:",
+      warningsFound: "Issues found:",
+      bypassValidation: "Bypass validation and proceed",
+      statusChangeReason: "Reason for status change",
+      statusChangeReasonPlaceholder: "Specify reason (e.g., incomplete data but approved as exception)...",
+      proceedAnyway: "Proceed Anyway",
+      adminOverride: "Admin Override"
     }
   };
 
@@ -191,12 +217,75 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
     { value: 'rejected', label: currentContent.rejected, icon: <XCircle className="w-4 h-4" />, color: 'text-red-400' }
   ];
 
-  const currentStatusOption = statusOptions.find(option => option.value === application.reviewStatus);
+  const currentStatusOption = statusOptions.find(option => option.value === application.status);
 
-  const handleStatusChange = async (newStatus: AdminApplicationData['reviewStatus']) => {
-    const confirmed = window.confirm(currentContent.confirmStatusChange);
-    if (confirmed) {
+  const handleStatusChange = async (newStatus: AdminApplicationData['status']) => {
+    if (newStatus === application.status) return;
+
+    try {
+      // Check validation status first
+      const adminService = new AdminApplicationService();
+      const validation = await adminService.getApplicationValidationStatus(application.id);
+      
+      setValidationResult(validation);
+      setPendingStatusChange(newStatus);
+      
+      if (validation.requiresConfirmation || validation.missingFields.length > 0) {
+        // Show confirmation dialog with validation details
+        setShowStatusChangeDialog(true);
+      } else {
+        // Direct status change for complete applications
+        const confirmed = window.confirm(currentContent.confirmStatusChange);
+        if (confirmed) {
+          await executeStatusChange(newStatus, false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking validation status:', error);
+      showError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการตรวจสอบข้อมูล' : 'Error checking application data');
+    }
+  };
+
+  const executeStatusChange = async (newStatus: AdminApplicationData['status'], bypassValidation: boolean) => {
+    if (!userProfile?.uid) {
+      showError(currentLanguage === 'th' ? 'ไม่พบข้อมูลผู้ใช้' : 'User information not found');
+      return;
+    }
+
+    try {
+      const adminService = new AdminApplicationService();
+      
+      // Get admin name from various sources
+      const adminName = userProfile.displayName || 
+                       userProfile.fullNameEN || 
+                       userProfile.email || 
+                       'Admin';
+      
+      await adminService.changeApplicationStatus(application.id, newStatus, {
+        adminId: userProfile.uid,
+        adminName: adminName,
+        reason: statusChangeReason.trim() || undefined,
+        bypassValidation
+      });
+
+      // Call the parent component's status change handler
       await onStatusChange(newStatus);
+      
+      const successMessage = bypassValidation
+        ? (currentLanguage === 'th' ? 'เปลี่ยนสถานะเรียบร้อย (ข้ามการตรวจสอบ)' : 'Status changed successfully (validation bypassed)')
+        : (currentLanguage === 'th' ? 'เปลี่ยนสถานะเรียบร้อย' : 'Status changed successfully');
+      
+      showSuccess(successMessage);
+      
+      // Reset dialog state
+      setShowStatusChangeDialog(false);
+      setPendingStatusChange(null);
+      setValidationResult(null);
+      setStatusChangeReason('');
+      
+    } catch (error) {
+      console.error('Error changing status:', error);
+      showError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการเปลี่ยนสถานะ' : 'Error changing status');
     }
   };
 
@@ -368,10 +457,10 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
                 {currentContent.changeStatus}
               </h5>
               <select
-                value={application.reviewStatus}
+                value={application.status}
                 onChange={(e) => {
-                  const newStatus = e.target.value as AdminApplicationData['reviewStatus'];
-                  if (newStatus !== application.reviewStatus) {
+                  const newStatus = e.target.value as AdminApplicationData['status'];
+                  if (newStatus !== application.status) {
                     handleStatusChange(newStatus);
                   }
                 }}
@@ -617,6 +706,106 @@ const AdminControlsPanel: React.FC<AdminControlsPanelProps> = ({
                 className={!flagReason.trim() ? 'opacity-50 cursor-not-allowed' : ''}
               >
                 {currentContent.confirm}
+              </AnimatedButton>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Status Change Confirmation Dialog */}
+      {showStatusChangeDialog && validationResult && pendingStatusChange && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="glass-container rounded-2xl max-w-lg w-full p-6">
+            <h3 className={`text-lg ${getClass('header')} text-white mb-4 flex items-center space-x-2`}>
+              <AlertTriangle className="w-5 h-5 text-orange-400" />
+              <span>{currentContent.statusChangeConfirmation}</span>
+            </h3>
+            
+            {/* Validation Issues */}
+            <div className="mb-6 space-y-4">
+              {validationResult.missingFields.length > 0 && (
+                <div className="p-4 bg-red-500/20 border border-red-500/30 rounded-lg">
+                  <h4 className={`text-red-400 font-medium mb-2 ${getClass('body')}`}>
+                    {currentContent.missingFieldsWarning}
+                  </h4>
+                  <ul className="list-disc list-inside space-y-1">
+                    {validationResult.missingFields.map((field, index) => (
+                      <li key={index} className={`text-red-300 text-sm ${getClass('body')}`}>
+                        {field}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {validationResult.warnings.length > 0 && (
+                <div className="p-4 bg-orange-500/20 border border-orange-500/30 rounded-lg">
+                  <h4 className={`text-orange-400 font-medium mb-2 ${getClass('body')}`}>
+                    {currentContent.warningsFound}
+                  </h4>
+                  <ul className="list-disc list-inside space-y-1">
+                    {validationResult.warnings.map((warning, index) => (
+                      <li key={index} className={`text-orange-300 text-sm ${getClass('body')}`}>
+                        {warning}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              
+              {/* Admin Override Notice */}
+              <div className="p-4 bg-blue-500/20 border border-blue-500/30 rounded-lg">
+                <div className="flex items-center space-x-2 mb-2">
+                  <Shield className="w-4 h-4 text-blue-400" />
+                  <h4 className={`text-blue-400 font-medium ${getClass('body')}`}>
+                    {currentContent.adminOverride}
+                  </h4>
+                </div>
+                <p className={`text-blue-300 text-sm ${getClass('body')}`}>
+                  {currentLanguage === 'th' 
+                    ? 'ในฐานะผู้ดูแล คุณสามารถข้ามการตรวจสอบและเปลี่ยนสถานะได้'
+                    : 'As an admin, you can bypass validation and change the status anyway.'
+                  }
+                </p>
+              </div>
+            </div>
+            
+            {/* Reason Input */}
+            <div className="mb-6">
+              <label className={`block text-white/90 ${getClass('body')} mb-2`}>
+                {currentContent.statusChangeReason}
+              </label>
+              <textarea
+                value={statusChangeReason}
+                onChange={(e) => setStatusChangeReason(e.target.value)}
+                placeholder={currentContent.statusChangeReasonPlaceholder}
+                rows={3}
+                className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-white/50 focus:border-[#FCB283] focus:outline-none resize-vertical"
+              />
+            </div>
+            
+            {/* Action Buttons */}
+            <div className="flex gap-4 justify-end">
+              <AnimatedButton
+                variant="outline"
+                size="medium"
+                onClick={() => {
+                  setShowStatusChangeDialog(false);
+                  setPendingStatusChange(null);
+                  setValidationResult(null);
+                  setStatusChangeReason('');
+                }}
+              >
+                {currentContent.cancel}
+              </AnimatedButton>
+              <AnimatedButton
+                variant="primary"
+                size="medium"
+                icon="⚠️"
+                onClick={() => executeStatusChange(pendingStatusChange, true)}
+                className="bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600"
+              >
+                {currentContent.proceedAnyway}
               </AnimatedButton>
             </div>
           </div>

@@ -228,7 +228,7 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
   };
 
   const isArticlesPageActive = (page: string) => {
-    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news') || page.startsWith('admin/fortune-cards');
+    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news');
   };
 
   // Applications submenu items
@@ -244,6 +244,24 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
       icon: <Grid size={18} />,
       label: currentContent.applicationsGallery,
       href: '#admin/gallery'
+    },
+    {
+      id: 'admin/youth-competition',
+      icon: <Users size={18} />,
+      label: currentLanguage === 'th' ? 'การประกวดเยาวชน' : 'Youth Competition',
+      href: '#admin/youth-competition'
+    },
+    {
+      id: 'admin/future-competition',
+      icon: <Sparkles size={18} />,
+      label: currentLanguage === 'th' ? 'การประกวดอนาคต' : 'Future Competition',
+      href: '#admin/future-competition'
+    },
+    {
+      id: 'admin/world-competition',
+      icon: <Award size={18} />,
+      label: currentLanguage === 'th' ? 'การประกวดโลก' : 'World Competition',
+      href: '#admin/world-competition'
     }
   ];
 
@@ -263,21 +281,6 @@ const AdminZoneSidebar: React.FC<AdminZoneSidebarProps> = ({
           icon: <Plus size={18} />,
           label: 'Add New Film',
           href: '#admin/feature-films/new'
-        }
-      ] : []),
-      // Fortune Cards items - visible to super-admin, admin, and editor
-      ...(actualUserRole === 'super-admin' || actualUserRole === 'admin' || actualUserRole === 'editor' ? [
-        {
-          id: 'admin/fortune-cards',
-          icon: <Eye size={18} />,
-          label: 'Fortune Cards',
-          href: '#admin/fortune-cards'
-        },
-        {
-          id: 'admin/fortune-cards/new',
-          icon: <Plus size={18} />,
-          label: 'Add New Fortune Card',
-          href: '#admin/fortune-cards/new'
         }
       ] : []),
       // News items - visible to super-admin, admin, and editor

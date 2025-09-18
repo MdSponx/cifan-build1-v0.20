@@ -1,4 +1,4 @@
-import { doc, getDoc, deleteDoc, collection, getDocs, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, deleteDoc, collection, getDocs, writeBatch, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../firebase';
 import { deleteFile } from './fileUploadService';
 import { AdminApplicationData } from '../types/admin.types';
@@ -7,6 +7,34 @@ export interface AdminDeleteProgress {
   stage: 'validating' | 'deleting-files' | 'deleting-comments' | 'deleting-application' | 'complete' | 'error';
   progress: number;
   message: string;
+}
+
+export interface AdminStatusChangeOptions {
+  adminId: string;
+  adminName: string;
+  reason?: string;
+  bypassValidation?: boolean;
+  notifyUser?: boolean;
+}
+
+export interface ValidationBypassResult {
+  canProceed: boolean;
+  missingFields: string[];
+  warnings: string[];
+  requiresConfirmation: boolean;
+}
+
+export interface StatusChangeAuditLog {
+  applicationId: string;
+  adminId: string;
+  adminName: string;
+  oldStatus: string;
+  newStatus: string;
+  reason?: string;
+  bypassedValidation: boolean;
+  missingFields: string[];
+  timestamp: Date;
+  ipAddress?: string;
 }
 
 export class AdminApplicationService {
@@ -107,6 +135,164 @@ export class AdminApplicationService {
    */
   canDeleteApplication(userRole: string | undefined): boolean {
     return userRole === 'admin' || userRole === 'super-admin' || userRole === 'editor';
+  }
+
+  /**
+   * Check if user can change application status with validation bypass (admin or editor)
+   */
+  canBypassValidation(userRole: string | undefined): boolean {
+    return userRole === 'admin' || userRole === 'super-admin' || userRole === 'editor';
+  }
+
+  /**
+   * Validate application for admin status change (lighter validation)
+   */
+  validateForAdminStatusChange(application: AdminApplicationData): ValidationBypassResult {
+    const missingFields: string[] = [];
+    const warnings: string[] = [];
+
+    // Critical fields that should always be present
+    if (!application.filmTitle?.trim()) {
+      missingFields.push('Film title');
+    }
+
+    if (!application.competitionCategory) {
+      missingFields.push('Competition category');
+    }
+
+    // Warning fields (not blocking but should be noted)
+    if (!application.synopsis?.trim()) {
+      warnings.push('Synopsis is missing');
+    }
+
+    if (!application.genres || application.genres.length === 0) {
+      warnings.push('No genres selected');
+    }
+
+    if (!application.duration || application.duration <= 0) {
+      warnings.push('Duration not specified');
+    }
+
+    if (!application.files?.filmFile?.url) {
+      warnings.push('Film file is missing');
+    }
+
+    if (!application.files?.posterFile?.url) {
+      warnings.push('Poster file is missing');
+    }
+
+    // Can proceed if only critical fields are missing and user has bypass permission
+    const canProceed = missingFields.length === 0;
+    const requiresConfirmation = warnings.length > 0;
+
+    return {
+      canProceed,
+      missingFields,
+      warnings,
+      requiresConfirmation
+    };
+  }
+
+  /**
+   * Change application status with admin privileges (can bypass validation)
+   */
+  async changeApplicationStatus(
+    applicationId: string,
+    newStatus: AdminApplicationData['status'],
+    options: AdminStatusChangeOptions
+  ): Promise<void> {
+    try {
+      // Get current application data
+      const docRef = doc(db, 'submissions', applicationId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        throw new Error('Application not found');
+      }
+
+      const application = { id: docSnap.id, ...docSnap.data() } as AdminApplicationData;
+      const oldStatus = application.status || 'draft';
+
+      // Note: Permission checking should be done at the UI level
+      // This service method assumes the caller has already verified permissions
+
+      // Perform validation check
+      const validationResult = this.validateForAdminStatusChange(application);
+      
+      // If there are critical missing fields and bypass is not explicitly requested, throw error
+      if (!validationResult.canProceed && !options.bypassValidation) {
+        throw new Error(`Cannot change status due to missing critical fields: ${validationResult.missingFields.join(', ')}`);
+      }
+
+      // Update application status
+      const updateData: any = {
+        status: newStatus,
+        lastReviewedAt: serverTimestamp(),
+        lastModified: serverTimestamp()
+      };
+
+      // Add admin notes if reason is provided
+      if (options.reason) {
+        updateData.adminStatusChangeReason = options.reason;
+        updateData.lastStatusChangeBy = options.adminName;
+        updateData.lastStatusChangeAt = serverTimestamp();
+      }
+
+      await updateDoc(docRef, updateData);
+
+      // Log the status change for audit trail
+      await this.logStatusChange({
+        applicationId,
+        adminId: options.adminId,
+        adminName: options.adminName,
+        oldStatus,
+        newStatus,
+        reason: options.reason,
+        bypassedValidation: !validationResult.canProceed || validationResult.warnings.length > 0,
+        missingFields: [...validationResult.missingFields, ...validationResult.warnings],
+        timestamp: new Date()
+      });
+
+    } catch (error) {
+      console.error('Error changing application status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Log status change for audit trail
+   */
+  private async logStatusChange(auditLog: StatusChangeAuditLog): Promise<void> {
+    try {
+      const auditRef = collection(db, 'auditLogs', 'statusChanges', 'logs');
+      await writeBatch(db).set(doc(auditRef), {
+        ...auditLog,
+        timestamp: serverTimestamp()
+      }).commit();
+    } catch (error) {
+      console.warn('Failed to log status change:', error);
+      // Don't throw error for audit logging failure
+    }
+  }
+
+  /**
+   * Get validation status for an application (for UI display)
+   */
+  async getApplicationValidationStatus(applicationId: string): Promise<ValidationBypassResult> {
+    try {
+      const docRef = doc(db, 'submissions', applicationId);
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        throw new Error('Application not found');
+      }
+
+      const application = { id: docSnap.id, ...docSnap.data() } as AdminApplicationData;
+      return this.validateForAdminStatusChange(application);
+    } catch (error) {
+      console.error('Error getting validation status:', error);
+      throw error;
+    }
   }
 
   /**

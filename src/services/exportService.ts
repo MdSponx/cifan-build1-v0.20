@@ -280,21 +280,26 @@ export class ExportService {
           format(app.createdAt, 'yyyy-MM-dd')
         ];
 
-        if (options.includeScores && app.scores) {
-          const avgScore = app.scores.reduce((sum: number, score: any) => sum + score.totalScore, 0) / app.scores.length;
-          const avgTechnical = app.scores.reduce((sum: number, score: any) => sum + score.technical, 0) / app.scores.length;
-          const avgStory = app.scores.reduce((sum: number, score: any) => sum + score.story, 0) / app.scores.length;
-          const avgCreativity = app.scores.reduce((sum: number, score: any) => sum + score.creativity, 0) / app.scores.length;
-          const avgOverall = app.scores.reduce((sum: number, score: any) => sum + score.overall, 0) / app.scores.length;
+        if (options.includeScores) {
+          if (app.scores && app.scores.length > 0) {
+            const avgScore = app.scores.reduce((sum: number, score: any) => sum + score.totalScore, 0) / app.scores.length;
+            const avgTechnical = app.scores.reduce((sum: number, score: any) => sum + score.technical, 0) / app.scores.length;
+            const avgStory = app.scores.reduce((sum: number, score: any) => sum + score.story, 0) / app.scores.length;
+            const avgCreativity = app.scores.reduce((sum: number, score: any) => sum + score.creativity, 0) / app.scores.length;
+            const avgOverall = app.scores.reduce((sum: number, score: any) => sum + score.overall, 0) / app.scores.length;
 
-          row.push(
-            avgScore.toFixed(1),
-            app.scores.length.toString(),
-            avgTechnical.toFixed(1),
-            avgStory.toFixed(1),
-            avgCreativity.toFixed(1),
-            avgOverall.toFixed(1)
-          );
+            row.push(
+              avgScore.toFixed(1),
+              app.scores.length.toString(),
+              avgTechnical.toFixed(1),
+              avgStory.toFixed(1),
+              avgCreativity.toFixed(1),
+              avgOverall.toFixed(1)
+            );
+          } else {
+            // No scores available - add empty values
+            row.push('N/A', '0', 'N/A', 'N/A', 'N/A', 'N/A');
+          }
         }
 
         return row.join(',');
@@ -339,13 +344,30 @@ export class ExportService {
 
     // Table data
     const headers = ['Title', 'Director', 'Category', 'Status', 'Date'];
-    const data = applications.map(app => [
-      app.filmTitle.length > 30 ? app.filmTitle.substring(0, 30) + '...' : app.filmTitle,
-      (app.directorName || app.submitterName).length > 25 ? (app.directorName || app.submitterName).substring(0, 25) + '...' : (app.directorName || app.submitterName),
-      app.competitionCategory,
-      app.status,
-      app.submittedAt ? format(app.submittedAt, 'MM/dd/yyyy') : format(app.createdAt, 'MM/dd/yyyy')
-    ]);
+    if (options.includeScores) {
+      headers.push('Avg Score', 'Judges');
+    }
+
+    const data = applications.map(app => {
+      const row = [
+        app.filmTitle.length > 30 ? app.filmTitle.substring(0, 30) + '...' : app.filmTitle,
+        (app.directorName || app.submitterName).length > 25 ? (app.directorName || app.submitterName).substring(0, 25) + '...' : (app.directorName || app.submitterName),
+        app.competitionCategory,
+        app.status,
+        app.submittedAt ? format(app.submittedAt, 'MM/dd/yyyy') : format(app.createdAt, 'MM/dd/yyyy')
+      ];
+
+      if (options.includeScores) {
+        if (app.scores && app.scores.length > 0) {
+          const avgScore = app.scores.reduce((sum: number, score: any) => sum + score.totalScore, 0) / app.scores.length;
+          row.push(avgScore.toFixed(1), app.scores.length.toString());
+        } else {
+          row.push('N/A', '0');
+        }
+      }
+
+      return row;
+    });
 
     (doc as any).autoTable({
       head: [headers],

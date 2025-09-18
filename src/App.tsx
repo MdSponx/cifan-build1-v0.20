@@ -34,6 +34,9 @@ import ApplicationEditPage from './components/pages/ApplicationEditPage';
 import ComingSoonPage from './components/pages/ComingSoonPage';
 import ApplicationsDashboardPage from './components/pages/ApplicationsDashboardPage';
 import AdminGalleryPage from './components/pages/AdminGalleryPage';
+import YouthCompetitionPage from './components/pages/YouthCompetitionPage';
+import FutureCompetitionPage from './components/pages/FutureCompetitionPage';
+import WorldCompetitionPage from './components/pages/WorldCompetitionPage';
 import AdminProfilePage from './components/pages/AdminProfilePage';
 import AdminApplicationDetailPage from './components/pages/AdminApplicationDetailPage';
 import PartnerManagementPage from './components/pages/PartnerManagementPage';
@@ -51,6 +54,8 @@ import FeatureFilmGalleryPage from './components/pages/FeatureFilmGalleryPage';
 import FeatureFilmDetailPage from './components/pages/FeatureFilmDetailPage';
 import PublicFeatureFilmsPage from './components/pages/PublicFeatureFilmsPage';
 import PublicFeatureFilmDetailPage from './components/pages/PublicFeatureFilmDetailPage';
+import SelectedShortFilmsPage from './components/pages/SelectedShortFilmsPage';
+import ShortFilmProgramPage from './components/pages/ShortFilmProgramPage';
 import PublicNewsPage from './components/pages/PublicNewsPage';
 import PublicNewsDetailPage from './components/pages/PublicNewsDetailPage';
 import AdminNewsGallery from './components/admin/AdminNewsGallery';
@@ -59,6 +64,7 @@ import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
 import FestivalSchedulePage from './components/pages/FestivalSchedulePage';
 import FortuneCardsGalleryPage from './components/pages/FortuneCardsGalleryPage';
 import FortuneCardDetailPage from './components/pages/FortuneCardDetailPage';
+import FortuneCardsGallery from './components/admin/FortuneCardsGallery';
 import { newsService } from './services/newsService';
 import { NewsArticle } from './types/news.types';
 import { useAuth } from './components/auth/AuthContext';
@@ -316,6 +322,8 @@ function App() {
         return <PublicActivitiesPage />;
       case 'city-rally':
         return <CityRallyPage />;
+      case 'city-rally-maps':
+        return <ComingSoonPage />;
       case 'news':
         return <PublicNewsPage />;
       case 'quill-dropdown-test':
@@ -338,6 +346,10 @@ function App() {
             }}
           />
         );
+      case 'selected-short-films':
+        return <SelectedShortFilmsPage />;
+      case 'short-film-programs':
+        return <ShortFilmProgramPage />;
       case 'admin/dashboard':
         return (
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
@@ -354,6 +366,36 @@ function App() {
             <AdminProtectedRoute>
               <AdminZoneLayout currentPage="admin/gallery">
                 <AdminGalleryPage />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/youth-competition':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute>
+              <AdminZoneLayout currentPage="admin/youth-competition">
+                <YouthCompetitionPage />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/future-competition':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute>
+              <AdminZoneLayout currentPage="admin/future-competition">
+                <FutureCompetitionPage />
+              </AdminZoneLayout>
+            </AdminProtectedRoute>
+          </ProtectedRoute>
+        );
+      case 'admin/world-competition':
+        return (
+          <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
+            <AdminProtectedRoute>
+              <AdminZoneLayout currentPage="admin/world-competition">
+                <WorldCompetitionPage />
               </AdminZoneLayout>
             </AdminProtectedRoute>
           </ProtectedRoute>
@@ -457,7 +499,7 @@ function App() {
           <ProtectedRoute requireEmailVerification={true} requireProfileComplete={false}>
             <AdminProtectedRoute requiredPermission="canManageContent">
               <AdminZoneLayout currentPage="admin/fortune-cards">
-                <FeatureFilmGalleryPage 
+                <FortuneCardsGallery 
                   onNavigateToForm={(mode, filmId) => {
                     if (mode === 'create') {
                       handleNavigate('admin/fortune-cards/new');
@@ -468,7 +510,6 @@ function App() {
                   onNavigateToDetail={(filmId) => {
                     handleNavigate(`admin/fortune-cards/detail/${filmId}`);
                   }}
-                  fortuneCardsOnly={true}
                 />
               </AdminZoneLayout>
             </AdminProtectedRoute>

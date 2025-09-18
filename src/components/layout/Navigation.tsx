@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { User, LogOut } from 'lucide-react';
+import { User, LogOut, ChevronDown } from 'lucide-react';
 import { useAuth } from '../auth/AuthContext';
 import { useAuthFlow } from '../auth/AuthFlowProvider';
 import RoleBasedMenuItems from './RoleBasedMenuItems';
@@ -9,6 +9,8 @@ const Navigation = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const [showAuthMenu, setShowAuthMenu] = useState(false);
+  const [showCityRallyMenu, setShowCityRallyMenu] = useState(false);
+  const [showCompetitionMenu, setShowCompetitionMenu] = useState(false);
   const { t, i18n } = useTranslation();
   const { user, userProfile, isAuthenticated, signOut } = useAuth();
   const { setRedirectIntent } = useAuthFlow();
@@ -106,10 +108,91 @@ const Navigation = () => {
               <NavLink href="#home" active>{t('navigation.home')}</NavLink>
               <NavLink href="#about">{t('navigation.about')}</NavLink>
               <NavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</NavLink>
-              <NavLink href="#competition">{t('navigation.competition')}</NavLink>
+              
+              {/* Competition Dropdown */}
+              <div className="relative">
+                <button 
+                  className={`font-rsu ${getTypographyClass('nav')} transition-colors duration-300 hover:text-[#FCB283] text-white/80 flex items-center gap-1`}
+                  onClick={() => setShowCompetitionMenu(!showCompetitionMenu)}
+                  onMouseEnter={() => setShowCompetitionMenu(true)}
+                  onMouseLeave={() => setShowCompetitionMenu(false)}
+                >
+                  {t('navigation.competition')}
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${showCompetitionMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Competition Dropdown Menu */}
+                {showCompetitionMenu && (
+                  <div 
+                    className="absolute top-full left-0 mt-2 w-56 glass-container rounded-xl p-2 border border-white/20 z-50"
+                    onMouseEnter={() => setShowCompetitionMenu(true)}
+                    onMouseLeave={() => setShowCompetitionMenu(false)}
+                  >
+                    <a 
+                      href="#competition"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>🏆</span>
+                      {t('navigation.competition')}
+                    </a>
+                    <a 
+                      href="#selected-short-films"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>🎬</span>
+                      Selected Short Films
+                    </a>
+                    <a 
+                      href="#short-film-programs"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>📋</span>
+                      Short Film Programs
+                    </a>
+                  </div>
+                )}
+              </div>
+              
               <NavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</NavLink>
               <NavLink href="#activities">{t('navigation.events')}</NavLink>
-              <NavLink href="#city-rally">{t('navigation.cityRally')}</NavLink>
+              
+              {/* City Rally Dropdown */}
+              <div className="relative">
+                <button 
+                  className={`font-rsu ${getTypographyClass('nav')} transition-colors duration-300 hover:text-[#FCB283] text-white/80 flex items-center gap-1`}
+                  onClick={() => setShowCityRallyMenu(!showCityRallyMenu)}
+                  onMouseEnter={() => setShowCityRallyMenu(true)}
+                  onMouseLeave={() => setShowCityRallyMenu(false)}
+                >
+                  {t('navigation.cityRally')}
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${showCityRallyMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* City Rally Dropdown Menu */}
+                {showCityRallyMenu && (
+                  <div 
+                    className="absolute top-full left-0 mt-2 w-48 glass-container rounded-xl p-2 border border-white/20 z-50"
+                    onMouseEnter={() => setShowCityRallyMenu(true)}
+                    onMouseLeave={() => setShowCityRallyMenu(false)}
+                  >
+                    <a 
+                      href="#city-rally"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>🎪</span>
+                      {t('navigation.cityRally')}
+                    </a>
+                    <a 
+                      href="#city-rally-maps"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>🗺️</span>
+                      {t('navigation.cityRallyMaps')}
+                    </a>
+                  </div>
+                )}
+              </div>
+              
               <NavLink href="#news">{t('navigation.news')}</NavLink>
             </div>
             
@@ -284,10 +367,52 @@ const Navigation = () => {
             <MobileNavLink href="#home">{t('navigation.home')}</MobileNavLink>
             <MobileNavLink href="#about">{t('navigation.about')}</MobileNavLink>
             <MobileNavLink href="#public/feature-films">{t('navigation.featureFilms') || 'Feature Films'}</MobileNavLink>
-            <MobileNavLink href="#competition">{t('navigation.competition')}</MobileNavLink>
+            
+            {/* Competition Section - Mobile */}
+            <div className="py-2">
+              <MobileNavLink href="#competition">
+                <div className="flex items-center gap-2">
+                  <span>🏆</span>
+                  {t('navigation.competition')}
+                </div>
+              </MobileNavLink>
+              <div className="ml-6 mt-1">
+                <MobileNavLink href="#selected-short-films">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>🎬</span>
+                    Selected Short Films
+                  </div>
+                </MobileNavLink>
+                <MobileNavLink href="#short-film-programs">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>📋</span>
+                    Short Film Programs
+                  </div>
+                </MobileNavLink>
+              </div>
+            </div>
+            
             <MobileNavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</MobileNavLink>
             <MobileNavLink href="#activities">{t('navigation.events')}</MobileNavLink>
-            <MobileNavLink href="#city-rally">{t('navigation.cityRally')}</MobileNavLink>
+            
+            {/* City Rally Section - Mobile */}
+            <div className="py-2">
+              <MobileNavLink href="#city-rally">
+                <div className="flex items-center gap-2">
+                  <span>🎪</span>
+                  {t('navigation.cityRally')}
+                </div>
+              </MobileNavLink>
+              <div className="ml-6 mt-1">
+                <MobileNavLink href="#city-rally-maps">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>🗺️</span>
+                    {t('navigation.cityRallyMaps')}
+                  </div>
+                </MobileNavLink>
+              </div>
+            </div>
+            
             <MobileNavLink href="#news">{t('navigation.news')}</MobileNavLink>
             
             <div className="border-t border-white/20 pt-4 mt-4 space-y-3">

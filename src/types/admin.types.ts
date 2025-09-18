@@ -271,12 +271,13 @@ export interface AdminApplicationCard {
 export interface GalleryFilters {
   category: 'all' | 'youth' | 'future' | 'world';
   status: 'all' | 'draft' | 'submitted' | 'under-review' | 'accepted' | 'rejected';
+  reviewStatus: 'all' | 'pending' | 'in-progress' | 'reviewed' | 'approved' | 'rejected';
   dateRange: {
     start?: string;
     end?: string;
   };
   search: string;
-  sortBy: 'newest' | 'oldest' | 'alphabetical' | 'category' | 'status';
+  sortBy: 'newest' | 'oldest' | 'alphabetical' | 'category' | 'status' | 'averageScore';
   country: 'all' | string;
 }
 
@@ -353,6 +354,10 @@ export interface AdminApplicationData {
     proofFile?: { url: string; name: string; size: number; };
   };
   
+  // Screening data (only for accepted applications)
+  screeningProgram?: 'A' | 'B' | 'C' | 'D';
+  screeningVenue?: 'stageZone' | 'expoZone' | 'majorTheatre7' | 'majorImax' | 'market' | 'anusarn';
+  
   // Admin-specific data
   scores: ScoringCriteria[];
   adminNotes: string;
@@ -380,7 +385,7 @@ export interface VideoScoringPanelProps {
 
 export interface AdminControlsPanelProps {
   application: AdminApplicationData;
-  onStatusChange: (status: AdminApplicationData['reviewStatus']) => Promise<void>;
+  onStatusChange: (status: AdminApplicationData['status']) => Promise<void>;
   onNotesChange: (notes: string) => Promise<void>;
   onFlagToggle: (flagged: boolean, reason?: string) => Promise<void>;
   onExport: () => void;

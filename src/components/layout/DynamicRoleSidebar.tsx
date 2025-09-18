@@ -24,7 +24,8 @@ import {
   Palette,
   BookOpen,
   Scale,
-  Newspaper
+  Newspaper,
+  Sparkles
 } from 'lucide-react';
 import { AdminPermissions } from '../../types/admin.types';
 
@@ -423,7 +424,11 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
   };
 
   const isApplicationsPageActive = (page: string) => {
-    return page.startsWith('admin/dashboard') || page.startsWith('admin/gallery');
+    return page.startsWith('admin/dashboard') || 
+           page.startsWith('admin/gallery') || 
+           page.startsWith('admin/youth-competition') ||
+           page.startsWith('admin/future-competition') ||
+           page.startsWith('admin/world-competition');
   };
 
   const isContentPageActive = (page: string) => {
@@ -439,7 +444,7 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
   };
 
   const isArticlesPageActive = (page: string) => {
-    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news');
+    return page.startsWith('admin/articles') || page.startsWith('admin/feature-films') || page.startsWith('admin/news') || page.startsWith('admin/fortune-cards');
   };
 
   // Permission-based submenu items generation with fallback
@@ -467,6 +472,24 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
           label: currentContent.applicationsGallery,
           href: '#admin/gallery'
         });
+        items.push({
+          id: 'admin/youth-competition',
+          icon: <Users size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดเยาวชน' : 'Youth Competition',
+          href: '#admin/youth-competition'
+        });
+        items.push({
+          id: 'admin/future-competition',
+          icon: <Sparkles size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดอนาคต' : 'Future Competition',
+          href: '#admin/future-competition'
+        });
+        items.push({
+          id: 'admin/world-competition',
+          icon: <Award size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดโลก' : 'World Competition',
+          href: '#admin/world-competition'
+        });
       }
     } else {
       // Fallback: Show submenu items based on role
@@ -482,6 +505,24 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
           icon: <Grid size={18} />,
           label: currentContent.applicationsGallery,
           href: '#admin/gallery'
+        },
+        {
+          id: 'admin/youth-competition',
+          icon: <Users size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดเยาวชน' : 'Youth Competition',
+          href: '#admin/youth-competition'
+        },
+        {
+          id: 'admin/future-competition',
+          icon: <Sparkles size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดอนาคต' : 'Future Competition',
+          href: '#admin/future-competition'
+        },
+        {
+          id: 'admin/world-competition',
+          icon: <Award size={18} />,
+          label: currentLanguage === 'th' ? 'การประกวดโลก' : 'World Competition',
+          href: '#admin/world-competition'
         }
       );
     }
@@ -595,6 +636,18 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
             href: '#admin/feature-films/new'
           },
           {
+            id: 'admin/fortune-cards',
+            icon: <Sparkles size={18} />,
+            label: 'Fortune Cards',
+            href: '#admin/fortune-cards'
+          },
+          {
+            id: 'admin/fortune-cards/new',
+            icon: <Plus size={18} />,
+            label: 'Add New Fortune Card',
+            href: '#admin/fortune-cards/new'
+          },
+          {
             id: 'admin/news',
             icon: <Eye size={18} />,
             label: currentContent.allNews,
@@ -623,6 +676,18 @@ const DynamicRoleSidebar: React.FC<DynamicRoleSidebarProps> = ({
             icon: <Plus size={18} />,
             label: 'Add New Film',
             href: '#admin/feature-films/new'
+          },
+          {
+            id: 'admin/fortune-cards',
+            icon: <Sparkles size={18} />,
+            label: 'Fortune Cards',
+            href: '#admin/fortune-cards'
+          },
+          {
+            id: 'admin/fortune-cards/new',
+            icon: <Plus size={18} />,
+            label: 'Add New Fortune Card',
+            href: '#admin/fortune-cards/new'
           },
           {
             id: 'admin/news',

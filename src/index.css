@@ -2847,3 +2847,218 @@ html[lang="th"] .partner-card-text {
   backface-visibility: hidden;
   perspective: 1000px;
 }
+
+/* Selected Short Films Gallery Styles */
+#selected-short-films {
+  position: relative;
+  overflow-x: hidden;
+  overflow-y: visible;
+  min-height: 100vh;
+  height: auto;
+  contain: none;
+}
+
+/* Gallery Container - Responsive height adaptation */
+.selected-short-films-gallery {
+  position: relative;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  min-height: fit-content;
+  overflow: visible;
+  contain: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3rem;
+  padding-bottom: 2rem;
+}
+
+/* Category Container - Proper nesting with responsive height */
+.selected-short-films-category-container {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: fit-content;
+  overflow: visible;
+  contain: none;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 48, 90, 0.3);
+  isolation: isolate;
+  transition: all 0.3s ease;
+}
+
+/* Gallery Grid - Responsive and properly nested */
+.selected-short-films-category-container .grid {
+  width: 100%;
+  height: auto;
+  min-height: fit-content;
+  gap: 1.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  align-items: start;
+  justify-content: center;
+  padding: 0;
+  margin: 0;
+}
+
+/* Film Cards - Responsive sizing */
+.selected-short-films-category-container .grid > div {
+  width: 100%;
+  height: auto;
+  min-height: fit-content;
+  aspect-ratio: 2/3;
+  position: relative;
+  overflow: hidden;
+  border-radius: 0.5rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Responsive breakpoints for gallery grid */
+@media (min-width: 640px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 768px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 1.5rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1280px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 2rem;
+  }
+}
+
+@media (min-width: 1536px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 2.5rem;
+  }
+}
+
+/* Mobile responsive adjustments */
+@media (max-width: 639px) {
+  .selected-short-films-gallery {
+    gap: 2rem;
+    padding-bottom: 1rem;
+  }
+  
+  .selected-short-films-category-container {
+    margin-left: -1rem;
+    margin-right: -1rem;
+    border-radius: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 479px) {
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* Table view responsive styling */
+.selected-short-films-category-container .overflow-x-auto {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: visible;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(252, 178, 131, 0.4) rgba(255, 255, 255, 0.1);
+}
+
+.selected-short-films-category-container .overflow-x-auto::-webkit-scrollbar {
+  height: 8px;
+}
+
+.selected-short-films-category-container .overflow-x-auto::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.selected-short-films-category-container .overflow-x-auto::-webkit-scrollbar-thumb {
+  background: rgba(252, 178, 131, 0.4);
+  border-radius: 4px;
+}
+
+.selected-short-films-category-container .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+  background: rgba(252, 178, 131, 0.6);
+}
+
+/* Ensure proper height calculation for dynamic content */
+.selected-short-films-category-container {
+  min-height: 400px;
+  height: auto;
+  max-height: none;
+}
+
+/* Category header responsive spacing */
+.selected-short-films-category-container .text-center {
+  margin-bottom: 2rem;
+}
+
+@media (min-width: 640px) {
+  .selected-short-films-category-container .text-center {
+    margin-bottom: 3rem;
+  }
+}
+
+/* Film card hover effects */
+.selected-short-films-category-container .group:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+}
+
+/* Ensure container adapts to content */
+.selected-short-films-category-container,
+.selected-short-films-gallery {
+  flex-shrink: 0;
+  flex-grow: 0;
+  flex-basis: auto;
+}
+
+/* Performance optimizations */
+.selected-short-films-category-container .grid > div {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* Loading state styling */
+.selected-short-films-loading {
+  min-height: 60vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Empty state styling */
+.selected-short-films-empty {
+  min-height: 40vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}

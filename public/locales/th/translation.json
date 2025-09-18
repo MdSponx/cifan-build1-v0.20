@@ -18,7 +18,8 @@
     "myApplications": "ใบสมัครของฉัน",
     "signOut": "ออกจากระบบ",
     "featureFilms": "ภาพยนตร์เรื่องยาว",
-    "cityRally": "ซิตี้แรลลี่"
+    "cityRally": "ซิตี้แรลลี่",
+    "cityRallyMaps": "แผนที่แรลลี่"
   },
   "menu": {
     "contentManagement": "จัดการเนื้อหา",

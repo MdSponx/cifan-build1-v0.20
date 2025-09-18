@@ -243,6 +243,10 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
           universityId: data.universityId,
           crewMembers: data.crewMembers || [],
           
+          // Screening data (only for accepted applications)
+          screeningProgram: data.screeningProgram,
+          screeningVenue: data.screeningVenue,
+          
           // Admin-specific data
           scores: data.scores || [],
           adminNotes: data.adminNotes || '',
@@ -1035,21 +1039,25 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
     }
   };
 
-  const handleStatusChange = async (status: AdminApplicationData['reviewStatus']) => {
+  const handleStatusChange = async (status: AdminApplicationData['status']) => {
     setIsUpdatingStatus(true);
     try {
+      // Update the database directly here since AdminControlsPanel already handles the admin service logic
       const docRef = doc(db, 'submissions', applicationId);
       await updateDoc(docRef, {
-        reviewStatus: status,
+        status: status,
         lastReviewedAt: new Date(),
         lastModified: new Date()
       });
       
-      setApplication(prev => prev ? { ...prev, reviewStatus: status } : null);
-      showSuccess(currentLanguage === 'th' ? 'อัปเดตสถานะเรียบร้อย' : 'Status updated successfully');
+      // Update local state to reflect the change immediately
+      setApplication(prev => prev ? { ...prev, status: status } : null);
+      
+      // Note: Success message is handled by AdminControlsPanel
     } catch (error) {
       console.error('Error updating status:', error);
       showError(currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการอัปเดต' : 'Error updating status');
+      throw error; // Re-throw so AdminControlsPanel can handle it
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -1165,6 +1173,28 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
       );
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleScreeningUpdate = async (field: 'screeningProgram' | 'screeningVenue', value: string) => {
+    try {
+      const docRef = doc(db, 'submissions', applicationId);
+      await updateDoc(docRef, {
+        [field]: value,
+        lastModified: new Date()
+      });
+      
+      // Update local state
+      setApplication(prev => prev ? { ...prev, [field]: value } : null);
+      
+      showSuccess(
+        currentLanguage === 'th' ? 'อัปเดตข้อมูลการฉายเรียบร้อย' : 'Screening information updated successfully'
+      );
+    } catch (error) {
+      console.error('Error updating screening info:', error);
+      showError(
+        currentLanguage === 'th' ? 'เกิดข้อผิดพลาดในการอัปเดต' : 'Error updating screening information'
+      );
     }
   };
 
@@ -2005,6 +2035,116 @@ const AdminApplicationDetailPage: React.FC<AdminApplicationDetailPageProps> = ({
           )}
         </div>
       </div>
+
+      {/* 6. Screening Section - Only show for accepted applications */}
+      {application.status === 'accepted' && (
+        <div className="glass-container rounded-2xl p-6 sm:p-8">
+          <h3 className={`text-xl ${getClass('header')} text-white mb-6 flex items-center space-x-2`}>
+            <span>🎬</span>
+            <span>{currentLanguage === 'th' ? 'ข้อมูลการฉาย' : 'Screening Information'}</span>
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Program Dropdown */}
+            <div>
+              <label className={`block text-sm ${getClass('body')} text-white/80 mb-2`}>
+                {currentLanguage === 'th' ? 'โปรแกรม' : 'Program'} <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={application.screeningProgram || ''}
+                onChange={(e) => handleScreeningUpdate('screeningProgram', e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#FCB283] focus:outline-none transition-colors"
+              >
+                <option value="" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'เลือกโปรแกรม' : 'Select Program'}
+                </option>
+                <option value="A" className="bg-[#1a1a2e] text-white">Program A</option>
+                <option value="B" className="bg-[#1a1a2e] text-white">Program B</option>
+                <option value="C" className="bg-[#1a1a2e] text-white">Program C</option>
+                <option value="D" className="bg-[#1a1a2e] text-white">Program D</option>
+              </select>
+            </div>
+
+            {/* Venue Dropdown */}
+            <div>
+              <label className={`block text-sm ${getClass('body')} text-white/80 mb-2`}>
+                {currentLanguage === 'th' ? 'สถานที่' : 'Venue'} <span className="text-red-400">*</span>
+              </label>
+              <select
+                value={application.screeningVenue || ''}
+                onChange={(e) => handleScreeningUpdate('screeningVenue', e.target.value)}
+                className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#FCB283] focus:outline-none transition-colors"
+              >
+                <option value="" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'เลือกสถานที่' : 'Select Venue'}
+                </option>
+                <option value="stageZone" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'โซนเวที' : 'Stage Zone'}
+                </option>
+                <option value="expoZone" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'โซนเอ็กซ์โป' : 'EXPO Zone'}
+                </option>
+                <option value="majorTheatre7" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'เมเจอร์ โรง 7' : 'Major Theatre 7'}
+                </option>
+                <option value="majorImax" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'เมเจอร์ IMAX' : 'Major IMAX'}
+                </option>
+                <option value="market" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'ตลาด' : 'Market'}
+                </option>
+                <option value="anusarn" className="bg-[#1a1a2e] text-white">
+                  {currentLanguage === 'th' ? 'อนุสาร' : 'Anusarn'}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          {/* Display current screening info if available */}
+          {(application.screeningProgram || application.screeningVenue) && (
+            <div className="mt-6 p-4 bg-gradient-to-r from-green-500/20 to-blue-500/20 rounded-xl border border-green-500/30">
+              <h4 className={`text-sm ${getClass('subtitle')} text-white/80 mb-3`}>
+                {currentLanguage === 'th' ? 'ข้อมูลการฉายปัจจุบัน' : 'Current Screening Information'}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {application.screeningProgram && (
+                  <div>
+                    <span className={`text-sm ${getClass('body')} text-white/60`}>
+                      {currentLanguage === 'th' ? 'โปรแกรม:' : 'Program:'}
+                    </span>
+                    <p className={`${getClass('body')} text-white font-medium`}>
+                      Program {application.screeningProgram}
+                    </p>
+                  </div>
+                )}
+                {application.screeningVenue && (
+                  <div>
+                    <span className={`text-sm ${getClass('body')} text-white/60`}>
+                      {currentLanguage === 'th' ? 'สถานที่:' : 'Venue:'}
+                    </span>
+                    <p className={`${getClass('body')} text-white font-medium`}>
+                      {currentLanguage === 'th' 
+                        ? (application.screeningVenue === 'stageZone' ? 'โซนเวที' :
+                           application.screeningVenue === 'expoZone' ? 'โซนเอ็กซ์โป' :
+                           application.screeningVenue === 'majorTheatre7' ? 'เมเจอร์ โรง 7' :
+                           application.screeningVenue === 'majorImax' ? 'เมเจอร์ IMAX' :
+                           application.screeningVenue === 'market' ? 'ตลาด' :
+                           application.screeningVenue === 'anusarn' ? 'อนุสาร' : application.screeningVenue)
+                        : (application.screeningVenue === 'stageZone' ? 'Stage Zone' :
+                           application.screeningVenue === 'expoZone' ? 'EXPO Zone' :
+                           application.screeningVenue === 'majorTheatre7' ? 'Major Theatre 7' :
+                           application.screeningVenue === 'majorImax' ? 'Major IMAX' :
+                           application.screeningVenue === 'market' ? 'Market' :
+                           application.screeningVenue === 'anusarn' ? 'Anusarn' : application.screeningVenue)
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Admin Controls Panel */}
       <AdminControlsPanel
