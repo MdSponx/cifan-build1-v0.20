@@ -11,6 +11,7 @@ const Navigation = () => {
   const [showAuthMenu, setShowAuthMenu] = useState(false);
   const [showCityRallyMenu, setShowCityRallyMenu] = useState(false);
   const [showCompetitionMenu, setShowCompetitionMenu] = useState(false);
+  const [showScheduleMenu, setShowScheduleMenu] = useState(false);
   const { t, i18n } = useTranslation();
   const { user, userProfile, isAuthenticated, signOut } = useAuth();
   const { setRedirectIntent } = useAuthFlow();
@@ -153,7 +154,42 @@ const Navigation = () => {
                 )}
               </div>
               
-              <NavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</NavLink>
+              {/* Schedule Dropdown */}
+              <div className="relative">
+                <button 
+                  className={`font-rsu ${getTypographyClass('nav')} transition-colors duration-300 hover:text-[#FCB283] text-white/80 flex items-center gap-1`}
+                  onClick={() => setShowScheduleMenu(!showScheduleMenu)}
+                  onMouseEnter={() => setShowScheduleMenu(true)}
+                  onMouseLeave={() => setShowScheduleMenu(false)}
+                >
+                  {t('navigation.schedule') || 'Schedule'}
+                  <ChevronDown size={14} className={`transition-transform duration-200 ${showScheduleMenu ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Schedule Dropdown Menu */}
+                {showScheduleMenu && (
+                  <div 
+                    className="absolute top-full left-0 mt-2 w-56 glass-container rounded-xl p-2 border border-white/20 z-50"
+                    onMouseEnter={() => setShowScheduleMenu(true)}
+                    onMouseLeave={() => setShowScheduleMenu(false)}
+                  >
+                    <a 
+                      href="#festival-schedule"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>📅</span>
+                      {t('navigation.schedule') || 'Schedule'}
+                    </a>
+                    <a 
+                      href="#venues"
+                      className={`block px-4 py-2 text-white hover:bg-white/10 rounded-lg transition-colors ${getTypographyClass('nav')} flex items-center gap-2`}
+                    >
+                      <span>📍</span>
+                      {t('navigation.venues') || 'Venues'} / สถานที่
+                    </a>
+                  </div>
+                )}
+              </div>
               <NavLink href="#activities">{t('navigation.events')}</NavLink>
               
               {/* City Rally Dropdown */}
@@ -392,7 +428,24 @@ const Navigation = () => {
               </div>
             </div>
             
-            <MobileNavLink href="#festival-schedule">{t('navigation.schedule') || 'Schedule'}</MobileNavLink>
+            {/* Schedule Section - Mobile */}
+            <div className="py-2">
+              <MobileNavLink href="#festival-schedule">
+                <div className="flex items-center gap-2">
+                  <span>📅</span>
+                  {t('navigation.schedule') || 'Schedule'}
+                </div>
+              </MobileNavLink>
+              <div className="ml-6 mt-1">
+                <MobileNavLink href="#venues">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span>📍</span>
+                    {t('navigation.venues') || 'Venues'} / สถานที่
+                  </div>
+                </MobileNavLink>
+              </div>
+            </div>
+            
             <MobileNavLink href="#activities">{t('navigation.events')}</MobileNavLink>
             
             {/* City Rally Section - Mobile */}

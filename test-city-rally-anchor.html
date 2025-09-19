@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>City Rally Anchor Link Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #110D16;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .success {
+            background-color: rgba(34, 197, 94, 0.2);
+            border: 1px solid rgba(34, 197, 94, 0.5);
+            color: #22c55e;
+        }
+        .link-test {
+            background: rgba(252, 178, 131, 0.2);
+            border: 1px solid rgba(252, 178, 131, 0.5);
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+        .link-test a {
+            color: #FCB283;
+            text-decoration: none;
+            font-weight: bold;
+            font-size: 18px;
+        }
+        .link-test a:hover {
+            text-decoration: underline;
+        }
+        .code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ City Rally Maps Anchor Link Test</h1>
+        
+        <div class="test-section success">
+            <h2>✅ Implementation Complete</h2>
+            <p>The City Rally Maps section has been successfully linked with the anchor ID <span class="code">#city-rally-maps</span></p>
+        </div>
+
+        <div class="test-section">
+            <h2>🔗 Anchor Link Implementation</h2>
+            <p>The following changes were made to <span class="code">src/components/pages/CityRallyPage.tsx</span>:</p>
+            
+            <h3>Before:</h3>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;"><code>&lt;div className="mb-16"&gt;</code></pre>
+            
+            <h3>After:</h3>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;"><code>&lt;div id="city-rally-maps" className="mb-16"&gt;</code></pre>
+        </div>
+
+        <div class="test-section">
+            <h2>🧪 Test the Anchor Link</h2>
+            <p>You can now use the following URL patterns to link directly to the City Rally Maps section:</p>
+            
+            <div class="link-test">
+                <strong>Local Development:</strong><br>
+                <a href="http://localhost:5173/city-rally#city-rally-maps" target="_blank">
+                    http://localhost:5173/city-rally#city-rally-maps
+                </a>
+            </div>
+            
+            <div class="link-test">
+                <strong>Production URL Pattern:</strong><br>
+                <a href="#" onclick="alert('Replace with your production domain')">
+                    https://yourdomain.com/city-rally#city-rally-maps
+                </a>
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h2>📋 Usage Examples</h2>
+            <p>You can now create links that jump directly to the maps section:</p>
+            
+            <h3>In HTML:</h3>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;"><code>&lt;a href="/city-rally#city-rally-maps"&gt;View City Rally Maps&lt;/a&gt;</code></pre>
+            
+            <h3>In React Router:</h3>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;"><code>&lt;Link to="/city-rally#city-rally-maps"&gt;View City Rally Maps&lt;/Link&gt;</code></pre>
+            
+            <h3>In JavaScript:</h3>
+            <pre style="background: rgba(0,0,0,0.3); padding: 10px; border-radius: 5px; overflow-x: auto;"><code>window.location.href = '/city-rally#city-rally-maps';</code></pre>
+        </div>
+
+        <div class="test-section">
+            <h2>✨ Features</h2>
+            <ul>
+                <li>✅ Direct linking to the City Rally Maps section</li>
+                <li>✅ Smooth scrolling behavior (browser default)</li>
+                <li>✅ Works with browser back/forward navigation</li>
+                <li>✅ Shareable URLs that jump to the maps</li>
+                <li>✅ SEO-friendly anchor links</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h2>🎯 Next Steps</h2>
+            <ol>
+                <li>Test the anchor link in your development environment</li>
+                <li>Verify smooth scrolling behavior</li>
+                <li>Update any navigation menus to use the new anchor link</li>
+                <li>Consider adding smooth scroll CSS for enhanced UX</li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

@@ -418,6 +418,73 @@ service cloud.firestore {
       allow delete: if request.auth != null;
     }
     
+    // Shops collection - for City Rally Maps (public read access)
+    match /shops/{shopId} {
+      // Read: Public can read all shops (no authentication required)
+      allow read: if true;
+      
+      // Create: Only admin-level users can create shops
+      allow create: if request.auth != null && hasAdminLevelAccess() &&
+        // Validate required fields
+        request.resource.data.keys().hasAll(['Shop', 'Location']) &&
+        // Validate data types
+        request.resource.data.Shop is string &&
+        request.resource.data.Shop.size() >= 1 &&
+        request.resource.data.Shop.size() <= 200 &&
+        request.resource.data.Location is string &&
+        request.resource.data.Location.size() >= 1 &&
+        // Optional fields validation
+        (!request.resource.data.keys().hasAny(['category']) ||
+         request.resource.data.category is string) &&
+        (!request.resource.data.keys().hasAny(['description']) ||
+         request.resource.data.description is string) &&
+        (!request.resource.data.keys().hasAny(['phone']) ||
+         request.resource.data.phone is string) &&
+        (!request.resource.data.keys().hasAny(['website']) ||
+         request.resource.data.website is string) &&
+        (!request.resource.data.keys().hasAny(['hours']) ||
+         request.resource.data.hours is string) &&
+        (!request.resource.data.keys().hasAny(['image']) ||
+         request.resource.data.image is string) &&
+        (!request.resource.data.keys().hasAny(['featured']) ||
+         request.resource.data.featured is bool);
+      
+      // Update: Only admin-level users can update shops
+      allow update: if request.auth != null && hasAdminLevelAccess() &&
+        // Validate updated fields if they exist
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['Shop']) ||
+         (request.resource.data.Shop is string &&
+          request.resource.data.Shop.size() >= 1 &&
+          request.resource.data.Shop.size() <= 200)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['Location']) ||
+         (request.resource.data.Location is string &&
+          request.resource.data.Location.size() >= 1)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['category']) ||
+         (request.resource.data.category == null ||
+          request.resource.data.category is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['description']) ||
+         (request.resource.data.description == null ||
+          request.resource.data.description is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['phone']) ||
+         (request.resource.data.phone == null ||
+          request.resource.data.phone is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['website']) ||
+         (request.resource.data.website == null ||
+          request.resource.data.website is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['hours']) ||
+         (request.resource.data.hours == null ||
+          request.resource.data.hours is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['image']) ||
+         (request.resource.data.image == null ||
+          request.resource.data.image is string)) &&
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['featured']) ||
+         (request.resource.data.featured == null ||
+          request.resource.data.featured is bool));
+      
+      // Delete: Only admin-level users can delete shops
+      allow delete: if request.auth != null && hasAdminLevelAccess();
+    }
+    
     // Public collections (read-only for all users)
     match /public/{document=**} {
       allow read: if true;

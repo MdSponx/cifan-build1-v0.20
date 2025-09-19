@@ -324,7 +324,7 @@ function App() {
       case 'city-rally':
         return <CityRallyPage />;
       case 'city-rally-maps':
-        return <ComingSoonPage />;
+        return <CityRallyPage />;
       case 'news':
         return <PublicNewsPage />;
       case 'venues':

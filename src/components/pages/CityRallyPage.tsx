@@ -1,5 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import CityRallyMap from '../ui/CityRallyMap';
 
 const CityRallyPage = () => {
   const { t, i18n } = useTranslation();
@@ -260,22 +261,18 @@ const CityRallyPage = () => {
           </div>
 
           {/* City Rally Map Section */}
-          <div className="mb-16">
-            <div className="text-center mb-12">
+          <div id="city-rally-maps" className="mb-16">
+            <div className="text-center mb-8">
               <h2 className={`text-3xl sm:text-4xl font-bold text-white mb-4 ${getAnuphanClass('heading')}`}>
                 {isThaiLanguage ? '🗺️ แผนที่ City Rally' : '🗺️ City Rally Map'}
               </h2>
-            </div>
-            
-            <div className="bg-white/5 rounded-xl p-12 border border-white/10 text-center">
-              <div className="text-6xl mb-6">🗺️</div>
-              <h3 className={`text-2xl font-bold text-white mb-4 ${getAnuphanClass('heading')}`}>
-                {isThaiLanguage ? 'เร็วๆ นี้' : 'Coming Soon'}
-              </h3>
               <p className={`text-white/70 text-lg ${getAnuphanClass('body')}`}>
-                {isThaiLanguage ? 'แผนที่แบบอินเตอร์แอคทีฟที่แสดงร้านค้าที่เข้าร่วมทั้งหมดและตำแหน่งของร้านจะเปิดให้บริการเร็วๆ นี้' : 'Interactive map showing all participating shops and their locations will be available soon.'}
+                {isThaiLanguage ? 'สำรวจร้านค้าที่เข้าร่วมทั้งหมดบนแผนที่แบบอินเตอร์แอคทีฟ' : 'Explore all participating shops on our interactive map'}
               </p>
             </div>
+            
+            {/* Interactive Map Component */}
+            <CityRallyMap className="w-full h-[70vh] md:h-[80vh]" />
           </div>
 
           {/* Event Period */}
