@@ -330,9 +330,9 @@ const SelectedShortFilmsPage: React.FC = () => {
 
         {/* Content */}
         {filteredCategoryGroups.length > 0 ? (
-          <div className="space-y-12">
+          <div className="selected-short-films-gallery space-y-12">
             {filteredCategoryGroups.map((group) => (
-              <div key={group.category} className="glass-container rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12">
+              <div key={group.category} className="selected-short-films-category-container glass-container rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12">
                 {/* Category Header with Logo */}
                 <div className="text-center mb-8 sm:mb-12">
                   {/* Competition Logo */}
@@ -415,8 +415,10 @@ const SelectedShortFilmsPage: React.FC = () => {
                 ) : (
                   /* Table View */
                   <div className="bg-white/5 rounded-xl overflow-hidden border border-white/10">
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
+                    {/* Responsive table container - fixed to show all content */}
+                    <div className="relative h-auto min-h-fit overflow-visible">
+                      <div className="overflow-x-auto overflow-y-visible">
+                        <table className="w-full">
                         <thead className="bg-white/10">
                           <tr>
                             <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
@@ -511,7 +513,8 @@ const SelectedShortFilmsPage: React.FC = () => {
                             </tr>
                           ))}
                         </tbody>
-                      </table>
+                        </table>
+                      </div>
                     </div>
                   </div>
                 )}

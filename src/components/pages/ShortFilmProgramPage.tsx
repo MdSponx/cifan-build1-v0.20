@@ -41,11 +41,20 @@ const ShortFilmProgramPage: React.FC = () => {
   const [countries, setCountries] = useState<string[]>([]);
   const [programs, setPrograms] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
-  // Load data from service
+  // Load data from service with improved error handling and retry logic
   useEffect(() => {
     const loadData = async () => {
-      setLoading(true);
+      // Don't show loading state immediately on initial load to prevent flash
+      if (!initialLoad) {
+        setLoading(true);
+      }
+      
+      setDataLoadError(null);
+      
       try {
         const filters: SubmissionProgramFilters = {
           searchTerm: searchTerm.trim() || undefined,
@@ -54,6 +63,12 @@ const ShortFilmProgramPage: React.FC = () => {
           program: selectedProgram || undefined
         };
         
+        console.log(`🎬 Loading program data with filters (attempt ${retryCount + 1}):`, filters);
+        
+        // Add minimum loading time for initial load to prevent flash
+        const minLoadTime = initialLoad ? 800 : 0;
+        const startTime = Date.now();
+        
         const [groupsData, categoriesData, countriesData, programsData] = await Promise.all([
           SubmissionProgramService.getFilteredProgramGroups(filters),
           SubmissionProgramService.getUniqueCategories(),
@@ -61,19 +76,110 @@ const ShortFilmProgramPage: React.FC = () => {
           SubmissionProgramService.getUniquePrograms()
         ]);
         
+        // Ensure minimum loading time has passed for initial load
+        if (initialLoad) {
+          const elapsedTime = Date.now() - startTime;
+          if (elapsedTime < minLoadTime) {
+            await new Promise(resolve => setTimeout(resolve, minLoadTime - elapsedTime));
+          }
+        }
+        
+        console.log('📊 Successfully loaded program data:');
+        console.log(`  - Program groups: ${groupsData.length}`);
+        console.log(`  - Categories: ${categoriesData.length}`);
+        console.log(`  - Countries: ${countriesData.length}`);
+        console.log(`  - Programs: ${programsData.length}`);
+        
         setProgramGroups(groupsData);
         setCategories(categoriesData);
         setCountries(countriesData);
         setPrograms(programsData);
+        
+        // Reset retry count on successful load
+        setRetryCount(0);
+        setDataLoadError(null);
+        
+        // Check if we got real data or mock data
+        const hasRealData = groupsData.some(group => 
+          group.films.some(film => !film.id.startsWith('mock-'))
+        );
+        
+        if (!hasRealData && groupsData.length > 0) {
+          console.warn('⚠️ Loaded data appears to be mock data - this may indicate database connectivity issues');
+          setDataLoadError('Using sample data - some features may be limited');
+        }
+        
       } catch (error) {
-        console.error('Error loading program data:', error);
+        console.error(`❌ Error loading program data (attempt ${retryCount + 1}):`, error);
+        setDataLoadError(error instanceof Error ? error.message : 'Failed to load program data');
+        
+        // Implement retry logic for failed loads
+        if (retryCount < 2) { // Max 3 attempts total
+          console.log(`🔄 Retrying data load in ${(retryCount + 1) * 2} seconds...`);
+          setTimeout(() => {
+            setRetryCount(prev => prev + 1);
+          }, (retryCount + 1) * 2000); // 2s, 4s delays
+          return; // Don't set loading to false yet
+        }
+        
+        // Final fallback: Try to load basic program groups without filters
+        try {
+          console.log('🔄 Attempting final fallback data load...');
+          const fallbackGroups = await SubmissionProgramService.getSubmissionProgramGroups();
+          console.log('🎭 Loaded fallback program groups:', fallbackGroups.length);
+          setProgramGroups(fallbackGroups);
+          
+          // Also try to load basic filter options
+          const [fallbackCategories, fallbackCountries, fallbackPrograms] = await Promise.allSettled([
+            SubmissionProgramService.getUniqueCategories(),
+            SubmissionProgramService.getUniqueCountries(),
+            SubmissionProgramService.getUniquePrograms()
+          ]);
+          
+          if (fallbackCategories.status === 'fulfilled') setCategories(fallbackCategories.value);
+          if (fallbackCountries.status === 'fulfilled') setCountries(fallbackCountries.value);
+          if (fallbackPrograms.status === 'fulfilled') setPrograms(fallbackPrograms.value);
+          
+          setDataLoadError('Using fallback data - some features may be limited');
+          
+        } catch (fallbackError) {
+          console.error('❌ Final fallback data load also failed:', fallbackError);
+          setDataLoadError('Unable to load program data. Please check your connection and try again.');
+        }
       } finally {
         setLoading(false);
+        if (initialLoad) {
+          setInitialLoad(false);
+        }
       }
     };
 
     loadData();
-  }, [searchTerm, selectedCategory, selectedCountry, selectedProgram]);
+  }, [searchTerm, selectedCategory, selectedCountry, selectedProgram, retryCount]);
+
+  // Handle anchor scrolling after data loads
+  useEffect(() => {
+    if (!loading && programGroups.length > 0) {
+      // Check if there's a hash in the URL for anchor scrolling
+      const hash = window.location.hash;
+      if (hash && hash.includes('program-')) {
+        // Extract the program anchor from the hash
+        const anchorMatch = hash.match(/#program-[a-d]/);
+        if (anchorMatch) {
+          const anchorId = anchorMatch[0].substring(1); // Remove the #
+          setTimeout(() => {
+            const element = document.getElementById(anchorId);
+            if (element) {
+              element.scrollIntoView({ 
+                behavior: 'smooth',
+                block: 'start'
+              });
+            }
+          }, 100); // Small delay to ensure DOM is ready
+        }
+      }
+    }
+  }, [loading, programGroups]);
 
   /**
    * Get total count of filtered films
@@ -111,23 +217,23 @@ const ShortFilmProgramPage: React.FC = () => {
     <div className="min-h-screen bg-[#110D16] pt-16 sm:pt-20">
       {/* Header Section */}
       <div className="border-b border-white/10">
-        <div className="max-w-7xl mx-auto px-4 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
           <div className="text-center">
             {/* Official Selection Logo */}
             <img 
               src="https://firebasestorage.googleapis.com/v0/b/cifan-c41c6.firebasestorage.app/o/site_files%2Ffest_logos%2FT4%404x.png?alt=media&token=4b606f45-6165-4486-951b-4e4ccb0bdb23"
               alt="Official Selection"
-              className="h-16 sm:h-20 md:h-24 lg:h-28 w-auto mx-auto mb-6 filter brightness-0 invert opacity-90"
+              className="h-12 sm:h-16 md:h-20 lg:h-24 xl:h-28 w-auto mx-auto mb-4 sm:mb-6 filter brightness-0 invert opacity-90"
             />
             
             {/* Heading */}
-            <h1 className={`text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 ${getClass('header')}`}>
+            <h1 className={`text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-2 leading-tight ${getClass('header')}`}>
               Short Film Programs
             </h1>
-            <h2 className={`text-2xl md:text-3xl text-[#FCB283] font-semibold ${getClass('subtitle')}`}>
+            <h2 className={`text-xl sm:text-2xl md:text-3xl text-[#FCB283] font-semibold ${getClass('subtitle')}`}>
               2025
             </h2>
-            <p className="text-white/70 mt-4 max-w-2xl mx-auto">
+            <p className="text-white/70 mt-3 sm:mt-4 max-w-2xl mx-auto text-sm sm:text-base px-4">
               Explore our curated short film programs featuring exceptional works from Youth, Future, and World competitions.
             </p>
           </div>
@@ -230,11 +336,40 @@ const ShortFilmProgramPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Content */}
-        {programGroups.length > 0 ? (
+        {/* Error Message */}
+        {dataLoadError && (
+          <div className="mb-8 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+              <p className="text-yellow-200 text-sm">
+                {dataLoadError}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Loading State */}
+        {loading && initialLoad ? (
+          <div className="text-center py-16">
+            <div className="loading-spinner mx-auto mb-4"></div>
+            <h3 className="text-xl font-semibold text-white/70 mb-2">
+              Loading Short Film Programs
+            </h3>
+            <p className="text-white/50">
+              Please wait while we fetch the latest program data...
+            </p>
+          </div>
+        ) : loading && !initialLoad ? (
+          <div className="text-center py-8">
+            <div className="loading-spinner small mx-auto mb-2"></div>
+            <p className="text-white/60 text-sm">
+              Updating results...
+            </p>
+          </div>
+        ) : programGroups.length > 0 ? (
           <div className="space-y-12">
             {programGroups.map((group) => (
-              <div key={group.program} className="glass-container rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12">
+              <div key={group.program} id={`program-${group.program.toLowerCase()}`} className="glass-container rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-12">
                 {/* Program Header */}
                 <div className="text-center mb-8 sm:mb-12">
                   <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-4">
@@ -258,10 +393,10 @@ const ShortFilmProgramPage: React.FC = () => {
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-2 text-[#FCB283] text-lg font-medium">
                         <Calendar className="w-5 h-5" />
-                        <span>December 20, 2025</span>
+                        <span>{group.screeningDate1}</span>
                       </div>
                       <div className="text-white/60 text-sm mt-1">
-                        14:00 - 16:30
+                        {group.screeningTime1}
                       </div>
                     </div>
                     
@@ -273,39 +408,47 @@ const ShortFilmProgramPage: React.FC = () => {
                     <div className="text-center">
                       <div className="flex items-center justify-center gap-2 text-[#FCB283] text-lg font-medium">
                         <Calendar className="w-5 h-5" />
-                        <span>December 21, 2025</span>
+                        <span>{group.screeningDate2}</span>
                       </div>
                       <div className="text-white/60 text-sm mt-1">
-                        19:00 - 21:30
+                        {group.screeningTime2}
                       </div>
+                    </div>
+                  </div>
+                  
+                  {/* Venue Information */}
+                  <div className="text-center mt-4">
+                    <div className="text-white/70 text-sm">
+                      <span className="font-medium">Venue:</span> {group.venue}
                     </div>
                   </div>
                 </div>
 
                 {/* Films Table */}
-                <div className="bg-white/5 rounded-xl overflow-hidden border border-white/10">
-                  {/* Responsive table container with height constraints */}
-                  <div className="relative max-h-96 sm:max-h-[500px] lg:max-h-[60vh] xl:max-h-[65vh] overflow-auto scrollbar-thin scrollbar-track-white/10 scrollbar-thumb-[#FCB283]/60 hover:scrollbar-thumb-[#FCB283]/80">
-                    <div className="overflow-x-auto overflow-y-auto">
-                      <table className="w-full">
+                <div className="bg-white/5 rounded-xl border border-white/10 short-film-program-container">
+                  {/* Mobile-responsive table container */}
+                  <div className="short-film-program-table-wrapper">
+                    <div className="short-film-program-table-inner">
+                      <table className="w-full min-w-full">
                       <thead className="bg-white/10">
                         <tr>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
-                            Poster
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                            <span className="hidden sm:inline">Poster</span>
+                            <span className="sm:hidden">Image</span>
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
                             Title
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider hidden sm:table-cell">
                             Country
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider hidden md:table-cell">
                             Filmmaker
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider hidden lg:table-cell">
                             Category
                           </th>
-                          <th className="px-6 py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
+                          <th className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-left text-xs font-medium text-white/70 uppercase tracking-wider">
                             Runtime
                           </th>
                         </tr>
@@ -314,8 +457,8 @@ const ShortFilmProgramPage: React.FC = () => {
                         {group.films.map((film, index) => (
                           <tr key={`${film.screeningProgram}-${index}`} className="hover:bg-white/5 transition-colors">
                             {/* Poster Column */}
-                            <td className="px-6 py-4">
-                              <div className="w-12 h-16 bg-gradient-to-br from-[#2a2a3e] to-[#1a1a2e] rounded flex items-center justify-center flex-shrink-0">
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                              <div className="w-8 h-10 sm:w-10 sm:h-12 md:w-12 md:h-16 bg-gradient-to-br from-[#2a2a3e] to-[#1a1a2e] rounded flex items-center justify-center flex-shrink-0">
                                 <img
                                   src={SubmissionProgramService.getPosterUrl(film)}
                                   alt={`${film.filmTitle} poster`}
@@ -325,37 +468,57 @@ const ShortFilmProgramPage: React.FC = () => {
                             </td>
                             
                             {/* Title Column */}
-                            <td className="px-6 py-4">
-                              <div className="text-white font-medium">
-                                {film.filmTitle}
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4">
+                              <div className="text-white font-medium text-sm sm:text-base">
+                                <div className="line-clamp-2 sm:line-clamp-1">
+                                  {film.filmTitle}
+                                </div>
+                                {/* Mobile: Show country and filmmaker below title */}
+                                <div className="sm:hidden mt-1 space-y-1">
+                                  <div className="flex items-center text-xs text-white/60">
+                                    <span className="text-sm mr-1">{getCountryFlag(film.country)}</span>
+                                    <span>{film.country}</span>
+                                  </div>
+                                  <div className="text-xs text-white/60 line-clamp-1">
+                                    {film.filmmaker}
+                                  </div>
+                                </div>
                               </div>
                             </td>
                             
-                            {/* Country Column */}
-                            <td className="px-6 py-4 text-white/70 text-sm">
+                            {/* Country Column - Hidden on mobile */}
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-white/70 text-sm hidden sm:table-cell">
                               <div className="flex items-center">
                                 <span className="text-lg mr-2">{getCountryFlag(film.country)}</span>
-                                <span>{film.country}</span>
+                                <span className="line-clamp-1">{film.country}</span>
                               </div>
                             </td>
                             
-                            {/* Filmmaker Column */}
-                            <td className="px-6 py-4 text-white/70">
-                              {film.filmmaker}
+                            {/* Filmmaker Column - Hidden on mobile and tablet */}
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-white/70 text-sm hidden md:table-cell">
+                              <div className="line-clamp-2">
+                                {film.filmmaker}
+                              </div>
                             </td>
                             
-                            {/* Category Column */}
-                            <td className="px-6 py-4">
+                            {/* Category Column - Hidden on mobile and small tablet */}
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 hidden lg:table-cell">
                               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${getCategoryColor(film.category)}`}>
-                                {film.category}
+                                <span className="line-clamp-1">{film.category}</span>
                               </span>
                             </td>
                             
                             {/* Runtime Column */}
-                            <td className="px-6 py-4 text-white/70">
-                              <div className="flex items-center">
-                                <Clock className="w-4 h-4 mr-1" />
-                                <span>{SubmissionProgramService.formatDuration(film.duration)}</span>
+                            <td className="px-3 sm:px-4 md:px-6 py-3 sm:py-4 text-white/70">
+                              <div className="flex items-center text-sm">
+                                <Clock className="w-3 h-3 sm:w-4 sm:h-4 mr-1 flex-shrink-0" />
+                                <span className="whitespace-nowrap">{SubmissionProgramService.formatDuration(film.duration)}</span>
+                              </div>
+                              {/* Mobile: Show category below runtime */}
+                              <div className="lg:hidden mt-1">
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border ${getCategoryColor(film.category)}`}>
+                                  <span className="line-clamp-1">{film.category}</span>
+                                </span>
                               </div>
                             </td>
                           </tr>

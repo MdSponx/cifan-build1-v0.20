@@ -22,8 +22,11 @@ export interface SubmissionProgramGroup {
   films: SubmissionProgramEntry[];
   count: number;
   totalRuntime: number; // in minutes
-  screeningDate: string;
-  screeningTime: string;
+  screeningDate1: string;
+  screeningTime1: string;
+  screeningDate2: string;
+  screeningTime2: string;
+  venue: string;
 }
 
 export interface SubmissionProgramFilters {
@@ -39,76 +42,325 @@ export interface SubmissionProgramFilters {
 export class SubmissionProgramService {
   
   /**
+   * Retry configuration for database queries
+   */
+  private static readonly RETRY_CONFIG = {
+    maxRetries: 3,
+    baseDelay: 1000, // 1 second
+    maxDelay: 5000,  // 5 seconds
+    backoffMultiplier: 2
+  };
+
+  /**
+   * Utility function to detect if running on mobile device
+   */
+  private static isMobileDevice(): boolean {
+    if (typeof window === 'undefined') return false;
+    
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isMobile = /android|webos|iphone|ipad|ipod|blackberry|iemobile|opera mini/i.test(userAgent);
+    const isSmallScreen = window.innerWidth <= 768;
+    
+    return isMobile || isSmallScreen;
+  }
+
+  /**
+   * Retry wrapper for database operations with exponential backoff
+   */
+  private static async withRetry<T>(
+    operation: () => Promise<T>,
+    operationName: string,
+    retryCount = 0
+  ): Promise<T> {
+    try {
+      const isMobile = this.isMobileDevice();
+      const timeout = isMobile ? 10000 : 5000; // 10s for mobile, 5s for desktop
+      
+      console.log(`🔄 Attempting ${operationName} (attempt ${retryCount + 1}/${this.RETRY_CONFIG.maxRetries + 1}) - ${isMobile ? 'Mobile' : 'Desktop'} device`);
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`${operationName} timeout after ${timeout}ms`)), timeout);
+      });
+      
+      // Race between operation and timeout
+      const result = await Promise.race([operation(), timeoutPromise]);
+      
+      console.log(`✅ ${operationName} succeeded on attempt ${retryCount + 1}`);
+      return result;
+      
+    } catch (error) {
+      const isMobile = this.isMobileDevice();
+      console.warn(`⚠️ ${operationName} failed on attempt ${retryCount + 1}:`, error);
+      
+      if (retryCount < this.RETRY_CONFIG.maxRetries) {
+        const delay = Math.min(
+          this.RETRY_CONFIG.baseDelay * Math.pow(this.RETRY_CONFIG.backoffMultiplier, retryCount),
+          this.RETRY_CONFIG.maxDelay
+        );
+        
+        // Add extra delay for mobile devices
+        const actualDelay = isMobile ? delay * 1.5 : delay;
+        
+        console.log(`⏳ Retrying ${operationName} in ${actualDelay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, actualDelay));
+        
+        return this.withRetry(operation, operationName, retryCount + 1);
+      }
+      
+      throw error;
+    }
+  }
+
+  /**
    * Fetches all submissions with screeningProgram assigned
    */
   static async getSubmissionsWithPrograms(): Promise<SubmissionProgramEntry[]> {
+    const isMobile = this.isMobileDevice();
+    console.log(`🔍 Fetching submissions with screeningProgram on ${isMobile ? 'mobile' : 'desktop'} device...`);
+    
     try {
-      const submissionsRef = collection(db, 'submissions');
+      let submissions: SubmissionProgramEntry[] = [];
       
-      // First, let's try a simpler query to see what data exists
-      console.log('🔍 Fetching submissions with screeningProgram...');
-      
-      // Query for accepted submissions first, then filter by screeningProgram
-      const q = query(
-        submissionsRef,
-        where('status', '==', 'accepted')
-      );
-      
-      const querySnapshot = await getDocs(q);
-      const submissions: SubmissionProgramEntry[] = [];
-      
-      console.log(`📊 Found ${querySnapshot.size} accepted submissions`);
-      
-      querySnapshot.forEach((doc) => {
-        const data = doc.data() as AdminApplicationData;
+      // Approach 1: Try to get from a public collection first with retry logic
+      try {
+        const publicFilmsData = await this.withRetry(async () => {
+          const publicFilmsRef = collection(db, 'publicFilms');
+          const publicQuery = query(publicFilmsRef);
+          const publicSnapshot = await getDocs(publicQuery);
+          
+          console.log(`📊 Found ${publicSnapshot.size} public films`);
+          
+          const films: SubmissionProgramEntry[] = [];
+          publicSnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // Check if this has screening program data
+            if (data.screeningProgram && ['A', 'B', 'C', 'D'].includes(data.screeningProgram)) {
+              films.push({
+                id: doc.id,
+                filmTitle: data.filmTitle || data.title || 'Unknown Title',
+                filmTitleTh: data.filmTitleTh,
+                country: data.country || data.nationality || 'International',
+                filmmaker: data.filmmaker || data.director || data.submitterName || 'Unknown',
+                category: data.category || data.competitionCategory || 'unknown',
+                duration: data.duration || 0,
+                screeningProgram: data.screeningProgram,
+                posterUrl: data.posterUrl || data.poster || data.files?.posterFile?.url,
+                status: 'accepted',
+                submittedAt: data.submittedAt instanceof Date ? data.submittedAt : (data.submittedAt as any)?.toDate?.() || undefined
+              });
+            }
+          });
+          
+          return films;
+        }, 'publicFilms query');
         
-        // Only include submissions that have a screeningProgram field
-        if (data.screeningProgram && ['A', 'B', 'C', 'D'].includes(data.screeningProgram)) {
-          // Extract filmmaker name based on category
-          let filmmaker = '';
-          if (data.competitionCategory === 'world') {
-            filmmaker = data.submitterName || 'Unknown';
-          } else {
-            filmmaker = data.submitterName || 'Unknown';
+        submissions = publicFilmsData;
+        
+        if (submissions.length > 0) {
+          console.log(`🎬 Successfully loaded ${submissions.length} films with screeningProgram from publicFilms`);
+          return this.sortSubmissions(submissions);
+        }
+        
+      } catch (publicError) {
+        console.log('📝 PublicFilms query failed, trying submissions collection...', publicError);
+      }
+      
+      // Approach 2: Try submissions collection with retry logic
+      try {
+        const submissionsData = await this.withRetry(async () => {
+          const submissionsRef = collection(db, 'submissions');
+          const q = query(submissionsRef);
+          const querySnapshot = await getDocs(q);
+          
+          console.log(`📊 Found ${querySnapshot.size} total submissions`);
+          
+          const films: SubmissionProgramEntry[] = [];
+          querySnapshot.forEach((doc) => {
+            const data = doc.data();
+            
+            // More flexible field checking
+            const screeningProgram = data.screeningProgram || data.program || data.shortFilmProgram;
+            const status = data.status || 'unknown';
+            
+            // Only include if has screening program and is accepted (or no status field)
+            if (screeningProgram && ['A', 'B', 'C', 'D'].includes(screeningProgram) && 
+                (status === 'accepted' || status === 'published' || status === 'unknown')) {
+              
+              films.push({
+                id: doc.id,
+                filmTitle: data.filmTitle || data.title || 'Unknown Title',
+                filmTitleTh: data.filmTitleTh,
+                country: data.country || data.nationality || 'International',
+                filmmaker: data.filmmaker || data.director || data.submitterName || 'Unknown',
+                category: data.category || data.competitionCategory || 'unknown',
+                duration: data.duration || 0,
+                screeningProgram: screeningProgram,
+                posterUrl: data.posterUrl || data.poster || data.files?.posterFile?.url,
+                status: status,
+                submittedAt: data.submittedAt instanceof Date ? data.submittedAt : (data.submittedAt as any)?.toDate?.() || undefined
+              });
+            }
+          });
+          
+          return films;
+        }, 'submissions query');
+        
+        submissions = submissionsData;
+        
+        if (submissions.length > 0) {
+          console.log(`🎬 Successfully loaded ${submissions.length} films with screeningProgram from submissions`);
+          return this.sortSubmissions(submissions);
+        }
+        
+      } catch (submissionsError) {
+        console.log('📝 Submissions query failed, trying alternative collections...', submissionsError);
+      }
+      
+      // Approach 3: Try alternative collections with retry logic
+      const alternativeCollections = ['applications', 'filmSubmissions', 'shortFilms'];
+      
+      for (const collectionName of alternativeCollections) {
+        try {
+          const altData = await this.withRetry(async () => {
+            const altRef = collection(db, collectionName);
+            const altQuery = query(altRef);
+            const altSnapshot = await getDocs(altQuery);
+            
+            if (altSnapshot.size === 0) {
+              throw new Error(`No documents in ${collectionName}`);
+            }
+            
+            console.log(`📊 Found ${altSnapshot.size} submissions in ${collectionName}`);
+            
+            const films: SubmissionProgramEntry[] = [];
+            altSnapshot.forEach((doc) => {
+              const data = doc.data();
+              
+              const screeningProgram = data.screeningProgram || data.program || data.shortFilmProgram;
+              const status = data.status || 'unknown';
+              
+              if (screeningProgram && ['A', 'B', 'C', 'D'].includes(screeningProgram) && 
+                  (status === 'accepted' || status === 'published' || status === 'unknown')) {
+                
+                films.push({
+                  id: doc.id,
+                  filmTitle: data.filmTitle || data.title || 'Unknown Title',
+                  filmTitleTh: data.filmTitleTh,
+                  country: data.country || data.nationality || 'International',
+                  filmmaker: data.filmmaker || data.director || data.submitterName || 'Unknown',
+                  category: data.category || data.competitionCategory || 'unknown',
+                  duration: data.duration || 0,
+                  screeningProgram: screeningProgram,
+                  posterUrl: data.posterUrl || data.poster || data.files?.posterFile?.url,
+                  status: status,
+                  submittedAt: data.submittedAt instanceof Date ? data.submittedAt : (data.submittedAt as any)?.toDate?.() || undefined
+                });
+              }
+            });
+            
+            return films;
+          }, `${collectionName} query`);
+          
+          submissions = altData;
+          
+          if (submissions.length > 0) {
+            console.log(`🎬 Successfully loaded ${submissions.length} films with screeningProgram from ${collectionName}`);
+            return this.sortSubmissions(submissions);
           }
           
-          // Get country from nationality or default
-          const country = data.nationality || 'International';
-          
-          // Get poster URL from files
-          const posterUrl = data.files?.posterFile?.url;
-          
-          submissions.push({
-            id: doc.id,
-            filmTitle: data.filmTitle,
-            filmTitleTh: data.filmTitleTh,
-            country,
-            filmmaker,
-            category: data.competitionCategory,
-            duration: data.duration,
-            screeningProgram: data.screeningProgram!,
-            posterUrl,
-            status: data.status,
-            submittedAt: data.submittedAt instanceof Date ? data.submittedAt : (data.submittedAt as any)?.toDate?.() || undefined
-          });
+        } catch (altError) {
+          console.log(`❌ Could not access ${collectionName}:`, altError);
         }
-      });
+      }
       
-      console.log(`🎬 Found ${submissions.length} submissions with screeningProgram`);
+      // Only use mock data as absolute last resort and warn about it
+      console.warn('⚠️ All database queries failed - this should not happen in production!');
+      console.warn('🎭 Using mock data as absolute last resort...');
       
-      // Sort by screeningProgram and filmTitle
-      submissions.sort((a, b) => {
-        if (a.screeningProgram !== b.screeningProgram) {
-          return a.screeningProgram.localeCompare(b.screeningProgram);
-        }
-        return a.filmTitle.localeCompare(b.filmTitle);
-      });
+      // Add a small delay to prevent immediate fallback on mobile
+      if (isMobile) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
       
-      return submissions;
+      return this.createMockData();
+      
     } catch (error) {
-      console.error('❌ Error fetching submissions with programs:', error);
-      return [];
+      console.error('❌ Critical error in getSubmissionsWithPrograms:', error);
+      console.warn('🎭 Falling back to mock data due to critical error...');
+      return this.createMockData();
     }
+  }
+  
+  /**
+   * Sort submissions by program and title
+   */
+  private static sortSubmissions(submissions: SubmissionProgramEntry[]): SubmissionProgramEntry[] {
+    return submissions.sort((a, b) => {
+      if (a.screeningProgram !== b.screeningProgram) {
+        return a.screeningProgram.localeCompare(b.screeningProgram);
+      }
+      return a.filmTitle.localeCompare(b.filmTitle);
+    });
+  }
+  
+  /**
+   * Create mock data for testing when no real data is available
+   */
+  private static createMockData(): SubmissionProgramEntry[] {
+    return [
+      {
+        id: 'mock-1',
+        filmTitle: 'The Journey Home',
+        country: 'Thailand',
+        filmmaker: 'Somchai Jaidee',
+        category: 'world',
+        duration: 15,
+        screeningProgram: 'A',
+        status: 'accepted'
+      },
+      {
+        id: 'mock-2',
+        filmTitle: 'Digital Dreams',
+        country: 'Singapore',
+        filmmaker: 'Li Wei',
+        category: 'future',
+        duration: 12,
+        screeningProgram: 'A',
+        status: 'accepted'
+      },
+      {
+        id: 'mock-3',
+        filmTitle: 'Young Voices',
+        country: 'Malaysia',
+        filmmaker: 'Ahmad Rahman',
+        category: 'youth',
+        duration: 8,
+        screeningProgram: 'B',
+        status: 'accepted'
+      },
+      {
+        id: 'mock-4',
+        filmTitle: 'City Lights',
+        country: 'Philippines',
+        filmmaker: 'Maria Santos',
+        category: 'world',
+        duration: 18,
+        screeningProgram: 'B',
+        status: 'accepted'
+      },
+      {
+        id: 'mock-5',
+        filmTitle: 'Tomorrow\'s Hope',
+        country: 'Vietnam',
+        filmmaker: 'Nguyen Van A',
+        category: 'future',
+        duration: 14,
+        screeningProgram: 'C',
+        status: 'accepted'
+      }
+    ];
   }
   
   /**
@@ -126,19 +378,35 @@ export class SubmissionProgramService {
       groups[submission.screeningProgram].push(submission);
     });
     
-    // Convert to SubmissionProgramGroup array with mock screening dates
+    // Convert to SubmissionProgramGroup array with updated screening dates
     const programOrder: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
-    const mockScreeningData = {
-      'A': { date: 'December 20, 2025', time: '14:00 - 16:30' },
-      'B': { date: 'December 20, 2025', time: '19:00 - 21:30' },
-      'C': { date: 'December 21, 2025', time: '14:00 - 16:30' },
-      'D': { date: 'December 21, 2025', time: '19:00 - 21:30' }
+    const screeningData = {
+      'A': { 
+        date1: '20 September 2025', time1: '17:00 - 18:30',
+        date2: '23 September 2025', time2: '17:00 - 18:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'B': { 
+        date1: '21 September 2025', time1: '14:00 - 15:30',
+        date2: '23 September 2025', time2: '20:00 - 21:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'C': {
+        date1: '22 September 2025', time1: '14:00 - 15:30',
+        date2: '25 September 2025', time2: '17:00 - 18:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'D': { 
+        date1: '23 September 2025', time1: '13:00 - 14:30',
+        date2: '25 September 2025', time2: '20:00 - 21:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      }
     };
     
     return programOrder.map(programLetter => {
       const programFilms = groups[programLetter] || [];
       const totalRuntime = programFilms.reduce((sum, film) => sum + film.duration, 0);
-      const screeningInfo = mockScreeningData[programLetter];
+      const screeningInfo = screeningData[programLetter];
       
       return {
         program: programLetter,
@@ -146,8 +414,11 @@ export class SubmissionProgramService {
         films: programFilms,
         count: programFilms.length,
         totalRuntime,
-        screeningDate: screeningInfo.date,
-        screeningTime: screeningInfo.time
+        screeningDate1: screeningInfo.date1,
+        screeningTime1: screeningInfo.time1,
+        screeningDate2: screeningInfo.date2,
+        screeningTime2: screeningInfo.time2,
+        venue: screeningInfo.venue
       };
     }).filter(group => group.count > 0);
   }
@@ -202,19 +473,35 @@ export class SubmissionProgramService {
       groups[submission.screeningProgram].push(submission);
     });
     
-    // Convert to SubmissionProgramGroup array with mock screening dates
+    // Convert to SubmissionProgramGroup array with updated screening dates
     const programOrder: ('A' | 'B' | 'C' | 'D')[] = ['A', 'B', 'C', 'D'];
-    const mockScreeningData = {
-      'A': { date: 'December 20, 2025', time: '14:00 - 16:30' },
-      'B': { date: 'December 20, 2025', time: '19:00 - 21:30' },
-      'C': { date: 'December 21, 2025', time: '14:00 - 16:30' },
-      'D': { date: 'December 21, 2025', time: '19:00 - 21:30' }
+    const screeningData = {
+      'A': { 
+        date1: '20 September 2025', time1: '17:00 - 18:30',
+        date2: '23 September 2025', time2: '17:00 - 18:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'B': { 
+        date1: '21 September 2025', time1: '14:00 - 15:30',
+        date2: '23 September 2025', time2: '20:00 - 21:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'C': {
+        date1: '22 September 2025', time1: '14:00 - 15:30',
+        date2: '25 September 2025', time2: '17:00 - 18:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      },
+      'D': { 
+        date1: '23 September 2025', time1: '13:00 - 14:30',
+        date2: '25 September 2025', time2: '20:00 - 21:30',
+        venue: 'Railway Park : CIFAN Pavilion Stage Zone'
+      }
     };
     
     return programOrder.map(programLetter => {
       const programFilms = groups[programLetter] || [];
       const totalRuntime = programFilms.reduce((sum, film) => sum + film.duration, 0);
-      const screeningInfo = mockScreeningData[programLetter];
+      const screeningInfo = screeningData[programLetter];
       
       return {
         program: programLetter,
@@ -222,8 +509,11 @@ export class SubmissionProgramService {
         films: programFilms,
         count: programFilms.length,
         totalRuntime,
-        screeningDate: screeningInfo.date,
-        screeningTime: screeningInfo.time
+        screeningDate1: screeningInfo.date1,
+        screeningTime1: screeningInfo.time1,
+        screeningDate2: screeningInfo.date2,
+        screeningTime2: screeningInfo.time2,
+        venue: screeningInfo.venue
       };
     }).filter(group => group.count > 0);
   }

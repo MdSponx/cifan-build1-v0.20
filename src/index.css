@@ -2803,22 +2803,151 @@ html[lang="th"] .partner-card-text {
 
 /* Extra small (<480px) */
 @media (max-width: 479px) {
-  .festival-timeline-grid {
-    grid-template-columns: 70px repeat(6, 1fr);
-    gap: 0.125rem;
-    min-width: 500px;
+  .selected-short-films-category-container .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* Short Film Program Table Container Fix - Enhanced Mobile Support */
+.short-film-program-container {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  contain: none !important;
+  min-height: fit-content !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Program table wrapper fixes */
+.short-film-program-table-wrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Table inner container fixes */
+.short-film-program-table-inner {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+  display: block !important;
+  visibility: visible !important;
+}
+
+/* Override any existing table wrapper constraints */
+.table-wrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Ensure parent containers don't interfere with short film program tables */
+.page-container,
+.container,
+.mx-auto,
+.space-y-8 > div {
+  overflow: visible !important;
+}
+
+/* Glass container overrides for short film program */
+.glass-container:has(table) {
+  overflow: visible !important;
+  contain: none !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Specific fixes for program table containers */
+div[class*="max-h-96"],
+div[class*="max-h-[500px]"],
+div[class*="max-h-[60vh]"],
+div[class*="max-h-[65vh]"] {
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Ensure table containers expand properly */
+.bg-white\/5:has(table) {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: fit-content !important;
+}
+
+/* Mobile-specific container fixes */
+@media (max-width: 768px) {
+  /* Force visibility and proper display on mobile */
+  .short-film-program-container,
+  .short-film-program-table-wrapper,
+  .short-film-program-table-inner {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    contain: none !important;
+    transform: none !important;
+    clip: none !important;
+    clip-path: none !important;
   }
   
-  .venue-header-grid {
-    grid-template-columns: 70px repeat(6, 1fr);
-    gap: 0.125rem;
-    min-width: 500px;
+  /* Ensure tables are visible on mobile */
+  .short-film-program-container table,
+  .short-film-program-table-wrapper table,
+  .short-film-program-table-inner table {
+    display: table !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    width: 100% !important;
+    min-width: 100% !important;
   }
   
-  .schedule-event-card {
-    font-size: 0.65rem;
-    padding: 0.375rem;
+  /* Mobile layout adjustments */
+  .short-film-program-container {
+    padding: 1rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    border-radius: 0.75rem;
   }
+  
+  .short-film-program-table-wrapper {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  
+  .short-film-program-table-inner table {
+    font-size: 0.875rem;
+  }
+}
+
+/* Custom scrollbar for horizontal table scroll only */
+.short-film-program-table-inner::-webkit-scrollbar {
+  height: 8px;
+  width: 0;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-thumb {
+  background: rgba(252, 178, 131, 0.4);
+  border-radius: 4px;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(252, 178, 131, 0.6);
 }
 
 /* Hardware acceleration for smooth animations */
@@ -3061,4 +3190,111 @@ html[lang="th"] .partner-card-text {
   align-items: center;
   justify-content: center;
   text-align: center;
+}
+
+/* Short Film Program Table Container Fix */
+.short-film-program-container {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  contain: none !important;
+  min-height: fit-content !important;
+}
+
+/* Program table wrapper fixes */
+.short-film-program-table-wrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Table inner container fixes */
+.short-film-program-table-inner {
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Override any existing table wrapper constraints */
+.table-wrapper {
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Ensure parent containers don't interfere with short film program tables */
+.page-container,
+.container,
+.mx-auto,
+.space-y-8 > div {
+  overflow: visible !important;
+}
+
+/* Glass container overrides for short film program */
+.glass-container:has(table) {
+  overflow: visible !important;
+  contain: none !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: fit-content !important;
+}
+
+/* Specific fixes for program table containers */
+div[class*="max-h-96"],
+div[class*="max-h-[500px]"],
+div[class*="max-h-[60vh]"],
+div[class*="max-h-[65vh]"] {
+  max-height: none !important;
+  height: auto !important;
+  overflow: visible !important;
+}
+
+/* Ensure table containers expand properly */
+.bg-white\/5:has(table) {
+  overflow: visible !important;
+  height: auto !important;
+  min-height: fit-content !important;
+}
+
+/* Custom scrollbar for horizontal table scroll only */
+.short-film-program-table-inner::-webkit-scrollbar {
+  height: 8px;
+  width: 0;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-thumb {
+  background: rgba(252, 178, 131, 0.4);
+  border-radius: 4px;
+}
+
+.short-film-program-table-inner::-webkit-scrollbar-thumb:hover {
+  background: rgba(252, 178, 131, 0.6);
+}
+
+/* Mobile responsive adjustments for program tables */
+@media (max-width: 768px) {
+  .short-film-program-container {
+    padding: 1rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    border-radius: 0.75rem;
+  }
+  
+  .short-film-program-table-wrapper {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  
+  .short-film-program-table-inner table {
+    font-size: 0.875rem;
+  }
 }
