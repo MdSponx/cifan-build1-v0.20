@@ -58,6 +58,7 @@ import SelectedShortFilmsPage from './components/pages/SelectedShortFilmsPage';
 import ShortFilmProgramPage from './components/pages/ShortFilmProgramPage';
 import PublicNewsPage from './components/pages/PublicNewsPage';
 import PublicNewsDetailPage from './components/pages/PublicNewsDetailPage';
+import VenuesPage from './components/pages/VenuesPage';
 import AdminNewsGallery from './components/admin/AdminNewsGallery';
 import AdminNewsForm from './components/admin/AdminNewsForm';
 import QuillDropdownTestPage from './components/pages/QuillDropdownTestPage';
@@ -326,6 +327,8 @@ function App() {
         return <ComingSoonPage />;
       case 'news':
         return <PublicNewsPage />;
+      case 'venues':
+        return <VenuesPage />;
       case 'quill-dropdown-test':
         return <QuillDropdownTestPage />;
       case 'festival-schedule':

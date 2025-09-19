@@ -2809,15 +2809,13 @@ html[lang="th"] .partner-card-text {
   }
 }
 
-/* Short Film Program Table Container Fix - Enhanced Mobile Support */
+/* Short Film Program Table Container Fix */
 .short-film-program-container {
   height: auto !important;
   max-height: none !important;
   overflow: visible !important;
   contain: none !important;
   min-height: fit-content !important;
-  display: block !important;
-  visibility: visible !important;
 }
 
 /* Program table wrapper fixes */
@@ -2826,8 +2824,6 @@ html[lang="th"] .partner-card-text {
   height: auto !important;
   max-height: none !important;
   min-height: fit-content !important;
-  display: block !important;
-  visibility: visible !important;
 }
 
 /* Table inner container fixes */
@@ -2837,8 +2833,6 @@ html[lang="th"] .partner-card-text {
   height: auto !important;
   max-height: none !important;
   min-height: fit-content !important;
-  display: block !important;
-  visibility: visible !important;
 }
 
 /* Override any existing table wrapper constraints */
@@ -2883,53 +2877,6 @@ div[class*="max-h-[65vh]"] {
   min-height: fit-content !important;
 }
 
-/* Mobile-specific container fixes */
-@media (max-width: 768px) {
-  /* Force visibility and proper display on mobile */
-  .short-film-program-container,
-  .short-film-program-table-wrapper,
-  .short-film-program-table-inner {
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    height: auto !important;
-    max-height: none !important;
-    overflow: visible !important;
-    contain: none !important;
-    transform: none !important;
-    clip: none !important;
-    clip-path: none !important;
-  }
-  
-  /* Ensure tables are visible on mobile */
-  .short-film-program-container table,
-  .short-film-program-table-wrapper table,
-  .short-film-program-table-inner table {
-    display: table !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    width: 100% !important;
-    min-width: 100% !important;
-  }
-  
-  /* Mobile layout adjustments */
-  .short-film-program-container {
-    padding: 1rem;
-    margin-left: -0.5rem;
-    margin-right: -0.5rem;
-    border-radius: 0.75rem;
-  }
-  
-  .short-film-program-table-wrapper {
-    margin-left: -0.5rem;
-    margin-right: -0.5rem;
-  }
-  
-  .short-film-program-table-inner table {
-    font-size: 0.875rem;
-  }
-}
-
 /* Custom scrollbar for horizontal table scroll only */
 .short-film-program-table-inner::-webkit-scrollbar {
   height: 8px;
@@ -2948,6 +2895,25 @@ div[class*="max-h-[65vh]"] {
 
 .short-film-program-table-inner::-webkit-scrollbar-thumb:hover {
   background: rgba(252, 178, 131, 0.6);
+}
+
+/* Mobile responsive adjustments for program tables */
+@media (max-width: 768px) {
+  .short-film-program-container {
+    padding: 1rem;
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+    border-radius: 0.75rem;
+  }
+  
+  .short-film-program-table-wrapper {
+    margin-left: -0.5rem;
+    margin-right: -0.5rem;
+  }
+  
+  .short-film-program-table-inner table {
+    font-size: 0.875rem;
+  }
 }
 
 /* Hardware acceleration for smooth animations */

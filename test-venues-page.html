@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Venues Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #110D16;
+            color: white;
+        }
+        .venue-card {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        .venue-name {
+            font-size: 24px;
+            font-weight: bold;
+            color: #FCB283;
+            margin-bottom: 10px;
+        }
+        .venue-location {
+            color: rgba(255, 255, 255, 0.8);
+            margin-bottom: 10px;
+        }
+        .venue-notes {
+            color: rgba(255, 255, 255, 0.7);
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <h1>Festival Venues Test</h1>
+    <p>Testing venue data loading...</p>
+    
+    <div id="venues-container">
+        <div class="venue-card">
+            <div class="venue-name">Stage Zone</div>
+            <div class="venue-location">Railway Park CIFAN Pavilion : Stage Zone</div>
+            <div class="venue-notes">Primary venue for main events and ceremonies</div>
+        </div>
+        
+        <div class="venue-card">
+            <div class="venue-name">EXPO Zone</div>
+            <div class="venue-location">Railway Park CIFAN Pavilion : EXPO Zone</div>
+            <div class="venue-notes">Exhibition and workshop space</div>
+        </div>
+        
+        <div class="venue-card">
+            <div class="venue-name">Major Theatre 7</div>
+            <div class="venue-location">Major Theatre 7</div>
+            <div class="venue-notes">Commercial cinema venue</div>
+        </div>
+        
+        <div class="venue-card">
+            <div class="venue-name">Major IMAX</div>
+            <div class="venue-location">Major IMAX</div>
+            <div class="venue-notes">Premium cinema experience</div>
+        </div>
+        
+        <div class="venue-card">
+            <div class="venue-name">Market</div>
+            <div class="venue-location">Railway Park CIFAN Market</div>
+            <div class="venue-notes">Outdoor market area</div>
+        </div>
+        
+        <div class="venue-card">
+            <div class="venue-name">Anusarn</div>
+            <div class="venue-location">Anusarn Building Sanpakoi</div>
+            <div class="venue-notes">Cultural venue space</div>
+        </div>
+    </div>
+
+    <script>
+        console.log('Venues test page loaded successfully');
+        console.log('If you can see this page, the venue data structure is working');
+    </script>
+</body>
+</html>

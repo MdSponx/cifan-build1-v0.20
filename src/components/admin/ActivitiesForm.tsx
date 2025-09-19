@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useTypography } from '../../utils/typography';
 import { useAuth } from '../auth/AuthContext';
 import { TFunction } from 'i18next';
-import { 
-  Activity, 
-  ActivityFormData, 
+import { venueService } from '../../services/venueService';
+import {
+  Activity,
+  ActivityFormData,
   ActivityValidationErrors,
   DEFAULT_ACTIVITY_TAGS,
   ACTIVITY_STATUS_OPTIONS,
@@ -682,14 +683,11 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                   onChange={(e) => handleInputChange('status', e.target.value)}
                   className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white focus:border-[#FCB283] focus:outline-none transition-colors"
                 >
-                  {ACTIVITY_STATUS_OPTIONS.map(option => {
-                    const statusKey = `status${option.value.charAt(0).toUpperCase() + option.value.slice(1)}` as keyof typeof currentContent;
-                    return (
-                      <option key={option.value} value={option.value} className="bg-[#110D16]">
-                        {String(currentContent[statusKey])}
-                      </option>
-                    );
-                  })}
+                  {ACTIVITY_STATUS_OPTIONS.map(option => (
+                    <option key={option.value} value={option.value} className="bg-[#110D16]">
+                      {currentLanguage === 'th' ? option.labelTh : option.label}
+                    </option>
+                  ))}
                 </select>
               </div>
             </div>
@@ -950,14 +948,12 @@ const ActivitiesForm: React.FC<ActivitiesFormProps> = ({
                   onChange={(e) => handleInputChange('venueName', e.target.value)}
                   className={`w-full p-3 rounded-lg bg-white/10 border ${errors.venueName ? 'border-red-400 error-field' : 'border-white/20'} text-white focus:border-[#FCB283] focus:outline-none transition-colors`}
                 >
-                  {[
-                    { key: 'stageZone' },
-                    { key: 'expoZone' },
-                    { key: 'market' },
-                    { key: 'anusarn' }
-                  ].map(venue => (
-                    <option key={venue.key} value={venue.key} className="bg-[#1a1a2e] text-white">
-                      {String(t(`schedule.activities.venues.${venue.key}`))}
+                  <option value="" className="bg-[#1a1a2e] text-white">
+                    {currentLanguage === 'th' ? 'เลือกสถานที่' : 'Select venue'}
+                  </option>
+                  {venueService.getVenueOptions(currentLanguage).map(venue => (
+                    <option key={venue.value} value={venue.value} className="bg-[#1a1a2e] text-white">
+                      {venue.label}
                     </option>
                   ))}
                 </select>

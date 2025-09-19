@@ -101,10 +101,14 @@ service cloud.firestore {
       // Users can create submissions
       allow create: if request.auth != null;
 
-      // Simplified read permissions: users can read their own submissions, admin-level users can read all
-      allow read: if request.auth != null &&
-        (hasAdminLevelAccess() || 
-         request.auth.uid == resource.data.userId);
+      // Read permissions: 
+      // - Public can read ALL accepted submissions (no authentication required)
+      // - Users can read their own submissions
+      // - Admin-level users can read all
+      allow read: if resource.data.status == 'accepted' ||
+                     (request.auth != null &&
+                      (hasAdminLevelAccess() || 
+                       request.auth.uid == resource.data.userId));
 
       // Simplified update permissions: users can update their own submissions, admin-level users can update all
       allow update: if request.auth != null &&
